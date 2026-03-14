@@ -1,0 +1,25 @@
+title: "📢 "
+labels: ["announcement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this category for important project announcements, releases, and updates.
+
+  - type: textarea
+    id: announcement
+    attributes:
+      label: Announcement
+      description: What would you like to announce?
+      placeholder: |
+        We're excited to announce version X.Y.Z with new features...
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional Details
+      description: Provide more context or links
+    validations:
+      required: false

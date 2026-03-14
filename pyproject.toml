@@ -1,0 +1,312 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "epidemiological-datasets"
+version = "0.1.0"
+description = "A curated collection of openly accessible epidemiological datasets with Python access scripts"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Flávio Codeço Coelho", email = "fccoelho@gmail.com"},
+]
+keywords = [
+    "epidemiology",
+    "public-health",
+    "disease-surveillance",
+    "health-data",
+    "synthetic-data",
+    "pysus",
+    "datasus",
+    "who",
+    "world-bank",
+    "ecdc",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Database",
+]
+dependencies = [
+    "pandas>=1.5.0",
+    "numpy>=1.23.0",
+    "requests>=2.28.0",
+    "pydantic>=2.0.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+    "pysus>=1.0.1",
+    "ghoclient>=1.0.3",
+    "wbgapi>=1.0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.7.0",
+    "ruff>=0.0.280",
+    "mypy>=1.5.0",
+    "pre-commit>=3.3.0",
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.2.0",
+    "mkdocstrings[python]>=0.22.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.2.0",
+    "mkdocstrings[python]>=0.22.0",
+]
+notebooks = [
+    "jupyter>=1.0.0",
+    "ipykernel>=6.0.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "plotly>=5.15.0",
+    "folium>=0.14.0",
+    "geopandas>=0.13.0",
+]
+all = [
+    "epidemiological-datasets[dev,docs,notebooks]",
+]
+
+[project.scripts]
+epi-data = "epi_data.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/fccoelho/epidemiological-datasets"
+Documentation = "https://fccoelho.github.io/epidemiological-datasets"
+Repository = "https://github.com/fccoelho/epidemiological-datasets"
+Issues = "https://github.com/fccoelho/epidemiological-datasets/issues"
+Changelog = "https://github.com/fccoelho/epidemiological-datasets/blob/main/CHANGELOG.md"
+
+# ============================================================
+# UV Configuration
+# ============================================================
+
+[tool.uv]
+# Use the system's Python if available
+python-preference = "system"
+# Compile Python files to bytecode after installation
+compile-bytecode = true
+# Reinstall packages when the environment is recreated
+reinstall = false
+# Use the uv resolver
+resolution = "highest"
+# Show progress bars
+progress = true
+
+[tool.uv.pip]
+# Generate hashes for requirements.txt
+generate-hashes = false
+# Use strict resolution
+strict = false
+
+# ============================================================
+# Hatch Build Configuration
+# ============================================================
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/epi_data"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/examples",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+exclude = [
+    ".github",
+    ".gitignore",
+    ".pre-commit-config.yaml",
+]
+
+[tool.hatch.version]
+path = "src/epi_data/__init__.py"
+
+# ============================================================
+# Code Quality Tools
+# ============================================================
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | notebooks
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "D",   # pydocstyle
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "D100",  # Missing docstring in public module
+    "D104",  # Missing docstring in public package
+    "D203",  # 1 blank line required before class docstring
+    "D212",  # Multi-line docstring summary should start at the first line
+    "E501",  # Line too long (handled by black)
+]
+
+[tool.ruff.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.isort]
+known-first-party = ["epi_data"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    "notebooks/",
+    "docs/",
+]
+
+# ============================================================
+# Testing Configuration
+# ============================================================
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--cov=epi_data",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml:coverage.xml",
+    "--cov-fail-under=80",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "api: marks tests that require API access",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/epi_data"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+fail_under = 80
+
+# ============================================================
+# Pre-commit Configuration
+# ============================================================
+
+[tool.pre-commit]
+repos = [
+    { repo = "https://github.com/pre-commit/pre-commit-hooks", rev = "v4.4.0", hooks = [
+        { id = "trailing-whitespace" },
+        { id = "end-of-file-fixer" },
+        { id = "check-yaml" },
+        { id = "check-added-large-files" },
+    ]},
+    { repo = "https://github.com/psf/black", rev = "23.7.0", hooks = [
+        { id = "black" },
+    ]},
+    { repo = "https://github.com/charliermarsh/ruff-pre-commit", rev = "v0.0.280", hooks = [
+        { id = "ruff", args = ["--fix", "--exit-non-zero-on-fix"] },
+    ]},
+    { repo = "https://github.com/pre-commit/mirrors-mypy", rev = "v1.5.0", hooks = [
+        { id = "mypy", additional_dependencies = ["types-requests", "types-python-dateutil"] },
+    ]},
+]
+
+# ============================================================
+# Project-specific Configuration
+# ============================================================
+
+[tool.epi_data]
+# Default configuration for data sources
+default_timeout = 30
+max_retries = 3
+cache_dir = "~/.cache/epi_data"
+data_dir = "./data"
+
+# Data source endpoints
+[tool.epi_data.sources.pysus]
+base_url = "https://datasus.saude.gov.br"
+timeout = 60
+
+[tool.epi_data.sources.who]
+base_url = "https://ghoapi.azureedge.net/api"
+timeout = 30
+
+[tool.epi_data.sources.world_bank]
+base_url = "https://api.worldbank.org/v2"
+timeout = 30
+
+[tool.epi_data.sources.ecdc]
+base_url = "https://opendata.ecdc.europa.eu"
+timeout = 30

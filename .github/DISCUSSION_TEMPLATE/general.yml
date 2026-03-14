@@ -1,0 +1,25 @@
+title: "💬 "
+labels: ["discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start a general discussion about the project, ask questions, or share ideas.
+
+  - type: textarea
+    id: topic
+    attributes:
+      label: Discussion Topic
+      description: What would you like to discuss?
+      placeholder: |
+        I'm wondering about the best approach to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context or background
+    validations:
+      required: false

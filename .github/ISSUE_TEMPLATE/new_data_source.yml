@@ -1,0 +1,224 @@
+name: 🌍 New Data Source Request
+description: Request addition of a new epidemiological data source
+title: "[DATA SOURCE] "
+labels: ["data source", "help wanted", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new data source! Please provide detailed information to help us evaluate and implement it.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have checked that this data source is not already implemented
+          required: true
+        - label: I have searched existing issues for similar requests
+          required: true
+        - label: This data source provides openly accessible data
+          required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: Data Source Name
+      description: Official name of the data source
+      placeholder: e.g., CDC WONDER, PAHO Data, UK Health Security Agency
+    validations:
+      required: true
+
+  - type: input
+    id: organization
+    attributes:
+      label: Organization / Institution
+      description: Which organization maintains this data?
+      placeholder: e.g., Centers for Disease Control and Prevention (CDC)
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Website / Data Portal URL
+      description: Link to the data source website
+      placeholder: https://...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: geographic_scope
+    attributes:
+      label: Geographic Scope
+      description: What is the geographic coverage?
+      options:
+        - Global
+        - Continental
+        - Regional
+        - National
+        - Sub-national
+    validations:
+      required: true
+
+  - type: input
+    id: countries
+    attributes:
+      label: Countries / Regions Covered
+      description: List specific countries or regions
+      placeholder: e.g., United States, Canada, Mexico or All EU countries
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Brief description of what data is available
+      placeholder: |
+        This data source provides:
+        - Disease surveillance data (cases, deaths)
+        - Hospitalization statistics
+        - Vaccination coverage
+        - Laboratory data
+    validations:
+      required: true
+
+  - type: dropdown
+    id: access_type
+    attributes:
+      label: Data Access Method
+      description: How can the data be accessed?
+      options:
+        - REST API
+        - GraphQL API
+        - Bulk Download (CSV, Excel)
+        - FTP/SFTP
+        - Web Scraping Required
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: api_docs
+    attributes:
+      label: API Documentation URL
+      description: Link to API documentation (if applicable)
+      placeholder: https://api-documentation-url...
+    validations:
+      required: false
+
+  - type: textarea
+    id: datasets
+    attributes:
+      label: Available Datasets
+      description: List specific datasets or indicators available
+      placeholder: |
+        - NNDSS - Notifiable Disease Surveillance
+        - NVSS - National Vital Statistics
+        - Immunization data
+        - Behavioral Risk Factor Surveillance
+    validations:
+      required: true
+
+  - type: dropdown
+    id: update_frequency
+    attributes:
+      label: Update Frequency
+      description: How often is the data updated?
+      options:
+        - Real-time
+        - Daily
+        - Weekly
+        - Monthly
+        - Quarterly
+        - Annually
+        - Irregular
+    validations:
+      required: true
+
+  - type: textarea
+    id: temporal_coverage
+    attributes:
+      label: Temporal Coverage
+      description: What time periods are available?
+      placeholder: e.g., Data available from 1990 to present, or 2010-2023
+    validations:
+      required: true
+
+  - type: dropdown
+    id: authentication
+    attributes:
+      label: Authentication Required
+      description: Does the API require authentication?
+      options:
+        - No authentication required
+        - API Key (free)
+        - API Key (registration required)
+        - OAuth 2.0
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: terms
+    attributes:
+      label: Terms of Use / License
+      description: Any known restrictions or terms of use
+      placeholder: |
+        - Open Data License
+        - Attribution required
+        - Academic/Research use only
+        - No restrictions found
+    validations:
+      required: false
+
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: Potential Use Cases
+      description: Describe how this data would be useful
+      placeholder: |
+        This data source would enable:
+        - Comparing disease trends across North America
+        - Analyzing vaccination coverage patterns
+        - Research on healthcare disparities
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_notes
+    attributes:
+      label: Technical Notes
+      description: Any technical details about the API or data format
+      placeholder: |
+        - Rate limits: 1000 requests/hour
+        - Response format: JSON
+        - Supports filtering by date, location, disease
+        - Known quirks or limitations
+    validations:
+      required: false
+
+  - type: textarea
+    id: similar_sources
+    attributes:
+      label: Related Data Sources
+      description: Are there similar or complementary sources?
+      placeholder: |
+        Similar to ECDC for Europe, this would provide coverage for North America.
+        Could be combined with WHO data for global analysis.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution Offer
+      description: Would you like to help with this data source?
+      options:
+        - label: I can provide more detailed information about this source
+        - label: I am willing to help implement the data access script
+        - label: I can test the implementation once ready
+        - label: I can create example notebooks for this source

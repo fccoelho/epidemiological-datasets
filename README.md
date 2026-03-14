@@ -1,10 +1,40 @@
 # 🌍 Epidemiological Datasets
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PySUS](https://img.shields.io/badge/PySUS-v1.0.1-green.svg)](https://pypi.org/project/pysus/)
-[![ghoclient](https://img.shields.io/badge/ghoclient-v1.0.3-green.svg)](https://pypi.org/project/ghoclient/)
-[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.9%2B-blue.svg?logo=python&logoColor=white" alt="Python 3.9+">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT">
+  <img src="https://img.shields.io/badge/Code%20Style-Black-black.svg" alt="Code style: Black">
+</p>
+
+<p align="center">
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues">
+    <img src="https://img.shields.io/github/issues/fccoelho/epidemiological-datasets.svg?style=flat-square&logo=github" alt="Open Issues">
+  </a>
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">
+    <img src="https://img.shields.io/github/issues/fccoelho/epidemiological-datasets/help%20wanted?style=flat-square&logo=github&color=orange" alt="Help Wanted">
+  </a>
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">
+    <img src="https://img.shields.io/github/issues/fccoelho/epidemiological-datasets/good%20first%20issue?style=flat-square&logo=github&color=brightgreen" alt="Good First Issue">
+  </a>
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues?q=is%3Aissue+is%3Aopen+label%3A%22data+source%22">
+    <img src="https://img.shields.io/github/issues/fccoelho/epidemiological-datasets/data%20source?style=flat-square&logo=github&color=blue" alt="Data Source Requests">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/fccoelho/epidemiological-datasets/actions/workflows/ci.yml">
+    <img src="https://github.com/fccoelho/epidemiological-datasets/workflows/CI/badge.svg" alt="CI Status">
+  </a>
+  <a href="https://codecov.io/gh/fccoelho/epidemiological-datasets">
+    <img src="https://codecov.io/gh/fccoelho/epidemiological-datasets/branch/main/graph/badge.svg" alt="Code Coverage">
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/stars/fccoelho/epidemiological-datasets?style=social" alt="Stars">
+  <img src="https://img.shields.io/github/forks/fccoelho/epidemiological-datasets?style=social" alt="Forks">
+  <img src="https://img.shields.io/github/contributors/fccoelho/epidemiological-datasets?style=flat-square" alt="Contributors">
+</p>
 
 > A curated collection of openly accessible epidemiological datasets from around the world, with Python tools for easy access and analysis.
 
@@ -43,34 +73,48 @@ Whether you're studying infectious diseases, chronic conditions, or health syste
 
 ```
 epidemiological-datasets/
-├── README.md                 # This file
-├── CONTRIBUTING.md           # Contribution guidelines
-├── LICENSE                   # MIT License
-├── requirements.txt          # Python dependencies
-├── datasets/                 # Dataset documentation
-│   ├── global/
-│   ├── north_america/
-│   ├── south_america/
-│   ├── europe/
-│   ├── africa/
-│   ├── asia/
-│   └── oceania/
-├── scripts/                  # Python access scripts
-│   ├── __init__.py
-│   ├── utils.py             # Common utilities
-│   └── accessors/           # Dataset-specific accessors
-│       ├── who_ghoclient.py    # Uses ghoclient library
-│       ├── datasus_pysus.py    # Uses PySUS library
-│       ├── cdc.py
-│       ├── ecdc.py
-│       └── ...
-├── examples/                # Jupyter notebooks with examples
-│   ├── pysus_example.ipynb
-│   ├── ghoclient_example.ipynb
-│   └── README.md
-├── tests/                   # Unit tests
-│   └── __init__.py
-└── setup.py                 # Package installation
+├── 📁 .github/                 # GitHub templates and workflows
+│   ├── 📁 DISCUSSION_TEMPLATE/ # Discussion templates
+│   ├── 📁 ISSUE_TEMPLATE/      # Issue templates (bug, feature, data source)
+│   ├── 📁 workflows/           # CI/CD workflows
+│   └── 📄 pull_request_template.md
+├── 📁 data/                    # Cached data (gitignored)
+├── 📁 docs/                    # Documentation
+│   └── 📄 index.md
+├── 📁 examples/                # Example notebooks
+│   ├── 📁 notebooks/
+│   │   ├── 01_pysus_brazilian_health_data.ipynb
+│   │   ├── 02_who_global_health_data.ipynb
+│   │   ├── 03_world_bank_health_indicators.ipynb
+│   │   ├── 04_ecdc_european_surveillance.ipynb
+│   │   └── 05_multi_source_comparison.ipynb
+│   ├── 📄 README.md
+│   └── 📄 requirements.txt
+├── 📁 scripts/                 # Python access scripts
+│   ├── 📁 accessors/           # Dataset-specific accessors
+│   │   ├── datasus_pysus.py    # PySUS wrapper
+│   │   ├── who_ghoclient.py    # ghoclient wrapper
+│   │   └── __init__.py
+│   ├── 📄 __init__.py
+│   └── 📄 utils.py             # Common utilities
+├── 📁 src/
+│   └── 📁 epi_data/            # Main Python package
+│       ├── 📁 sources/         # Data source accessors
+│       ├── 📁 utils/           # Utility functions
+│       └── 📄 __init__.py
+├── 📁 tests/                   # Test suite
+│   ├── 📁 sources/
+│   ├── 📁 utils/
+│   ├── 📄 conftest.py
+│   └── 📄 __init__.py
+├── 📄 CHANGELOG.md             # Version history
+├── 📄 CODE_OF_CONDUCT.md       # Community guidelines
+├── 📄 CONTRIBUTING.md          # Contribution guide
+├── 📄 LICENSE                  # MIT License
+├── 📄 README.md                # This file
+├── 📄 pyproject.toml           # Project configuration (UV)
+├── 📄 requirements.txt         # Dependencies
+└── 📄 requirements-dev.txt     # Dev dependencies
 ```
 
 ## 🌐 Available Datasets
@@ -317,7 +361,21 @@ print(f"Brazil Malaria incidence (WHO): {who_data['value'].values[0]}")
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+### Quick Links for Contributors
+
+<p align="center">
+  <a href="https://github.com/fccoelho/epidemiological-datasets/contribute">
+    <img src="https://img.shields.io/badge/🚀%20Start%20Contributing-orange?style=for-the-badge" alt="Start Contributing">
+  </a>
+</p>
+
+- 📋 [Contributing Guide](CONTRIBUTING.md) - How to get started
+- 🐛 [Report a Bug](https://github.com/fccoelho/epidemiological-datasets/issues/new?template=bug_report.yml)
+- 💡 [Request a Feature](https://github.com/fccoelho/epidemiological-datasets/issues/new?template=feature_request.yml)
+- 🌍 [Request a Data Source](https://github.com/fccoelho/epidemiological-datasets/issues/new?template=new_data_source.yml)
+- 💬 [GitHub Discussions](https://github.com/fccoelho/epidemiological-datasets/discussions) - Ask questions, share ideas
 
 ### Priority Contributions
 
@@ -325,6 +383,17 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 2. **Python accessors** - For datasets without existing libraries
 3. **Examples** - Jupyter notebooks demonstrating data analysis
 4. **Documentation** - Translations and improvements
+
+### Badges for Contributors
+
+<p align="center">
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22">
+    <img src="https://img.shields.io/github/issues/fccoelho/epidemiological-datasets/good%20first%20issue?style=for-the-badge&logo=github&color=brightgreen" alt="Good First Issues">
+  </a>
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22">
+    <img src="https://img.shields.io/github/issues/fccoelho/epidemiological-datasets/help%20wanted?style=for-the-badge&logo=github&color=orange" alt="Help Wanted">
+  </a>
+</p>
 
 ## 📚 Related Projects
 
@@ -385,6 +454,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Email:** [Your email]
 - **Twitter:** [Your Twitter]
 - **Website:** https://fccoelho.github.io/
+
+---
+
+<p align="center">
+  <b>Made with ❤️ for the epidemiological research community</b>
+</p>
+
+<p align="center">
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues/new?template=bug_report.yml">🐛 Report Bug</a> •
+  <a href="https://github.com/fccoelho/epidemiological-datasets/issues/new?template=feature_request.yml">💡 Request Feature</a> •
+  <a href="https://github.com/fccoelho/epidemiological-datasets/discussions">💬 Discussions</a>
+</p>
 
 ---
 

@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 📚 Documentation
+    url: https://fccoelho.github.io/epidemiological-datasets
+    about: Check the documentation for usage guides and API reference
+
+  - name: 💬 GitHub Discussions
+    url: https://github.com/fccoelho/epidemiological-datasets/discussions
+    about: Ask questions, share ideas, or get help from the community
+
+  - name: 🚀 Feature Showcase
+    url: https://github.com/fccoelho/epidemiological-datasets/discussions/categories/show-and-tell
+    about: Share your projects and analyses using this repository
+
+  - name: 📖 Contributing Guide
+    url: https://github.com/fccoelho/epidemiological-datasets/blob/main/CONTRIBUTING.md
+    about: Read our contributing guide before submitting pull requests

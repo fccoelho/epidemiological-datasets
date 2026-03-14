@@ -1,0 +1,108 @@
+name: Setup GitHub Discussions
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  setup-discussions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable GitHub Discussions
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Enable discussions for the repository
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            console.log(`Repository: ${repo.full_name}`);
+            console.log(`Discussions enabled: ${repo.has_discussions}`);
+            
+            if (!repo.has_discussions) {
+              // Note: This requires admin access and may not work via API
+              // Discussions usually need to be enabled in repository settings
+              console.log('Please enable discussions in repository settings:');
+              console.log(`https://github.com/${context.repo.owner}/${context.repo.repo}/settings`);
+            } else {
+              console.log('✅ Discussions are already enabled!');
+            }
+
+      - name: Create Welcome Discussion
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Check if welcome discussion already exists
+            try {
+              const { data: discussions } = await github.rest.discussions.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                category_id: null
+              });
+              
+              const welcomeExists = discussions.some(d => 
+                d.title.includes('Welcome') || d.title.includes('👋')
+              );
+              
+              if (!welcomeExists) {
+                // Get discussion categories
+                const { data: categories } = await github.rest.discussions.listCategories({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo
+                });
+                
+                const generalCategory = categories.find(c => c.name === 'General');
+                
+                if (generalCategory) {
+                  // Create welcome discussion
+                  await github.rest.discussions.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    category_id: generalCategory.id,
+                    title: '👋 Welcome to Epidemiological Datasets Discussions!',
+                    body: `Welcome to our community discussions! 🎉
+
+This is a space for:
+- 💬 **Questions** about using the library
+- 💡 **Ideas** for new features or improvements
+- 🌍 **Data source suggestions** and discussions
+- 📊 **Show and tell** - Share your projects and analyses
+- 🤝 **Getting help** from the community
+
+## Quick Links
+
+- 📚 [Documentation](https://fccoelho.github.io/epidemiological-datasets)
+- 🐛 [Report a Bug](https://github.com/${context.repo.owner}/${context.repo.repo}/issues/new?template=bug_report.yml)
+- 💡 [Request a Feature](https://github.com/${context.repo.owner}/${context.repo.repo}/issues/new?template=feature_request.yml)
+- 🌍 [Request a Data Source](https://github.com/${context.repo.owner}/${context.repo.repo}/issues/new?template=new_data_source.yml)
+- 🤝 [Contributing Guide](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CONTRIBUTING.md)
+
+## Categories
+
+- **📢 Announcements** - Project updates and releases
+- **💬 General** - General discussions and questions
+- **💡 Ideas** - Feature suggestions and proposals
+- **📊 Show and Tell** - Share your work
+- **❓ Q&A** - Questions and answers
+- **🌍 Data Sources** - Discuss data sources and APIs
+
+---
+
+Please be respectful and follow our [Code of Conduct](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CODE_OF_CONDUCT.md).
+
+Happy analyzing! 📊🌍
+`
+                  });
+                  
+                  console.log('✅ Welcome discussion created!');
+                }
+              } else {
+                console.log('Welcome discussion already exists');
+              }
+            } catch (error) {
+              console.log('Note: Discussions may need to be enabled in repository settings first');
+              console.log(`Visit: https://github.com/${context.repo.owner}/${context.repo.repo}/settings`);
+            }

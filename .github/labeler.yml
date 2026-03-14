@@ -1,0 +1,83 @@
+# Issue Labeler Configuration
+# Used by .github/workflows/issue-management.yml
+
+# Data Sources
+'data source':
+  - '\\[DATA SOURCE\\]'
+  - 'new data source'
+  - 'data request'
+  - 'API'
+
+# Bug Reports
+'bug':
+  - '\\[BUG\\]'
+  - 'bug report'
+  - 'error'
+  - 'broken'
+  - 'not working'
+  - 'crash'
+
+# Feature Requests
+'enhancement':
+  - '\\[FEATURE\\]'
+  - 'feature request'
+  - 'enhancement'
+  - 'improvement'
+  - 'add support'
+  - 'would be nice'
+
+# Documentation
+documentation:
+  - '\\[DOCS\\]'
+  - 'documentation'
+  - 'readme'
+  - 'example'
+  - 'tutorial'
+
+# Performance
+performance:
+  - 'slow'
+  - 'performance'
+  - 'speed'
+  - 'optimization'
+  - 'memory'
+
+# Good First Issue
+good first issue:
+  - 'good first issue'
+  - 'beginner'
+  - 'easy'
+  - 'new contributor'
+
+# Help Wanted
+help wanted:
+  - 'help wanted'
+  - 'help needed'
+  - 'looking for contributor'
+  - 'contributor wanted'
+
+# PySUS
+pysus:
+  - 'pysus'
+  - 'DATASUS'
+  - 'SINAN'
+  - 'SIM'
+  - 'SIH'
+  - 'brazil'
+
+# WHO
+who:
+  - 'WHO'
+  - 'GHO'
+  - 'Global Health Observatory'
+
+# World Bank
+world-bank:
+  - 'World Bank'
+  - 'wbgapi'
+
+# ECDC
+ecdc:
+  - 'ECDC'
+  - 'European'
+  - 'Europe'

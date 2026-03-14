@@ -1,0 +1,127 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: "[BUG] "
+labels: ["bug", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us investigate.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I am using the latest version of the repository
+          required: true
+        - label: I have read the documentation and troubleshooting guide
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: When I try to fetch data from source X, I get an error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide detailed steps to reproduce the bug
+      placeholder: |
+        1. Run script '...'
+        2. Call function '...' with parameters '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: The function should return a DataFrame with columns...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: I received the following error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code Sample
+      description: Provide a minimal code example that reproduces the issue
+      render: python
+      placeholder: |
+        from epi_data.sources import PySUS
+        
+        source = PySUS()
+        data = source.fetch_data(disease="dengue", year=2023)
+    validations:
+      required: false
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error Messages / Logs
+      description: Paste any error messages or relevant logs
+      render: text
+      placeholder: |
+        Traceback (most recent call last):
+          File "script.py", line 10, in <module>
+            ...
+        ValueError: Invalid parameter
+    validations:
+      required: false
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Data Source (if applicable)
+      description: Which data source were you using?
+      options:
+        - PySUS (Brazil/DATASUS)
+        - WHO Global Health Observatory
+        - World Bank
+        - ECDC
+        - Other/Not applicable
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please provide details about your environment
+      value: |
+        - **OS**: [e.g., Ubuntu 22.04, macOS 14, Windows 11]
+        - **Python Version**: [e.g., 3.11.4]
+        - **Package Version**: [e.g., pysus 1.0.1]
+        - **Installation Method**: [e.g., pip, conda, uv]
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem
+      placeholder: This started happening after updating to version X...
+    validations:
+      required: false

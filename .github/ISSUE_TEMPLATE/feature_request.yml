@@ -1,0 +1,126 @@
+name: 💡 Feature Request
+description: Suggest a new feature or enhancement
+title: "[FEATURE] "
+labels: ["enhancement", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible to help us understand your request.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: This feature is not already implemented in the latest version
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What type of feature are you requesting?
+      options:
+        - New Data Source
+        - Enhancement to Existing Data Source
+        - API/Interface Improvement
+        - Documentation
+        - Performance Improvement
+        - New Analysis/Visualization
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is
+      placeholder: I'm always frustrated when I try to access data from country X but it's not available...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen
+      placeholder: I would like to add support for data source Y which provides...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: Any alternative solutions or features you've considered
+      placeholder: I considered using data source Z instead, but it doesn't have...
+    validations:
+      required: false
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Use Case / Motivation
+      description: Describe the specific use case or research context
+      placeholder: |
+        This feature would be useful for:
+        - Tracking disease X in region Y
+        - Comparing health indicators across countries
+        - Academic research on...
+        - Public health surveillance...
+    validations:
+      required: true
+
+  - type: textarea
+    id: data_source_details
+    attributes:
+      label: Data Source Details (if applicable)
+      description: Provide details about new data sources
+      value: |
+        If requesting a new data source, please include:
+        - **Name**: 
+        - **URL**: 
+        - **Geographic Coverage**: 
+        - **Temporal Coverage**: 
+        - **Update Frequency**: 
+        - **Data Format**: [e.g., JSON, CSV, API]
+        - **API Documentation**: 
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Proposed Implementation
+      description: If you have ideas on how to implement this feature, describe them here
+      placeholder: |
+        I think this could be implemented by:
+        1. Creating a new class in `sources/`
+        2. Adding method X to fetch data
+        3. Including tests in `tests/`
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution
+      description: Are you willing to contribute to this feature?
+      options:
+        - label: I am willing to submit a PR to implement this feature
+        - label: I can help test this feature once implemented
+        - label: I can provide documentation for this feature
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples
+    validations:
+      required: false
