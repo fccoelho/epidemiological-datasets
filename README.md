@@ -1,0 +1,391 @@
+# 🌍 Epidemiological Datasets
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PySUS](https://img.shields.io/badge/PySUS-v1.0.1-green.svg)](https://pypi.org/project/pysus/)
+[![ghoclient](https://img.shields.io/badge/ghoclient-v1.0.3-green.svg)](https://pypi.org/project/ghoclient/)
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+> A curated collection of openly accessible epidemiological datasets from around the world, with Python tools for easy access and analysis.
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Repository Structure](#repository-structure)
+- [Available Datasets](#available-datasets)
+  - [Global](#global-)
+  - [North America](#north-america-)
+  - [South America](#south-america-)
+  - [Europe](#europe-)
+  - [Africa](#africa-)
+  - [Asia](#asia-)
+  - [Oceania](#oceania-)
+- [Python Scripts](#python-scripts)
+  - [Using PySUS](#using-pysus-for-datasus)
+  - [Using ghoclient](#using-ghoclient-for-who-data)
+- [Installation](#installation)
+- [Usage Examples](#usage-examples)
+- [Contributing](#contributing)
+- [License](#license)
+
+## 🎯 Overview
+
+This repository aims to:
+
+- **Centralize** links to openly accessible epidemiological data sources
+- **Standardize** access to heterogeneous datasets through Python scripts
+- **Document** data formats, update frequencies, and access requirements
+- **Enable** reproducible research in epidemiology and public health
+
+Whether you're studying infectious diseases, chronic conditions, or health systems, this collection provides starting points for data-driven research.
+
+## 📁 Repository Structure
+
+```
+epidemiological-datasets/
+├── README.md                 # This file
+├── CONTRIBUTING.md           # Contribution guidelines
+├── LICENSE                   # MIT License
+├── requirements.txt          # Python dependencies
+├── datasets/                 # Dataset documentation
+│   ├── global/
+│   ├── north_america/
+│   ├── south_america/
+│   ├── europe/
+│   ├── africa/
+│   ├── asia/
+│   └── oceania/
+├── scripts/                  # Python access scripts
+│   ├── __init__.py
+│   ├── utils.py             # Common utilities
+│   └── accessors/           # Dataset-specific accessors
+│       ├── who_ghoclient.py    # Uses ghoclient library
+│       ├── datasus_pysus.py    # Uses PySUS library
+│       ├── cdc.py
+│       ├── ecdc.py
+│       └── ...
+├── examples/                # Jupyter notebooks with examples
+│   ├── pysus_example.ipynb
+│   ├── ghoclient_example.ipynb
+│   └── README.md
+├── tests/                   # Unit tests
+│   └── __init__.py
+└── setup.py                 # Package installation
+```
+
+## 🌐 Available Datasets
+
+### Global 🌍
+
+| Dataset | Description | Update Frequency | Access Level | Script |
+|---------|-------------|------------------|--------------|--------|
+| [WHO Global Health Observatory](https://www.who.int/data/gho) | Health indicators by country | Annual | Open | `ghoclient` |
+| [Our World in Data - Health](https://ourworldindata.org/health) | Comprehensive health datasets | Weekly | Open | `scripts/accessors/owid.py` |
+| [World Bank Health](https://data.worldbank.org/health) | Health, nutrition, and population statistics | Annual | Open | `scripts/accessors/worldbank.py` |
+| [Global Health Data Exchange (GHDx)](http://ghdx.healthdata.org/) | Catalog of health datasets | Varies | Varies | Catalog only |
+| [HDX (Humanitarian Data Exchange)](https://data.humdata.org/) | Health in crisis contexts | Real-time | Open | `scripts/accessors/hdx.py` |
+
+### North America 🇺🇸🇨🇦🇲🇽
+
+| Dataset | Description | Update Frequency | Access Level | Script |
+|---------|-------------|------------------|--------------|--------|
+| [CDC Wonder](https://wonder.cdc.gov/) | US health statistics | Weekly | Open | `scripts/accessors/cdc.py` |
+| [CDC Open Data](https://data.cdc.gov/) | CDC datasets portal | Varies | Open | `scripts/accessors/cdc_opendata.py` |
+| [HealthData.gov](https://healthdata.gov/) | US health system data | Weekly | Open | Planned |
+| [Statistics Canada - Health](https://www.statcan.gc.ca/en/health) | Canadian health data | Quarterly | Open | Planned |
+
+### South America 🌎
+
+| Dataset | Description | Update Frequency | Access Level | Script |
+|---------|-------------|------------------|--------------|--------|
+| [SINAN - Brazil](http://portalsinan.saude.gov.br/) | Brazilian notifiable diseases | Weekly | Open* | `PySUS` |
+| [DATASUS](https://datasus.saude.gov.br/) | Brazilian health system data | Weekly | Open* | `PySUS` |
+| [SIAD - Brazil](https://siad.mg.gov.br/) | Brazilian health information | Weekly | Open* | `PySUS` |
+| [PAHO/WHO Regional Data](https://www.paho.org/en/data) | Pan-American health data | Monthly | Open | `scripts/accessors/paho.py` |
+| [Chile DEIS](https://deis.minsal.cl/) | Chilean health statistics | Monthly | Open | Planned |
+| [Colombia INS](https://www.ins.gov.co/) | Colombian public health data | Weekly | Open | Planned |
+
+> *Note: PySUS handles authentication and access to DATASUS/SINAN data.
+
+### Europe 🇪🇺
+
+| Dataset | Description | Update Frequency | Access Level | Script |
+|---------|-------------|------------------|--------------|--------|
+| [ECDC Surveillance Atlas](https://atlas.ecdc.europa.eu/public/index.aspx) | Infectious disease surveillance | Weekly | Open | `scripts/accessors/ecdc.py` |
+| [Eurostat Health](https://ec.europa.eu/eurostat/web/health) | EU health statistics | Annual | Open | Planned |
+| [UK Health Security Agency](https://www.gov.uk/government/collections/health-protection-data) | UK health data | Weekly | Open | Planned |
+| [Robert Koch Institute](https://www.rki.de/EN/Content/infections/epidemiology/data.html) | German surveillance data | Weekly | Open | Planned |
+
+### Africa 🌍
+
+| Dataset | Description | Update Frequency | Access Level | Script |
+|---------|-------------|------------------|--------------|--------|
+| [WHO Afro Health Observatory](https://www.afro.who.int/health-topics/health-observatory) | African region health data | Annual | Open | `ghoclient` |
+| [DHIS2](https://dhis2.org/) | Health information systems | Real-time | Varies | `scripts/accessors/dhis2.py` |
+| [Africa CDC](https://africacdc.org/) | African public health data | Weekly | Open | Planned |
+
+### Asia 🌏
+
+| Dataset | Description | Update Frequency | Access Level | Script |
+|---------|-------------|------------------|--------------|--------|
+| [China CDC Weekly](http://weekly.chinacdc.cn/) | Chinese surveillance data | Weekly | Open | Planned |
+| [IDSP India](https://idsp.nic.in/) | Indian disease surveillance | Weekly | Open* | Planned |
+| [NIID Japan](https://www.niid.go.jp/niid/en/) | Japanese infectious disease data | Weekly | Open | Planned |
+| [Korea CDC](https://www.kdca.go.kr/) | Korean disease control data | Weekly | Open | Planned |
+
+### Oceania 🇦🇺🇳🇿
+
+| Dataset | Description | Update Frequency | Access Level | Script |
+|---------|-------------|------------------|--------------|--------|
+| [Australian Institute of Health and Welfare](https://www.aihw.gov.au/) | Australian health data | Annual | Open | Planned |
+| [NZ Ministry of Health](https://www.health.govt.nz/nz-health-statistics) | New Zealand health statistics | Annual | Open | Planned |
+
+## 🐍 Python Scripts
+
+### Using PySUS for DATASUS
+
+PySUS is a Python library developed by the AlertaDengue team for accessing Brazilian public health data (DATASUS).
+
+**Installation:**
+```bash
+pip install pysus
+```
+
+**Example usage:**
+```python
+from pysus.online_data import SINAN, SIM, SIH
+
+# Download dengue cases from SINAN
+dengue = SINAN.download(
+    disease="Dengue",
+    years=[2022, 2023],
+    states=["RJ", "SP", "MG"]
+)
+
+# Download mortality data from SIM
+mortality = SIM.download(
+    years=[2021, 2022],
+    states=["RJ"]
+)
+
+# Hospitalization data from SIH
+hospitalizations = SIH.download(
+    years=[2023],
+    months=[1, 2, 3],
+    states=["SP"],
+    group="RD"  # AIH Reduced
+)
+```
+
+**Repository:** [github.com/AlertaDengue/PySUS](https://github.com/AlertaDengue/PySUS)  
+**Documentation:** [pysus.readthedocs.io](https://pysus.readthedocs.io)
+
+### Using ghoclient for WHO Data
+
+ghoclient is a Python client for the WHO Global Health Observatory API.
+
+**Installation:**
+```bash
+pip install ghoclient
+```
+
+**Example usage:**
+```python
+from ghoclient import GHOClient
+
+# Initialize client
+client = GHOClient()
+
+# Search for indicators
+malaria_indicators = client.search_indicators("malaria")
+print(malaria_indicators)
+
+# Get specific indicator data
+data = client.get_indicator(
+    indicator="MALARIA_EST_INCIDENCE",
+    years=[2020, 2021, 2022],
+    countries=["BRA", "IND", "NGA"]
+)
+
+print(data.head())
+```
+
+**Repository:** [github.com/fccoelho/ghoclient](https://github.com/fccoelho/ghoclient)  
+**PyPI:** [pypi.org/project/ghoclient](https://pypi.org/project/ghoclient/)
+
+## 📦 Installation
+
+### Standard Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/fccoelho/epidemiological-datasets.git
+cd epidemiological-datasets
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install additional packages for specific sources
+pip install pysus ghoclient
+```
+
+### Development Installation
+
+```bash
+# Install in editable mode with dev dependencies
+pip install -e ".[dev]"
+```
+
+## 💡 Usage Examples
+
+### Example 1: Brazilian Health Data with PySUS
+
+```python
+from pysus.online_data import SINAN
+import pandas as pd
+
+# Download dengue notification data
+df = SINAN.download(
+    disease="Dengue",
+    years=[2023],
+    states=["RJ", "SP"]
+)
+
+# Analyze cases by municipality
+cases_by_city = df.groupby('ID_MUNICIP').size()
+print(cases_by_city.sort_values(ascending=False).head(10))
+```
+
+### Example 2: WHO Data with ghoclient
+
+```python
+from ghoclient import GHOClient
+
+client = GHOClient()
+
+# Get COVID-19 vaccination data
+vaccination = client.get_indicator(
+    indicator="COVID19_VACCINATION",
+    years=[2021, 2022],
+    countries=["BRA", "USA", "GBR"]
+)
+
+# Calculate vaccination coverage
+for country in vaccination['country'].unique():
+    country_data = vaccination[vaccination['country'] == country]
+    latest = country_data.loc[country_data['year'].idxmax()]
+    print(f"{country}: {latest['value']}% vaccinated in {latest['year']}")
+```
+
+### Example 3: Multi-source Analysis
+
+```python
+from pysus.online_data import SINAN
+from ghoclient import GHOClient
+import pandas as pd
+
+# Get Brazilian dengue data
+sinan_data = SINAN.download(disease="Dengue", years=[2022])
+br_cases = len(sinan_data)
+
+# Get WHO data for comparison
+who = GHOClient()
+who_data = who.get_indicator(
+    indicator="MALARIA_EST_INCIDENCE",
+    years=[2022],
+    countries=["BRA"]
+)
+
+print(f"Brazil Dengue cases (SINAN): {br_cases}")
+print(f"Brazil Malaria incidence (WHO): {who_data['value'].values[0]}")
+```
+
+## 📊 Available Scripts
+
+| Script | Library Used | Status | Description |
+|--------|--------------|--------|-------------|
+| `datasus_pysus.py` | **PySUS** | ✅ Available | Wrapper for PySUS with additional utilities |
+| `who_ghoclient.py` | **ghoclient** | ✅ Available | Wrapper for ghoclient with pandas integration |
+| `cdc.py` | Native | 🔄 Planned | CDC Wonder and Open Data |
+| `ecdc.py` | Native | 🔄 Planned | European CDC data |
+| `owid.py` | Native | 🔄 Planned | Our World in Data |
+| `worldbank.py` | Native | 🔄 Planned | World Bank health indicators |
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Priority Contributions
+
+1. **New dataset links** - Especially from underrepresented regions
+2. **Python accessors** - For datasets without existing libraries
+3. **Examples** - Jupyter notebooks demonstrating data analysis
+4. **Documentation** - Translations and improvements
+
+## 📚 Related Projects
+
+This repository complements the following open-source tools:
+
+| Project | Description | Repository |
+|---------|-------------|------------|
+| **PySUS** | Brazilian health data (DATASUS) | [AlertaDengue/PySUS](https://github.com/AlertaDengue/PySUS) |
+| **ghoclient** | WHO Global Health Observatory | [fccoelho/ghoclient](https://github.com/fccoelho/ghoclient) |
+| **epigrass** | Epidemic simulation | [EpiGrass/epigrass](https://github.com/EpiGrass/epigrass) |
+| **epimodels** | Mathematical epidemiology | [fccoelho/epimodels](https://github.com/fccoelho/epimodels) |
+
+## 📊 Statistics
+
+- **Datasets documented:** 25+
+- **Countries covered:** 50+
+- **Python libraries integrated:** 2 (PySUS, ghoclient)
+- **Last updated:** 2026-03-14
+
+## 📚 Citation
+
+If you use this repository in your research, please cite:
+
+```bibtex
+@misc{fccoelho_epidemiological_datasets,
+  author = {Coelho, Flávio Codeço},
+  title = {Epidemiological Datasets: A Global Collection},
+  year = {2026},
+  publisher = {GitHub},
+  journal = {GitHub Repository},
+  howpublished = {\url{https://github.com/fccoelho/epidemiological-datasets}}
+}
+```
+
+For PySUS:
+```bibtex
+@software{pysus,
+  author = {AlertaDengue Team},
+  title = {PySUS: Tools for Brazilian Public Health Data},
+  url = {https://github.com/AlertaDengue/PySUS}
+}
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **PySUS Contributors** - For making Brazilian health data accessible
+- **WHO** - For maintaining the Global Health Observatory
+- **All data providers** who make epidemiological data openly accessible
+- **Global public health community**
+
+## 📞 Contact
+
+- **Author:** Flávio Codeço Coelho (@fccoelho)
+- **Email:** [Your email]
+- **Twitter:** [Your Twitter]
+- **Website:** https://fccoelho.github.io/
+
+---
+
+**Disclaimer:** This repository is a community effort to catalog open data sources. Please always refer to the original data providers for official statistics and verify data usage terms. The maintainers are not responsible for data quality or availability.
