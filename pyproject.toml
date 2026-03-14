@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A curated collection of openly accessible epidemiological datasets with Python access scripts"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 authors = [
     {name = "Flávio Codeço Coelho", email = "fccoelho@gmail.com"},
 ]
@@ -98,16 +98,13 @@ Changelog = "https://github.com/fccoelho/epidemiological-datasets/blob/main/CHAN
 # ============================================================
 
 [tool.uv]
-# Use the system's Python if available
-python-preference = "system"
 # Compile Python files to bytecode after installation
 compile-bytecode = true
 # Reinstall packages when the environment is recreated
 reinstall = false
 # Use the uv resolver
 resolution = "highest"
-# Show progress bars
-progress = true
+
 
 [tool.uv.pip]
 # Generate hashes for requirements.txt
