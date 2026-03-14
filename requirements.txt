@@ -1,0 +1,42 @@
+# Core dependencies
+pandas>=1.5.0
+numpy>=1.21.0
+requests>=2.28.0
+pydantic>=1.10.0
+
+# Data access libraries
+sodapy>=2.2.0  # For Socrata APIs (CDC Open Data, etc.)
+wbdata>=0.3.0  # World Bank Data
+wbgapi>=1.0.12  # Alternative World Bank API
+
+# HTTP and API
+httpx>=0.24.0
+aiohttp>=3.8.0
+
+# Data processing
+pyarrow>=10.0.0
+openpyxl>=3.0.10  # Excel files
+xlrd>=2.0.1       # Excel files (older format)
+
+# Visualization (optional, for examples)
+matplotlib>=3.5.0
+seaborn>=0.12.0
+plotly>=5.0.0
+
+# Jupyter (for examples)
+jupyter>=1.0.0
+ipython>=8.0.0
+
+# Testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+responses>=0.23.0  # Mock HTTP requests
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
+
+# Documentation
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.2.0
