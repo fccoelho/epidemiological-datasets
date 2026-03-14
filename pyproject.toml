@@ -48,8 +48,14 @@ dependencies = [
     "rich>=13.0.0",
     "python-dotenv>=1.0.0",
     "pysus>=1.0.1",
-    "ghoclient>=1.0.3",
+    "ghoclient @ git+https://github.com/fccoelho/ghoclient",
     "wbgapi>=1.0.12",
+    "ipykernel>=7.2.0",
+    "matplotlib>=3.10.8",
+    "seaborn>=0.13.2",
+    "pandas-stubs~=2.3.3",
+    "xmltodict>=1.0.4",
+    "whoosh>=2.7.4",
 ]
 
 [project.optional-dependencies]
@@ -118,6 +124,9 @@ strict = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/epi_data"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
 include = [
