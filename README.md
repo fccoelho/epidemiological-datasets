@@ -87,13 +87,15 @@ epidemiological-datasets/
 │   │   ├── 02_who_global_health_data.ipynb
 │   │   ├── 03_world_bank_health_indicators.ipynb
 │   │   ├── 04_ecdc_european_surveillance.ipynb
-│   │   └── 05_multi_source_comparison.ipynb
+│   │   ├── 05_multi_source_comparison.ipynb
+│   │   └── 06_PAHO_Pan_American_Data.ipynb
 │   ├── 📄 README.md
 │   └── 📄 requirements.txt
 ├── 📁 scripts/                 # Python access scripts
 │   ├── 📁 accessors/           # Dataset-specific accessors
 │   │   ├── datasus_pysus.py    # PySUS wrapper
 │   │   ├── who_ghoclient.py    # ghoclient wrapper
+│   │   ├── paho.py             # PAHO data accessor
 │   │   └── __init__.py
 │   ├── 📄 __init__.py
 │   └── 📄 utils.py             # Common utilities
@@ -257,6 +259,49 @@ print(data.head())
 **Repository:** [github.com/fccoelho/ghoclient](https://github.com/fccoelho/ghoclient)  
 **PyPI:** [pypi.org/project/ghoclient](https://pypi.org/project/ghoclient/)
 
+### Using PAHO Accessor for Pan-American Data
+
+The PAHO accessor provides access to health data from the Pan American Health Organization (PAHO), covering all countries in the Americas.
+
+**No installation required** - uses native Python libraries.
+
+**Example usage:**
+```python
+from accessors import PAHOAccessor
+
+# Initialize accessor
+paho = PAHOAccessor()
+
+# List PAHO member countries
+countries = paho.list_countries()
+print(f"Total countries: {len(countries)}")
+
+# Get immunization coverage for Southern Cone
+coverage = paho.get_immunization_coverage(
+    vaccines=['DTP3', 'MCV1'],
+    subregion='Southern Cone',
+    years=[2020, 2021, 2022]
+)
+
+# Get malaria data for endemic countries
+malaria = paho.get_malaria_incidence(
+    countries=['BRA', 'COL', 'PER'],
+    years=[2020, 2021, 2022]
+)
+
+# Compare health indicators across countries
+comparison = paho.compare_countries(
+    indicator='LIFE_EXPECTANCY',
+    countries=['BRA', 'MEX', 'ARG', 'COL'],
+    years=[2019, 2020, 2021]
+)
+```
+
+**Data Sources:**
+- PAHO Data Portal: https://www.paho.org/en/data
+- WHO GHO API: https://www.who.int/data/gho
+- WHO Immunization API: https://immunizationdata.who.int
+
 ## 📦 Installation
 
 ### Standard Installation
@@ -354,6 +399,7 @@ print(f"Brazil Malaria incidence (WHO): {who_data['value'].values[0]}")
 |--------|--------------|--------|-------------|
 | `datasus_pysus.py` | **PySUS** | ✅ Available | Wrapper for PySUS with additional utilities |
 | `who_ghoclient.py` | **ghoclient** | ✅ Available | Wrapper for ghoclient with pandas integration |
+| `paho.py` | Native | ✅ Available | PAHO (Pan American Health Organization) data accessor |
 | `cdc.py` | Native | 🔄 Planned | CDC Wonder and Open Data |
 | `ecdc.py` | Native | 🔄 Planned | European CDC data |
 | `owid.py` | Native | 🔄 Planned | Our World in Data |

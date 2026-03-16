@@ -7,6 +7,7 @@ from around the world.
 Key accessors:
 - WHOAccessor: Uses ghoclient library for WHO GHO data
 - DataSUSAccessor: Uses PySUS library for Brazilian health data
+- PAHOAccessor: For PAHO (Pan American Health Organization) data
 - CDCAccessor: For US CDC data (planned)
 - ECDCAccessor: For European CDC data (planned)
 
@@ -28,6 +29,13 @@ try:
     DATASUS_AVAILABLE = True
 except ImportError:
     DATASUS_AVAILABLE = False
+
+# PAHO accessor (no external dependencies)
+try:
+    from .paho import PAHOAccessor
+    PAHO_AVAILABLE = True
+except ImportError:
+    PAHO_AVAILABLE = False
 
 # Other accessors (to be implemented)
 # from .cdc import CDCAccessor
@@ -54,6 +62,9 @@ else:
         ImportWarning
     )
 
+if PAHO_AVAILABLE:
+    __all__.append("PAHOAccessor")
+
 __version__ = "0.1.0"
 
 # Metadata about available libraries
@@ -67,6 +78,11 @@ LIBRARY_INFO = {
         "description": "Brazilian health data (DATASUS) access",
         "url": "https://pypi.org/project/pysus/",
         "available": DATASUS_AVAILABLE
+    },
+    "paho": {
+        "description": "PAHO (Pan American Health Organization) data access",
+        "url": "https://www.paho.org/en/data",
+        "available": PAHO_AVAILABLE
     }
 }
 
