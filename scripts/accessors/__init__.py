@@ -8,12 +8,14 @@ Key accessors:
 - WHOAccessor: Uses ghoclient library for WHO GHO data
 - DataSUSAccessor: Uses PySUS library for Brazilian health data
 - PAHOAccessor: For PAHO (Pan American Health Organization) data
+- EurostatAccessor: For Eurostat (EU) health statistics
 - CDCAccessor: For US CDC data (planned)
 - ECDCAccessor: For European CDC data (planned)
 
 For more information:
 - ghoclient: https://pypi.org/project/ghoclient/
 - PySUS: https://pypi.org/project/pysus/
+- eurostat: https://pypi.org/project/eurostat/
 """
 
 # Use ghoclient-based WHO accessor
@@ -36,6 +38,13 @@ try:
     PAHO_AVAILABLE = True
 except ImportError:
     PAHO_AVAILABLE = False
+
+# Eurostat accessor (requests library only - standard)
+try:
+    from .eurostat import EurostatAccessor
+    EUROSTAT_AVAILABLE = True
+except ImportError:
+    EUROSTAT_AVAILABLE = False
 
 # Other accessors (to be implemented)
 # from .cdc import CDCAccessor
@@ -65,6 +74,9 @@ else:
 if PAHO_AVAILABLE:
     __all__.append("PAHOAccessor")
 
+if EUROSTAT_AVAILABLE:
+    __all__.append("EurostatAccessor")
+
 __version__ = "0.1.0"
 
 # Metadata about available libraries
@@ -83,6 +95,11 @@ LIBRARY_INFO = {
         "description": "PAHO (Pan American Health Organization) data access",
         "url": "https://www.paho.org/en/data",
         "available": PAHO_AVAILABLE
+    },
+    "eurostat": {
+        "description": "Eurostat (EU) health statistics access",
+        "url": "https://pypi.org/project/eurostat/",
+        "available": EUROSTAT_AVAILABLE
     }
 }
 
@@ -115,3 +132,5 @@ def print_status():
         print("  pip install ghoclient")
     if not DATASUS_AVAILABLE:
         print("  pip install pysus")
+    if not EUROSTAT_AVAILABLE:
+        print("  pip install eurostat")

@@ -88,7 +88,8 @@ epidemiological-datasets/
 │   │   ├── 03_world_bank_health_indicators.ipynb
 │   │   ├── 04_ecdc_european_surveillance.ipynb
 │   │   ├── 05_multi_source_comparison.ipynb
-│   │   └── 06_PAHO_Pan_American_Data.ipynb
+│   │   ├── 06_PAHO_Pan_American_Data.ipynb
+│   │   └── 07_Eurostat_EU_Health_Data.ipynb
 │   ├── 📄 README.md
 │   └── 📄 requirements.txt
 ├── 📁 scripts/                 # Python access scripts
@@ -96,6 +97,7 @@ epidemiological-datasets/
 │   │   ├── datasus_pysus.py    # PySUS wrapper
 │   │   ├── who_ghoclient.py    # ghoclient wrapper
 │   │   ├── paho.py             # PAHO data accessor
+│   │   ├── eurostat.py         # Eurostat accessor
 │   │   └── __init__.py
 │   ├── 📄 __init__.py
 │   └── 📄 utils.py             # Common utilities
@@ -158,7 +160,7 @@ epidemiological-datasets/
 | Dataset | Description | Update Frequency | Access Level | Script |
 |---------|-------------|------------------|--------------|--------|
 | [ECDC Surveillance Atlas](https://atlas.ecdc.europa.eu/public/index.aspx) | Infectious disease surveillance | Weekly | Open | `scripts/accessors/ecdc.py` |
-| [Eurostat Health](https://ec.europa.eu/eurostat/web/health) | EU health statistics | Annual | Open | Planned |
+| [Eurostat Health](https://ec.europa.eu/eurostat/web/health) | EU health statistics | Annual | Open | `scripts/accessors/eurostat.py` |
 | [UK Health Security Agency](https://www.gov.uk/government/collections/health-protection-data) | UK health data | Weekly | Open | Planned |
 | [Robert Koch Institute](https://www.rki.de/EN/Content/infections/epidemiology/data.html) | German surveillance data | Weekly | Open | Planned |
 
@@ -302,6 +304,74 @@ comparison = paho.compare_countries(
 - WHO GHO API: https://www.who.int/data/gho
 - WHO Immunization API: https://immunizationdata.who.int
 
+### Using Eurostat Accessor for EU Health Data
+
+The Eurostat accessor provides access to European Union health statistics covering 27 EU member states, EFTA countries, and candidate countries.
+
+**Optional installation** for better performance:
+```bash
+pip install eurostat
+```
+
+**Example usage:**
+```python
+from accessors import EurostatAccessor
+
+# Initialize accessor (uses REST API if eurostat library not installed)
+eurostat = EurostatAccessor()
+
+# List EU member countries
+countries = eurostat.list_eu_countries()
+print(f"Total EU countries: {len(countries)}")
+
+# Get healthcare expenditure data
+expenditure = eurostat.get_healthcare_expenditure(
+    countries=['DEU', 'FRA', 'ITA'],
+    years=list(range(2015, 2024))
+)
+
+# Get mortality data by cause
+mortality = eurostat.get_mortality_data(
+    cause_code='COVID-19',
+    countries=['DEU', 'FRA', 'ITA'],
+    years=[2020, 2021, 2022]
+)
+
+# Get life expectancy
+life_exp = eurostat.get_life_expectancy(
+    countries=['DEU', 'FRA', 'ITA', 'ESP'],
+    years=[2019, 2020, 2021]
+)
+
+# Get physician data
+physicians = eurostat.get_physicians(
+    countries=['DEU', 'FRA'],
+    years=[2020, 2021, 2022]
+)
+
+# Compare countries
+comparison = eurostat.compare_countries(
+    indicator_code='demo_mlexpec',
+    countries=['DEU', 'FRA', 'ITA', 'ESP'],
+    years=[2019, 2020, 2021]
+)
+```
+
+**Features:**
+- 27 EU member states + EFTA + candidate countries
+- Healthcare expenditure and financing
+- Mortality and causes of death (ICD-10 based)
+- Health workforce (physicians, nurses, hospital beds)
+- Health determinants (lifestyle, environment)
+- Life expectancy and infant mortality
+- Self-perceived health status
+
+**Data Sources:**
+- Eurostat Health: https://ec.europa.eu/eurostat/web/health
+- Eurostat Data Browser: https://ec.europa.eu/eurostat/databrowser
+- Eurostat API: https://ec.europa.eu/eurostat/web/sdmx-web-services
+- Python Library: https://pypi.org/project/eurostat/
+
 ## 📦 Installation
 
 ### Standard Installation
@@ -400,6 +470,7 @@ print(f"Brazil Malaria incidence (WHO): {who_data['value'].values[0]}")
 | `datasus_pysus.py` | **PySUS** | ✅ Available | Wrapper for PySUS with additional utilities |
 | `who_ghoclient.py` | **ghoclient** | ✅ Available | Wrapper for ghoclient with pandas integration |
 | `paho.py` | Native | ✅ Available | PAHO (Pan American Health Organization) data accessor |
+| `eurostat.py` | Native/eurostat | ✅ Available | Eurostat (EU) health statistics accessor |
 | `cdc.py` | Native | 🔄 Planned | CDC Wonder and Open Data |
 | `ecdc.py` | Native | 🔄 Planned | European CDC data |
 | `owid.py` | Native | 🔄 Planned | Our World in Data |
