@@ -128,7 +128,7 @@ epidemiological-datasets/
 | Dataset | Description | Update Frequency | Access Level | Script |
 |---------|-------------|------------------|--------------|--------|
 | [WHO Global Health Observatory](https://www.who.int/data/gho) | Health indicators by country | Annual | Open | `ghoclient` |
-| [Our World in Data - Health](https://ourworldindata.org/health) | Comprehensive health datasets | Weekly | Open | `scripts/accessors/owid.py` |
+| [Our World in Data - Health](https://ourworldindata.org/health) | COVID-19, vaccination, excess mortality | Daily/Weekly | Open | `OWIDAccessor` |
 | [World Bank Health](https://data.worldbank.org/health) | Health, nutrition, and population statistics | Annual | Open | `scripts/accessors/worldbank.py` |
 | [Global Health Data Exchange (GHDx)](http://ghdx.healthdata.org/) | Catalog of health datasets | Varies | Varies | Catalog only |
 | [HDX (Humanitarian Data Exchange)](https://data.humdata.org/) | Health in crisis contexts | Real-time | Open | `scripts/accessors/hdx.py` |
@@ -372,6 +372,75 @@ comparison = eurostat.compare_countries(
 - Eurostat API: https://ec.europa.eu/eurostat/web/sdmx-web-services
 - Python Library: https://pypi.org/project/eurostat/
 
+### Using OWID Accessor for Our World in Data
+
+The OWID accessor provides access to comprehensive health datasets from Our World in Data, including COVID-19 data, vaccination statistics, and excess mortality estimates.
+
+**No installation required** - uses native Python libraries.
+
+**Example usage:**
+```python
+from accessors import OWIDAccessor
+
+# Initialize accessor
+owid = OWIDAccessor()
+
+# List available countries
+countries = owid.list_countries()
+print(f"Total countries: {len(countries)}")
+
+# Get COVID-19 data for specific countries
+covid = owid.get_covid_data(
+    countries=['BRA', 'USA', 'IND'],
+    metrics=['cases', 'deaths', 'hospitalizations'],
+    start_date='2021-01-01',
+    end_date='2021-12-31'
+)
+
+# Get vaccination data
+vax = owid.get_vaccination_data(countries=['BRA', 'USA'])
+
+# Get excess mortality data
+excess = owid.get_excess_mortality(
+    countries=['GBR', 'ITA', 'USA'],
+    start_date='2020-03-01'
+)
+
+# Compare countries
+comparison = owid.compare_countries(
+    countries=['BRA', 'USA', 'IND', 'GBR'],
+    metric='total_deaths_per_million'
+)
+
+# Get regional aggregates
+sa_cases = owid.get_region_aggregates(
+    region='South America',
+    metric='new_cases',
+    aggregation='sum'
+)
+
+# Get latest global summary
+summary = owid.get_global_summary()
+print(summary)
+```
+
+**Features:**
+- 192 countries worldwide
+- COVID-19 cases, deaths, testing data
+- Vaccination progress (total, people vaccinated, boosters)
+- Hospitalization and ICU data
+- Excess mortality estimates
+- Government response indices (stringency, containment)
+- Regional aggregation (6 continents)
+- Cross-country comparison tools
+
+**Data Sources:**
+- Our World in Data: https://ourworldindata.org/health
+- COVID-19 Data: https://github.com/owid/covid-19-data
+- GitHub Datasets: https://github.com/owid/owid-datasets
+- API: https://covid.ourworldindata.org/data
+- License: CC BY (Creative Commons Attribution)
+
 ## 📦 Installation
 
 ### Standard Installation
@@ -471,9 +540,9 @@ print(f"Brazil Malaria incidence (WHO): {who_data['value'].values[0]}")
 | `who_ghoclient.py` | **ghoclient** | ✅ Available | Wrapper for ghoclient with pandas integration |
 | `paho.py` | Native | ✅ Available | PAHO (Pan American Health Organization) data accessor |
 | `eurostat.py` | Native/eurostat | ✅ Available | Eurostat (EU) health statistics accessor |
+| `owid.py` | Native | ✅ Available | Our World in Data (COVID-19, vaccination, excess mortality) |
 | `cdc.py` | Native | 🔄 Planned | CDC Wonder and Open Data |
 | `ecdc.py` | Native | 🔄 Planned | European CDC data |
-| `owid.py` | Native | 🔄 Planned | Our World in Data |
 | `worldbank.py` | Native | 🔄 Planned | World Bank health indicators |
 
 ## 🤝 Contributing
