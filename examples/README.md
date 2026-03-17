@@ -169,6 +169,28 @@ Access comprehensive health datasets from Our World in Data, including COVID-19,
 
 ---
 
+### 9. [09_Colombia_INS_SIVIGILA_Data.ipynb](notebooks/09_Colombia_INS_SIVIGILA_Data.ipynb)
+**Colombia INS (Instituto Nacional de Salud) SIVIGILA Data**
+
+Access Colombian public health surveillance data from the National Health Institute (INS), including SIVIGILA notifiable disease surveillance.
+
+**Topics covered:**
+- SIVIGILA notifiable disease surveillance
+- Vector-borne diseases (dengue, malaria, chikungunya, zika, yellow fever)
+- Respiratory diseases (COVID-19, influenza)
+- Department-level analysis across 33 departments
+- 5 geographical regions (Andina, Caribe, Pacífica, Orinoquía, Amazonía)
+- Weekly epidemiological bulletins
+- Disease event groups classification
+
+**Data Sources:**
+- INS Colombia: https://www.ins.gov.co/
+- SIVIGILA surveillance system
+- Colombia Open Data Portal: https://www.datos.gov.co
+- 33 notifiable diseases tracked
+
+---
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -232,7 +254,8 @@ folium>=0.12.0        # Geospatial mapping
         ├── ECDC (Europe)
         ├── PAHO (Americas)
         ├── Eurostat (EU)
-        └── OWID (Global)
+        ├── OWID (Global)
+        └── INS Colombia (Colombia)
 ```
 
 ---
@@ -307,6 +330,9 @@ Notebooks save processed data to `./output/` directory:
 | `owid_covid_global.csv` | Global COVID-19 data | OWID |
 | `owid_vaccination.csv` | Global vaccination progress | OWID |
 | `multi_source_comparison.csv` | Combined dataset | Multiple |
+| `colombia_departments.csv` | Colombian administrative divisions | INS Colombia |
+| `colombia_diseases.csv` | Colombia notifiable diseases | SIVIGILA |
+| `colombia_event_groups.csv` | Colombia disease event groups | INS Colombia |
 
 ---
 
@@ -341,6 +367,7 @@ These notebooks are provided under the same license as the main repository.
 - **PAHO** for Pan American health statistics
 - **Eurostat** for European Union health data
 - **Our World in Data** for global health research and open data
+- **INS Colombia** for Colombian public health surveillance data through SIVIGILA
 
 ---
 

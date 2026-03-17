@@ -58,6 +58,14 @@ try:
 except ImportError:
     OWID_AVAILABLE = False
 
+# Colombia INS accessor (requests library only - standard)
+try:
+    from .colombia_ins import ColombiaINSAccessor
+
+    COLOMBIA_INS_AVAILABLE = True
+except ImportError:
+    COLOMBIA_INS_AVAILABLE = False
+
 # Other accessors (to be implemented)
 # from .cdc import CDCAccessor
 # from .ecdc import ECDCAccessor
@@ -92,6 +100,9 @@ if EUROSTAT_AVAILABLE:
 if OWID_AVAILABLE:
     __all__.append("OWIDAccessor")
 
+if COLOMBIA_INS_AVAILABLE:
+    __all__.append("ColombiaINSAccessor")
+
 __version__ = "0.1.0"
 
 # Metadata about available libraries
@@ -120,6 +131,11 @@ LIBRARY_INFO = {
         "description": "Our World in Data health statistics access",
         "url": "https://ourworldindata.org/",
         "available": OWID_AVAILABLE,
+    },
+    "colombia_ins": {
+        "description": "Colombia INS (Instituto Nacional de Salud) health data access",
+        "url": "https://www.ins.gov.co/",
+        "available": COLOMBIA_INS_AVAILABLE,
     },
 }
 
