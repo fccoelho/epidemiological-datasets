@@ -11,9 +11,10 @@ Repository: https://github.com/fccoelho/ghoclient
 PyPI: https://pypi.org/project/ghoclient/
 """
 
-import pandas as pd
-from typing import List, Optional, Dict, Any
 import logging
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,10 +24,10 @@ logger = logging.getLogger(__name__)
 class WHOAccessor:
     """
     Accessor for WHO Global Health Observatory (GHO) data using ghoclient.
-    
+
     This is a wrapper around ghoclient that provides a standardized interface
     consistent with other accessors in this repository.
-    
+
     Example:
         >>> who = WHOAccessor()
         >>> data = who.get_indicator(
@@ -34,75 +35,78 @@ class WHOAccessor:
         ...     years=[2020, 2021, 2022],
         ...     countries=["BRA", "IND", "NGA"]
         ... )
-    
+
     Requirements:
         pip install ghoclient
     """
-    
+
     def __init__(self):
         self._client = None
-    
+
     def _get_client(self):
         """Lazy load GHOClient."""
         if self._client is None:
             try:
                 from ghoclient import GHOClient
+
                 self._client = GHOClient()
             except ImportError:
                 raise ImportError(
                     "ghoclient is required. Install with: pip install ghoclient"
                 )
         return self._client
-    
+
     def get_indicators_list(self) -> pd.DataFrame:
         """
         Fetch the list of available health indicators.
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with indicator information
         """
         client = self._get_client()
-        
+
         logger.info("Fetching WHO indicators list...")
         indicators = client.get_indicators()
-        
+
         # Convert to DataFrame if not already
         if isinstance(indicators, pd.DataFrame):
             return indicators
         else:
             return pd.DataFrame(indicators)
-    
+
     def search_indicators(self, keyword: str) -> pd.DataFrame:
         """
         Search for indicators by keyword.
-        
+
         Args:
             keyword: Search term (case-insensitive)
-            
-        Returns:
+
+        Returns
+        -------
             DataFrame with matching indicators
         """
         client = self._get_client()
-        
+
         logger.info(f"Searching indicators for '{keyword}'...")
         results = client.search_indicators(keyword)
-        
+
         if isinstance(results, pd.DataFrame):
             return results
         else:
             return pd.DataFrame(results)
-    
+
     def get_indicator(
         self,
         indicator: str,
         years: Optional[List[int]] = None,
         countries: Optional[List[str]] = None,
         sex: Optional[str] = None,
-        age_group: Optional[str] = None
+        age_group: Optional[str] = None,
     ) -> pd.DataFrame:
         """
         Fetch data for a specific indicator.
-        
+
         Args:
             indicator: Indicator code (e.g., "MALARIA_EST_INCIDENCE")
                       or indicator name
@@ -110,8 +114,9 @@ class WHOAccessor:
             countries: List of ISO3 country codes (e.g., ["BRA", "USA"])
             sex: Filter by sex ("MLE", "FMLE", or "BTSX")
             age_group: Filter by age group code
-            
-        Returns:
+
+        Returns
+        -------
             DataFrame with indicator data with standardized columns:
             - country_code: ISO3 country code
             - year: Year of observation
@@ -119,17 +124,17 @@ class WHOAccessor:
             - indicator_code: WHO indicator code
         """
         client = self._get_client()
-        
+
         # Resolve indicator code if name was provided
         if " " in indicator or len(indicator) > 50:
             # Likely a name, search for code
             indicators = self.search_indicators(indicator)
             if not indicators.empty:
                 # Get first match
-                if 'IndicatorCode' in indicators.columns:
-                    indicator_code = indicators.iloc[0]['IndicatorCode']
-                elif 'indicator_code' in indicators.columns:
-                    indicator_code = indicators.iloc[0]['indicator_code']
+                if "IndicatorCode" in indicators.columns:
+                    indicator_code = indicators.iloc[0]["IndicatorCode"]
+                elif "indicator_code" in indicators.columns:
+                    indicator_code = indicators.iloc[0]["indicator_code"]
                 else:
                     indicator_code = indicator
                 logger.info(f"Resolved indicator to code: {indicator_code}")
@@ -137,248 +142,246 @@ class WHOAccessor:
                 indicator_code = indicator
         else:
             indicator_code = indicator
-        
+
         logger.info(f"Fetching data for indicator: {indicator_code}")
-        
+
         # Build query parameters
-        params = {
-            'indicator': indicator_code
-        }
-        
+        params = {"indicator": indicator_code}
+
         if years:
-            params['years'] = years
+            params["years"] = years
         if countries:
-            params['countries'] = countries
+            params["countries"] = countries
         if sex:
-            params['sex'] = sex
+            params["sex"] = sex
         if age_group:
-            params['age_group'] = age_group
-        
+            params["age_group"] = age_group
+
         # Fetch data
         data = client.get_indicator(**params)
-        
+
         if isinstance(data, pd.DataFrame):
             df = data
         else:
             df = pd.DataFrame(data)
-        
+
         # Standardize column names
         column_mapping = {
-            'SpatialDim': 'country_code',
-            'TimeDim': 'year',
-            'NumericValue': 'value',
-            'Value': 'value',
-            'IndicatorCode': 'indicator_code',
-            'Dim1': 'sex',
-            'Dim2': 'age_group',
-            'Dim3': 'other_dimension',
-            'country': 'country_code',
-            'date': 'year'
+            "SpatialDim": "country_code",
+            "TimeDim": "year",
+            "NumericValue": "value",
+            "Value": "value",
+            "IndicatorCode": "indicator_code",
+            "Dim1": "sex",
+            "Dim2": "age_group",
+            "Dim3": "other_dimension",
+            "country": "country_code",
+            "date": "year",
         }
-        
-        df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-        
+
+        df = df.rename(
+            columns={k: v for k, v in column_mapping.items() if k in df.columns}
+        )
+
         logger.info(f"Retrieved {len(df)} records")
         return df
-    
+
     def get_countries_list(self) -> pd.DataFrame:
         """
         Fetch list of available countries and their codes.
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with country information
         """
         client = self._get_client()
-        
+
         logger.info("Fetching countries list...")
         countries = client.get_countries()
-        
+
         if isinstance(countries, pd.DataFrame):
             return countries
         else:
             return pd.DataFrame(countries)
-    
+
     def get_available_years(self, indicator: str) -> List[int]:
         """
         Get list of years available for an indicator.
-        
+
         Args:
             indicator: Indicator code or name
-            
-        Returns:
+
+        Returns
+        -------
             List of available years
         """
         client = self._get_client()
-        
+
         logger.info(f"Fetching available years for {indicator}...")
         years = client.get_years(indicator)
-        
+
         if isinstance(years, list):
             return sorted(years)
         else:
             return sorted(list(years))
-    
+
     def get_indicator_metadata(self, indicator: str) -> Dict[str, Any]:
         """
         Get metadata for a specific indicator.
-        
+
         Args:
             indicator: Indicator code
-            
-        Returns:
+
+        Returns
+        -------
             Dictionary with metadata
         """
         client = self._get_client()
-        
+
         logger.info(f"Fetching metadata for {indicator}...")
         metadata = client.get_indicator_metadata(indicator)
-        
+
         return metadata if isinstance(metadata, dict) else dict(metadata)
-    
+
     def compare_countries(
-        self,
-        indicator: str,
-        countries: List[str],
-        years: Optional[List[int]] = None
+        self, indicator: str, countries: List[str], years: Optional[List[int]] = None
     ) -> pd.DataFrame:
         """
         Compare indicator values across multiple countries.
-        
+
         Args:
             indicator: Indicator code
             countries: List of ISO3 country codes
             years: List of years (optional, gets all available if not specified)
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with data for all countries
         """
         if years is None:
             years = self.get_available_years(indicator)
-        
-        data = self.get_indicator(
-            indicator=indicator,
-            years=years,
-            countries=countries
-        )
-        
+
+        data = self.get_indicator(indicator=indicator, years=years, countries=countries)
+
         # Pivot for easy comparison
-        if 'value' in data.columns and 'country_code' in data.columns and 'year' in data.columns:
+        if (
+            "value" in data.columns
+            and "country_code" in data.columns
+            and "year" in data.columns
+        ):
             comparison = data.pivot_table(
-                index='year',
-                columns='country_code',
-                values='value',
-                aggfunc='mean'
+                index="year", columns="country_code", values="value", aggfunc="mean"
             )
             return comparison
-        
+
         return data
-    
+
     def get_global_health_trends(
         self,
         indicator: str,
         start_year: int,
         end_year: int,
-        region: Optional[str] = None
+        region: Optional[str] = None,
     ) -> pd.DataFrame:
         """
         Get global trends for a health indicator over time.
-        
+
         Args:
             indicator: Indicator code
             start_year: Start year
             end_year: End year
             region: WHO region code (optional, e.g., "AFRO", "AMRO", "SEARO")
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with trend data
         """
         years = list(range(start_year, end_year + 1))
-        
+
         if region:
             # Get countries in region first
             countries_df = self.get_countries_list()
-            if 'region' in countries_df.columns:
-                countries = countries_df[countries_df['region'] == region]['country_code'].tolist()
+            if "region" in countries_df.columns:
+                countries = countries_df[countries_df["region"] == region][
+                    "country_code"
+                ].tolist()
             else:
                 countries = None
         else:
             countries = None
-        
-        data = self.get_indicator(
-            indicator=indicator,
-            years=years,
-            countries=countries
-        )
-        
+
+        data = self.get_indicator(indicator=indicator, years=years, countries=countries)
+
         # Calculate global/regional aggregates
-        if 'value' in data.columns and 'year' in data.columns:
-            trends = data.groupby('year')['value'].agg(['mean', 'median', 'std', 'count']).reset_index()
-            trends.columns = ['year', 'mean_value', 'median_value', 'std_value', 'n_countries']
+        if "value" in data.columns and "year" in data.columns:
+            trends = (
+                data.groupby("year")["value"]
+                .agg(["mean", "median", "std", "count"])
+                .reset_index()
+            )
+            trends.columns = [
+                "year",
+                "mean_value",
+                "median_value",
+                "std_value",
+                "n_countries",
+            ]
             return trends
-        
+
         return data
-    
+
     def get_healthy_life_expectancy(
-        self,
-        countries: List[str],
-        years: Optional[List[int]] = None
+        self, countries: List[str], years: Optional[List[int]] = None
     ) -> pd.DataFrame:
         """
         Convenience method for healthy life expectancy (HALE).
-        
+
         Args:
             countries: List of ISO3 country codes
             years: List of years
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with HALE data
         """
         return self.get_indicator(
-            indicator="WHOSIS_000002",  # HALE at birth
-            countries=countries,
-            years=years
+            indicator="WHOSIS_000002", countries=countries, years=years  # HALE at birth
         )
-    
+
     def get_malaria_incidence(
-        self,
-        countries: List[str],
-        years: Optional[List[int]] = None
+        self, countries: List[str], years: Optional[List[int]] = None
     ) -> pd.DataFrame:
         """
         Convenience method for malaria incidence.
-        
+
         Args:
             countries: List of ISO3 country codes
             years: List of years
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with malaria incidence data
         """
         return self.get_indicator(
-            indicator="MALARIA_EST_INCIDENCE",
-            countries=countries,
-            years=years
+            indicator="MALARIA_EST_INCIDENCE", countries=countries, years=years
         )
-    
+
     def get_covid_vaccination(
-        self,
-        countries: List[str],
-        years: Optional[List[int]] = None
+        self, countries: List[str], years: Optional[List[int]] = None
     ) -> pd.DataFrame:
         """
         Convenience method for COVID-19 vaccination coverage.
-        
+
         Args:
             countries: List of ISO3 country codes
             years: List of years
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with vaccination data
         """
         return self.get_indicator(
-            indicator="COVID19_VACCINATION",
-            countries=countries,
-            years=years
+            indicator="COVID19_VACCINATION", countries=countries, years=years
         )
 
 
@@ -389,21 +392,21 @@ def main():
     print("=" * 60)
     print("WHO Global Health Observatory Accessor using ghoclient")
     print("=" * 60)
-    
+
     who = WHOAccessor()
-    
+
     # Search for malaria indicators
     print("\n🔍 Searching for malaria indicators...")
     malaria_indicators = who.search_indicators("malaria")
     if not malaria_indicators.empty:
         print(f"Found {len(malaria_indicators)} malaria-related indicators:")
         print(malaria_indicators.head().to_string())
-    
+
     # Get countries list
     print("\n🌍 Fetching countries list...")
     countries = who.get_countries_list()
     print(f"Total countries: {len(countries)}")
-    
+
     # Example: Get malaria data (commented out to avoid API calls)
     # print("\n🦟 Fetching malaria incidence data...")
     # data = who.get_malaria_incidence(
@@ -412,7 +415,7 @@ def main():
     # )
     # print(f"Retrieved {len(data)} records")
     # print(data.head())
-    
+
     print("\n✅ WHO accessor ready to use!")
     print("\nExample usage:")
     print("  who = WHOAccessor()")

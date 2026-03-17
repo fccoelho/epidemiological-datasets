@@ -115,7 +115,7 @@ jobs:
           args: "-r src/epi_data/ -f json -o bandit-report.json || true"
 
       - name: Upload Bandit results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bandit-report
           path: bandit-report.json

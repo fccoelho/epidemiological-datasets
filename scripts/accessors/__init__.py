@@ -21,6 +21,7 @@ For more information:
 # Use ghoclient-based WHO accessor
 try:
     from .who_ghoclient import WHOAccessor
+
     WHO_AVAILABLE = True
 except ImportError:
     WHO_AVAILABLE = False
@@ -28,6 +29,7 @@ except ImportError:
 # Use PySUS-based DATASUS accessor
 try:
     from .datasus_pysus import DataSUSAccessor
+
     DATASUS_AVAILABLE = True
 except ImportError:
     DATASUS_AVAILABLE = False
@@ -35,6 +37,7 @@ except ImportError:
 # PAHO accessor (no external dependencies)
 try:
     from .paho import PAHOAccessor
+
     PAHO_AVAILABLE = True
 except ImportError:
     PAHO_AVAILABLE = False
@@ -42,6 +45,7 @@ except ImportError:
 # Eurostat accessor (requests library only - standard)
 try:
     from .eurostat import EurostatAccessor
+
     EUROSTAT_AVAILABLE = True
 except ImportError:
     EUROSTAT_AVAILABLE = False
@@ -49,6 +53,7 @@ except ImportError:
 # OWID accessor (requests library only - standard)
 try:
     from .owid import OWIDAccessor
+
     OWID_AVAILABLE = True
 except ImportError:
     OWID_AVAILABLE = False
@@ -63,18 +68,19 @@ if WHO_AVAILABLE:
     __all__.append("WHOAccessor")
 else:
     import warnings
+
     warnings.warn(
         "WHOAccessor not available. Install ghoclient: pip install ghoclient",
-        ImportWarning
+        ImportWarning,
     )
 
 if DATASUS_AVAILABLE:
     __all__.append("DataSUSAccessor")
 else:
     import warnings
+
     warnings.warn(
-        "DataSUSAccessor not available. Install PySUS: pip install pysus",
-        ImportWarning
+        "DataSUSAccessor not available. Install PySUS: pip install pysus", ImportWarning
     )
 
 if PAHO_AVAILABLE:
@@ -93,36 +99,37 @@ LIBRARY_INFO = {
     "ghoclient": {
         "description": "WHO Global Health Observatory client",
         "url": "https://pypi.org/project/ghoclient/",
-        "available": WHO_AVAILABLE
+        "available": WHO_AVAILABLE,
     },
     "pysus": {
         "description": "Brazilian health data (DATASUS) access",
         "url": "https://pypi.org/project/pysus/",
-        "available": DATASUS_AVAILABLE
+        "available": DATASUS_AVAILABLE,
     },
     "paho": {
         "description": "PAHO (Pan American Health Organization) data access",
         "url": "https://www.paho.org/en/data",
-        "available": PAHO_AVAILABLE
+        "available": PAHO_AVAILABLE,
     },
     "eurostat": {
         "description": "Eurostat (EU) health statistics access",
         "url": "https://pypi.org/project/eurostat/",
-        "available": EUROSTAT_AVAILABLE
+        "available": EUROSTAT_AVAILABLE,
     },
     "owid": {
         "description": "Our World in Data health statistics access",
         "url": "https://ourworldindata.org/",
-        "available": OWID_AVAILABLE
-    }
+        "available": OWID_AVAILABLE,
+    },
 }
 
 
 def check_libraries():
     """
     Check which libraries are installed and available.
-    
-    Returns:
+
+    Returns
+    -------
         Dictionary with library availability status
     """
     return LIBRARY_INFO.copy()
@@ -132,14 +139,14 @@ def print_status():
     """Print status of available libraries."""
     print("Epidemiological Data Accessors - Status")
     print("=" * 50)
-    
+
     for lib, info in LIBRARY_INFO.items():
         status = "✅ Available" if info["available"] else "❌ Not installed"
         print(f"\n{lib}:")
         print(f"  Status: {status}")
         print(f"  Description: {info['description']}")
         print(f"  URL: {info['url']}")
-    
+
     print("\n" + "=" * 50)
     print("To install missing libraries:")
     if not WHO_AVAILABLE:

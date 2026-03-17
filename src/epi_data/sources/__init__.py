@@ -16,7 +16,7 @@ This module provides unified interfaces to various health data sources:
 
 __all__ = [
     "PySUS",
-    "WHO", 
+    "WHO",
     "WorldBank",
     "ECDC",
 ]

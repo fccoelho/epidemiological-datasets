@@ -15,9 +15,10 @@ Repository: https://github.com/AlertaDengue/PySUS
 PyPI: https://pypi.org/project/pysus/
 """
 
-import pandas as pd
-from typing import List, Optional, Dict, Any
 import logging
+from typing import List, Optional
+
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,116 +28,111 @@ logger = logging.getLogger(__name__)
 class DataSUSAccessor:
     """
     Accessor for Brazilian DATASUS data using PySUS library.
-    
+
     This is a wrapper around PySUS that provides a standardized interface
     consistent with other accessors in this repository.
-    
+
     Example:
         >>> accessor = DataSUSAccessor()
         >>> dengue_data = accessor.get_dengue_cases(years=[2023], states=["RJ", "SP"])
         >>> mortality = accessor.get_mortality(years=[2022], states=["MG"])
-    
+
     Requirements:
         pip install pysus
     """
-    
+
     def __init__(self):
         self._sinan = None
         self._sim = None
         self._sih = None
         self._sia = None
         self._cnes = None
-    
+
     def _get_sinan(self):
         """Lazy load SINAN module."""
         if self._sinan is None:
             try:
                 from pysus.online_data import SINAN
+
                 self._sinan = SINAN
             except ImportError:
-                raise ImportError(
-                    "PySUS is required. Install with: pip install pysus"
-                )
+                raise ImportError("PySUS is required. Install with: pip install pysus")
         return self._sinan
-    
+
     def _get_sim(self):
         """Lazy load SIM module."""
         if self._sim is None:
             try:
                 from pysus.online_data import SIM
+
                 self._sim = SIM
             except ImportError:
-                raise ImportError(
-                    "PySUS is required. Install with: pip install pysus"
-                )
+                raise ImportError("PySUS is required. Install with: pip install pysus")
         return self._sim
-    
+
     def _get_sih(self):
         """Lazy load SIH module."""
         if self._sih is None:
             try:
                 from pysus.online_data import SIH
+
                 self._sih = SIH
             except ImportError:
-                raise ImportError(
-                    "PySUS is required. Install with: pip install pysus"
-                )
+                raise ImportError("PySUS is required. Install with: pip install pysus")
         return self._sih
-    
+
     def _get_sia(self):
         """Lazy load SIA module."""
         if self._sia is None:
             try:
                 from pysus.online_data import SIA
+
                 self._sia = SIA
             except ImportError:
-                raise ImportError(
-                    "PySUS is required. Install with: pip install pysus"
-                )
+                raise ImportError("PySUS is required. Install with: pip install pysus")
         return self._sia
-    
+
     def get_dengue_cases(
         self,
         years: List[int],
         states: Optional[List[str]] = None,
-        cities: Optional[List[str]] = None
+        cities: Optional[List[str]] = None,
     ) -> pd.DataFrame:
         """
         Download dengue notification data from SINAN.
-        
+
         Args:
             years: List of years to download (e.g., [2022, 2023])
             states: List of state abbreviations (e.g., ["RJ", "SP", "MG"])
                    If None, downloads all states
             cities: List of city IBGE codes (optional, for filtering)
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with dengue case notifications
-        
+
         Example:
             >>> accessor = DataSUSAccessor()
             >>> df = accessor.get_dengue_cases(years=[2023], states=["RJ"])
             >>> print(f"Total cases: {len(df)}")
         """
         SINAN = self._get_sinan()
-        
+
         logger.info(f"Downloading dengue data for years {years}...")
-        
+
         if states:
             dataframes = []
             for state in states:
                 for year in years:
                     try:
                         df = SINAN.download(
-                            disease="Dengue",
-                            years=[year],
-                            states=[state]
+                            disease="Dengue", years=[year], states=[state]
                         )
                         dataframes.append(df)
                         logger.info(f"Downloaded {len(df)} records for {state} {year}")
                     except Exception as e:
                         logger.warning(f"Failed to download {state} {year}: {e}")
-            
+
             if dataframes:
                 result = pd.concat(dataframes, ignore_index=True)
                 logger.info(f"Total records: {len(result)}")
@@ -145,148 +141,140 @@ class DataSUSAccessor:
                 return pd.DataFrame()
         else:
             return SINAN.download(disease="Dengue", years=years)
-    
+
     def get_malaria_cases(
-        self,
-        years: List[int],
-        states: Optional[List[str]] = None
+        self, years: List[int], states: Optional[List[str]] = None
     ) -> pd.DataFrame:
         """
         Download malaria notification data from SINAN.
-        
+
         Args:
             years: List of years to download
             states: List of state abbreviations
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with malaria case notifications
         """
         SINAN = self._get_sinan()
-        
+
         logger.info(f"Downloading malaria data for years {years}...")
-        
+
         if states:
             dataframes = []
             for state in states:
                 for year in years:
                     try:
                         df = SINAN.download(
-                            disease="Malaria",
-                            years=[year],
-                            states=[state]
+                            disease="Malaria", years=[year], states=[state]
                         )
                         dataframes.append(df)
                     except Exception as e:
                         logger.warning(f"Failed to download {state} {year}: {e}")
-            
+
             if dataframes:
                 return pd.concat(dataframes, ignore_index=True)
             else:
                 return pd.DataFrame()
         else:
             return SINAN.download(disease="Malaria", years=years)
-    
+
     def get_chikungunya_cases(
-        self,
-        years: List[int],
-        states: Optional[List[str]] = None
+        self, years: List[int], states: Optional[List[str]] = None
     ) -> pd.DataFrame:
         """
         Download chikungunya notification data from SINAN.
-        
+
         Args:
             years: List of years to download
             states: List of state abbreviations
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with chikungunya case notifications
         """
         SINAN = self._get_sinan()
-        
+
         logger.info(f"Downloading chikungunya data for years {years}...")
-        
+
         if states:
             dataframes = []
             for state in states:
                 for year in years:
                     try:
                         df = SINAN.download(
-                            disease="Chikungunya",
-                            years=[year],
-                            states=[state]
+                            disease="Chikungunya", years=[year], states=[state]
                         )
                         dataframes.append(df)
                     except Exception as e:
                         logger.warning(f"Failed to download {state} {year}: {e}")
-            
+
             if dataframes:
                 return pd.concat(dataframes, ignore_index=True)
             else:
                 return pd.DataFrame()
         else:
             return SINAN.download(disease="Chikungunya", years=years)
-    
+
     def get_zika_cases(
-        self,
-        years: List[int],
-        states: Optional[List[str]] = None
+        self, years: List[int], states: Optional[List[str]] = None
     ) -> pd.DataFrame:
         """
         Download Zika notification data from SINAN.
-        
+
         Args:
             years: List of years to download
             states: List of state abbreviations
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with Zika case notifications
         """
         SINAN = self._get_sinan()
-        
+
         logger.info(f"Downloading Zika data for years {years}...")
-        
+
         if states:
             dataframes = []
             for state in states:
                 for year in years:
                     try:
                         df = SINAN.download(
-                            disease="Zika",
-                            years=[year],
-                            states=[state]
+                            disease="Zika", years=[year], states=[state]
                         )
                         dataframes.append(df)
                     except Exception as e:
                         logger.warning(f"Failed to download {state} {year}: {e}")
-            
+
             if dataframes:
                 return pd.concat(dataframes, ignore_index=True)
             else:
                 return pd.DataFrame()
         else:
             return SINAN.download(disease="Zika", years=years)
-    
+
     def get_mortality(
         self,
         years: List[int],
         states: Optional[List[str]] = None,
-        causes: Optional[List[str]] = None
+        causes: Optional[List[str]] = None,
     ) -> pd.DataFrame:
         """
         Download mortality data from SIM.
-        
+
         Args:
             years: List of years to download
             states: List of state abbreviations
             causes: List of CID-10 cause codes (optional)
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with mortality records
         """
         SIM = self._get_sim()
-        
+
         logger.info(f"Downloading mortality data for years {years}...")
-        
+
         if states:
             dataframes = []
             for state in states:
@@ -296,46 +284,47 @@ class DataSUSAccessor:
                         dataframes.append(df)
                     except Exception as e:
                         logger.warning(f"Failed to download {state} {year}: {e}")
-            
+
             if dataframes:
                 result = pd.concat(dataframes, ignore_index=True)
-                
+
                 # Filter by causes if specified
                 if causes:
-                    result = result[result['CAUSABAS'].isin(causes)]
-                
+                    result = result[result["CAUSABAS"].isin(causes)]
+
                 return result
             else:
                 return pd.DataFrame()
         else:
             return SIM.download(years=years)
-    
+
     def get_hospitalizations(
         self,
         years: List[int],
         months: Optional[List[int]] = None,
         states: Optional[List[str]] = None,
-        group: str = "RD"
+        group: str = "RD",
     ) -> pd.DataFrame:
         """
         Download hospitalization data from SIH.
-        
+
         Args:
             years: List of years to download
             months: List of months (1-12), optional
             states: List of state abbreviations
             group: Data group ("RD"=Reduced, "ER"=Error, "RJ"=Rejected)
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with hospitalization records
         """
         SIH = self._get_sih()
-        
+
         logger.info(f"Downloading hospitalization data for years {years}...")
-        
+
         if months is None:
             months = list(range(1, 13))
-        
+
         if states:
             dataframes = []
             for state in states:
@@ -346,12 +335,14 @@ class DataSUSAccessor:
                                 years=[year],
                                 months=[month],
                                 states=[state],
-                                group=group
+                                group=group,
                             )
                             dataframes.append(df)
                         except Exception as e:
-                            logger.warning(f"Failed to download {state} {year}-{month}: {e}")
-            
+                            logger.warning(
+                                f"Failed to download {state} {year}-{month}: {e}"
+                            )
+
             if dataframes:
                 return pd.concat(dataframes, ignore_index=True)
             else:
@@ -361,29 +352,26 @@ class DataSUSAccessor:
             for year in years:
                 for month in months:
                     try:
-                        df = SIH.download(
-                            years=[year],
-                            months=[month],
-                            group=group
-                        )
+                        df = SIH.download(years=[year], months=[month], group=group)
                         dataframes.append(df)
                     except Exception as e:
                         logger.warning(f"Failed to download {year}-{month}: {e}")
-            
+
             if dataframes:
                 return pd.concat(dataframes, ignore_index=True)
             else:
                 return pd.DataFrame()
-    
+
     def list_available_diseases(self) -> pd.DataFrame:
         """
         List diseases available in SINAN.
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with disease names and codes
         """
         SINAN = self._get_sinan()
-        
+
         diseases = [
             ("Dengue", "A90"),
             ("Malaria", "B50-B54"),
@@ -400,29 +388,47 @@ class DataSUSAccessor:
             ("Hepatitis", "B15-B19"),
             ("Foodborne Illness", "A05"),
         ]
-        
+
         return pd.DataFrame(diseases, columns=["disease_name", "cid10_code"])
-    
+
     def list_states(self) -> pd.DataFrame:
         """
         List Brazilian states with their abbreviations.
-        
-        Returns:
+
+        Returns
+        -------
             DataFrame with state names and abbreviations
         """
         states = [
-            ("Acre", "AC"), ("Alagoas", "AL"), ("Amapá", "AP"),
-            ("Amazonas", "AM"), ("Bahia", "BA"), ("Ceará", "CE"),
-            ("Distrito Federal", "DF"), ("Espírito Santo", "ES"),
-            ("Goiás", "GO"), ("Maranhão", "MA"), ("Mato Grosso", "MT"),
-            ("Mato Grosso do Sul", "MS"), ("Minas Gerais", "MG"),
-            ("Pará", "PA"), ("Paraíba", "PB"), ("Paraná", "PR"),
-            ("Pernambuco", "PE"), ("Piauí", "PI"), ("Rio de Janeiro", "RJ"),
-            ("Rio Grande do Norte", "RN"), ("Rio Grande do Sul", "RS"),
-            ("Rondônia", "RO"), ("Roraima", "RR"), ("Santa Catarina", "SC"),
-            ("São Paulo", "SP"), ("Sergipe", "SE"), ("Tocantins", "TO")
+            ("Acre", "AC"),
+            ("Alagoas", "AL"),
+            ("Amapá", "AP"),
+            ("Amazonas", "AM"),
+            ("Bahia", "BA"),
+            ("Ceará", "CE"),
+            ("Distrito Federal", "DF"),
+            ("Espírito Santo", "ES"),
+            ("Goiás", "GO"),
+            ("Maranhão", "MA"),
+            ("Mato Grosso", "MT"),
+            ("Mato Grosso do Sul", "MS"),
+            ("Minas Gerais", "MG"),
+            ("Pará", "PA"),
+            ("Paraíba", "PB"),
+            ("Paraná", "PR"),
+            ("Pernambuco", "PE"),
+            ("Piauí", "PI"),
+            ("Rio de Janeiro", "RJ"),
+            ("Rio Grande do Norte", "RN"),
+            ("Rio Grande do Sul", "RS"),
+            ("Rondônia", "RO"),
+            ("Roraima", "RR"),
+            ("Santa Catarina", "SC"),
+            ("São Paulo", "SP"),
+            ("Sergipe", "SE"),
+            ("Tocantins", "TO"),
         ]
-        
+
         return pd.DataFrame(states, columns=["state_name", "state_code"])
 
 
@@ -433,25 +439,25 @@ def main():
     print("=" * 60)
     print("DATASUS Data Accessor using PySUS")
     print("=" * 60)
-    
+
     accessor = DataSUSAccessor()
-    
+
     # List available diseases
     print("\n📋 Available diseases in SINAN:")
     diseases = accessor.list_available_diseases()
     print(diseases.to_string(index=False))
-    
+
     # List states
     print("\n📍 Brazilian states:")
     states = accessor.list_states()
     print(f"Total states: {len(states)}")
-    
+
     # Example: Get dengue data (commented out to avoid long execution)
     # print("\n🦟 Downloading dengue data for RJ and SP in 2023...")
     # df = accessor.get_dengue_cases(years=[2023], states=["RJ", "SP"])
     # print(f"Downloaded {len(df)} records")
     # print(df.head())
-    
+
     print("\n✅ DataSUS accessor ready to use!")
     print("\nExample usage:")
     print("  accessor = DataSUSAccessor()")

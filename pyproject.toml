@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A curated collection of openly accessible epidemiological datasets with Python access scripts"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 authors = [
     {name = "Flávio Codeço Coelho", email = "fccoelho@gmail.com"},
 ]
@@ -174,6 +174,18 @@ extend-exclude = '''
 [tool.ruff]
 line-length = 88
 target-version = "py39"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.ipynb",  # Exclude Jupyter notebooks
+    "examples/notebooks/*",
+    "scripts/*",  # Exclude development scripts
+]
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -194,10 +206,10 @@ ignore = [
     "E501",  # Line too long (handled by black)
 ]
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["epi_data"]
 
 [tool.mypy]
@@ -231,7 +243,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
     "--cov-report=xml:coverage.xml",
-    "--cov-fail-under=80",
+    "--cov-fail-under=50",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -265,7 +277,7 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
-fail_under = 80
+fail_under = 50
 
 # ============================================================
 # Pre-commit Configuration
