@@ -107,6 +107,68 @@ Combine and compare data from multiple sources.
 
 ---
 
+### 6. [06_PAHO_Pan_American_Data.ipynb](notebooks/06_PAHO_Pan_American_Data.ipynb)
+**PAHO (Pan American Health Organization) Data**
+
+Access health data from the Americas (North, Central, South America and Caribbean).
+
+**Topics covered:**
+- Immunization coverage by country
+- Disease surveillance (malaria, dengue, etc.)
+- Mortality and demographic data
+- Health system indicators
+- Regional comparisons
+
+**Data Sources:**
+- PAHO Data Portal
+- Country-level health statistics
+- Vaccination coverage rates
+- Disease burden estimates
+
+---
+
+### 7. [07_Eurostat_EU_Health_Data.ipynb](notebooks/07_Eurostat_EU_Health_Data.ipynb)
+**Eurostat European Union Health Data**
+
+Access European Union health statistics from Eurostat.
+
+**Topics covered:**
+- Healthcare expenditure and financing
+- Mortality and causes of death
+- Life expectancy trends
+- Health workforce (physicians, nurses)
+- Hospital beds and facilities
+- Self-perceived health status
+
+**Data Sources:**
+- Eurostat Health Database
+- EU member states statistics
+- Healthcare system indicators
+
+---
+
+### 8. [08_OWID_Our_World_in_Data.ipynb](notebooks/08_OWID_Our_World_in_Data.ipynb)
+**Our World in Data (OWID) Global Health Data**
+
+Access comprehensive health datasets from Our World in Data, including COVID-19, vaccination, and excess mortality data.
+
+**Topics covered:**
+- COVID-19 cases, deaths, testing, hospitalizations
+- Global vaccination progress
+- Excess mortality estimates
+- Test positivity rates
+- Country comparisons
+- Regional aggregates
+- Reproduction rate (R) analysis
+
+**Data Sources:**
+- OWID COVID-19 Data (192 countries)
+- GitHub: https://github.com/owid/covid-19-data
+- API: https://covid.ourworldindata.org/data
+- License: CC BY (Creative Commons Attribution)
+
+---
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -167,7 +229,10 @@ folium>=0.12.0        # Geospatial mapping
         ├── PySUS (Brazil)
         ├── WHO GHO (Global)
         ├── World Bank (Global)
-        └── ECDC (Europe)
+        ├── ECDC (Europe)
+        ├── PAHO (Americas)
+        ├── Eurostat (EU)
+        └── OWID (Global)
 ```
 
 ---
@@ -237,6 +302,10 @@ Notebooks save processed data to `./output/` directory:
 | `wb_health_dashboard.csv` | Comprehensive health indicators | World Bank |
 | `ecdc_covid_cases.csv` | COVID-19 European data | ECDC |
 | `ecdc_influenza.csv` | Influenza surveillance | ECDC |
+| `paho_vaccination.csv` | Vaccination coverage in Americas | PAHO |
+| `eurostat_health_exp.csv` | EU healthcare expenditure | Eurostat |
+| `owid_covid_global.csv` | Global COVID-19 data | OWID |
+| `owid_vaccination.csv` | Global vaccination progress | OWID |
 | `multi_source_comparison.csv` | Combined dataset | Multiple |
 
 ---
@@ -269,6 +338,9 @@ These notebooks are provided under the same license as the main repository.
 - **WHO** for the Global Health Observatory
 - **World Bank** for open health data
 - **ECDC** for European surveillance data
+- **PAHO** for Pan American health statistics
+- **Eurostat** for European Union health data
+- **Our World in Data** for global health research and open data
 
 ---
 
@@ -281,5 +353,5 @@ For questions or issues with these notebooks:
 
 ---
 
-**Last Updated:** 2024  
+**Last Updated:** March 2026  
 **Maintained by:** Epidemiological Datasets Repository Team
