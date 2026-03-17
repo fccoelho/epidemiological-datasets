@@ -46,10 +46,16 @@ try:
 except ImportError:
     EUROSTAT_AVAILABLE = False
 
+# OWID accessor (requests library only - standard)
+try:
+    from .owid import OWIDAccessor
+    OWID_AVAILABLE = True
+except ImportError:
+    OWID_AVAILABLE = False
+
 # Other accessors (to be implemented)
 # from .cdc import CDCAccessor
 # from .ecdc import ECDCAccessor
-# from .owid import OWIDAccessor
 
 __all__ = []
 
@@ -77,6 +83,9 @@ if PAHO_AVAILABLE:
 if EUROSTAT_AVAILABLE:
     __all__.append("EurostatAccessor")
 
+if OWID_AVAILABLE:
+    __all__.append("OWIDAccessor")
+
 __version__ = "0.1.0"
 
 # Metadata about available libraries
@@ -100,6 +109,11 @@ LIBRARY_INFO = {
         "description": "Eurostat (EU) health statistics access",
         "url": "https://pypi.org/project/eurostat/",
         "available": EUROSTAT_AVAILABLE
+    },
+    "owid": {
+        "description": "Our World in Data health statistics access",
+        "url": "https://ourworldindata.org/",
+        "available": OWID_AVAILABLE
     }
 }
 
