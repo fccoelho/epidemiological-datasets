@@ -55,6 +55,8 @@
   - [Using ghoclient](#using-ghoclient-for-who-data)
 - [Installation](#installation)
 - [Usage Examples](#usage-examples)
+- [FAQ](#-faq)
+- [Available Scripts](#-available-scripts)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -531,6 +533,26 @@ who_data = who.get_indicator(
 print(f"Brazil Dengue cases (SINAN): {br_cases}")
 print(f"Brazil Malaria incidence (WHO): {who_data['value'].values[0]}")
 ```
+
+## ❓ FAQ
+
+### What is the purpose of this repository?
+This repository provides a curated collection of publicly accessible epidemiological datasets from around the world, along with Python tools for accessing and analyzing them.
+
+### Do I need to install all the listed Python libraries?
+No. Some datasets require specific libraries such as `pysus` or `ghoclient`. You only need to install the libraries required for the data sources you plan to use.
+
+### Are all dataset access scripts already implemented?
+Not yet. Some scripts are already available, while others are marked as *Planned* in the **Available Scripts** section.
+
+### Where should I start if I want to explore the datasets?
+Start with the **Available Datasets** section to explore data sources by region, then review the **Usage Examples** section for practical Python workflows.
+
+### Can I contribute a new dataset or improve the documentation?
+Yes. Contributions are welcome. You can open an issue to propose a new dataset or submit a pull request with your contribution.
+
+### Do I need programming experience to use this repository?
+Basic familiarity with Python is recommended for running scripts and examples, but you can still explore dataset sources without coding.
 
 ## 📊 Available Scripts
 
