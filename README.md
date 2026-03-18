@@ -91,15 +91,21 @@ epidemiological-datasets/
 │   │   ├── 04_ecdc_european_surveillance.ipynb
 │   │   ├── 05_multi_source_comparison.ipynb
 │   │   ├── 06_PAHO_Pan_American_Data.ipynb
-│   │   └── 07_Eurostat_EU_Health_Data.ipynb
+│   │   ├── 07_Eurostat_EU_Health_Data.ipynb
+│   │   ├── 08_OWID_Our_World_in_Data.ipynb
+│   │   ├── 09_Colombia_INS_SIVIGILA_Data.ipynb
+│   │   └── 10_Africa_CDC_Data.ipynb
 │   ├── 📄 README.md
 │   └── 📄 requirements.txt
 ├── 📁 scripts/                 # Python access scripts
 │   ├── 📁 accessors/           # Dataset-specific accessors
+│   │   ├── africa_cdc.py       # Africa CDC accessor
+│   │   ├── colombia_ins.py     # Colombia INS/SIVIGILA accessor
 │   │   ├── datasus_pysus.py    # PySUS wrapper
-│   │   ├── who_ghoclient.py    # ghoclient wrapper
-│   │   ├── paho.py             # PAHO data accessor
 │   │   ├── eurostat.py         # Eurostat accessor
+│   │   ├── owid.py             # Our World in Data accessor
+│   │   ├── paho.py             # PAHO data accessor
+│   │   ├── who_ghoclient.py    # ghoclient wrapper
 │   │   └── __init__.py
 │   ├── 📄 __init__.py
 │   └── 📄 utils.py             # Common utilities
@@ -153,7 +159,7 @@ epidemiological-datasets/
 | [SIAD - Brazil](https://siad.mg.gov.br/) | Brazilian health information | Weekly | Open* | `PySUS` |
 | [PAHO/WHO Regional Data](https://www.paho.org/en/data) | Pan-American health data | Monthly | Open | `scripts/accessors/paho.py` |
 | [Chile DEIS](https://deis.minsal.cl/) | Chilean health statistics | Monthly | Open | Planned |
-| [Colombia INS](https://www.ins.gov.co/) | Colombian public health data | Weekly | Open | Planned |
+| [Colombia INS](https://www.ins.gov.co/) | Colombian public health data | Weekly | Open | `scripts/accessors/colombia_ins.py` |
 
 > *Note: PySUS handles authentication and access to DATASUS/SINAN data.
 
@@ -172,7 +178,7 @@ epidemiological-datasets/
 |---------|-------------|------------------|--------------|--------|
 | [WHO Afro Health Observatory](https://www.afro.who.int/health-topics/health-observatory) | African region health data | Annual | Open | `ghoclient` |
 | [DHIS2](https://dhis2.org/) | Health information systems | Real-time | Varies | `scripts/accessors/dhis2.py` |
-| [Africa CDC](https://africacdc.org/) | African public health data | Weekly | Open | Planned |
+| [Africa CDC](https://africacdc.org/) | African public health data | Weekly | Open | `scripts/accessors/africa_cdc.py` |
 
 ### Asia 🌏
 
@@ -443,6 +449,87 @@ print(summary)
 - API: https://covid.ourworldindata.org/data
 - License: CC BY (Creative Commons Attribution)
 
+### Using Africa CDC Accessor for African Public Health Data
+
+The Africa CDC accessor provides access to public health surveillance data from the African Centres for Disease Control and Prevention, covering 55 African Union member states across 5 regions.
+
+**No installation required** - uses native Python libraries.
+
+**Example usage:**
+```python
+from accessors import AfricaCDCAccessor
+
+# Initialize accessor
+africa_cdc = AfricaCDCAccessor()
+
+# List all 55 African Union member states
+countries = africa_cdc.list_countries()
+print(f"Total AU countries: {len(countries)}")
+
+# List Africa CDC regions
+regions = africa_cdc.list_regions()
+print("Regions:", regions['region'].unique())
+
+# Get outbreak data for Ebola in specific countries
+ebola = africa_cdc.get_disease_outbreaks(
+    disease='EBOLA',
+    countries=['CD', 'UG', 'GN']  # DRC, Uganda, Guinea
+)
+
+# Get COVID-19 data for West Africa
+west_africa = africa_cdc.get_countries_by_region('Western')
+covid = africa_cdc.get_covid_data(
+    countries=west_africa,
+    date_range=('2020-03-01', '2021-12-31')
+)
+
+# Get vaccination coverage
+vax = africa_cdc.get_vaccination_coverage(
+    countries=['NG', 'ET', 'ZA'],
+    vaccines=['COVID-19', 'Measles']
+)
+
+# Get Event-Based Surveillance alerts for Sahel region
+sahel = ['ML', 'NE', 'TD', 'BF']  # Mali, Niger, Chad, Burkina Faso
+alerts = africa_cdc.get_event_based_surveillance(
+    countries=sahel,
+    date_range=('2024-01-01', '2024-12-31')
+)
+
+# Get weekly outbreak briefs
+briefs = africa_cdc.get_weekly_outbreak_brief(year=2024)
+print(f"Total briefs in 2024: {len(briefs)}")
+
+# Compare disease occurrence across regions
+regional_comparison = africa_cdc.compare_regions(
+    disease='COVID-19',
+    year=2021
+)
+
+# Get country summary
+summary = africa_cdc.get_summary_by_country(
+    year=2024,
+    disease='MALARIA'
+)
+```
+
+**Features:**
+- 55 African Union member states
+- 5 Africa CDC regions (Central, Eastern, Northern, Southern, Western)
+- 15 priority diseases (Ebola, Marburg, Lassa, Cholera, Mpox, Dengue, Malaria, etc.)
+- Disease outbreak surveillance
+- COVID-19 historical data
+- Vaccination coverage tracking
+- Event-Based Surveillance (EBS) alerts
+- Weekly outbreak brief metadata
+- Regional comparison tools
+
+**Data Sources:**
+- Africa CDC: https://africacdc.org/
+- Weekly Outbreak Briefs: PDF documents
+- IDSR (Integrated Disease Surveillance and Response)
+- African Union Member State reports
+
 ## 📦 Installation
 
 ### Standard Installation
@@ -558,11 +645,13 @@ Basic familiarity with Python is recommended for running scripts and examples, b
 
 | Script | Library Used | Status | Description |
 |--------|--------------|--------|-------------|
+| `africa_cdc.py` | Native | ✅ Available | Africa CDC (African public health data) |
+| `colombia_ins.py` | Native | ✅ Available | Colombia INS (SIVIGILA surveillance data) |
 | `datasus_pysus.py` | **PySUS** | ✅ Available | Wrapper for PySUS with additional utilities |
-| `who_ghoclient.py` | **ghoclient** | ✅ Available | Wrapper for ghoclient with pandas integration |
-| `paho.py` | Native | ✅ Available | PAHO (Pan American Health Organization) data accessor |
 | `eurostat.py` | Native/eurostat | ✅ Available | Eurostat (EU) health statistics accessor |
 | `owid.py` | Native | ✅ Available | Our World in Data (COVID-19, vaccination, excess mortality) |
+| `paho.py` | Native | ✅ Available | PAHO (Pan American Health Organization) data accessor |
+| `who_ghoclient.py` | **ghoclient** | ✅ Available | Wrapper for ghoclient with pandas integration |
 | `cdc.py` | Native | 🔄 Planned | CDC Wonder and Open Data |
 | `ecdc.py` | Native | 🔄 Planned | European CDC data |
 | `worldbank.py` | Native | 🔄 Planned | World Bank health indicators |
@@ -619,7 +708,9 @@ This repository complements the following open-source tools:
 - **Datasets documented:** 25+
 - **Countries covered:** 50+
 - **Python libraries integrated:** 2 (PySUS, ghoclient)
-- **Last updated:** 2026-03-14
+- **Native accessors:** 6 (PAHO, Eurostat, OWID, Africa CDC, Colombia INS, DATASUS)
+- **Example notebooks:** 10
+- **Last updated:** 2026-03-18
 
 ## 📚 Citation
 
