@@ -191,6 +191,29 @@ Access Colombian public health surveillance data from the National Health Instit
 
 ---
 
+### 10. [10_Africa_CDC_Data.ipynb](notebooks/10_Africa_CDC_Data.ipynb)
+**Africa CDC (African Centres for Disease Control and Prevention) Data**
+
+Access African public health surveillance data from Africa CDC, covering disease outbreaks, COVID-19, vaccination coverage, and event-based surveillance across 55 African Union member states.
+
+**Topics covered:**
+- Disease outbreak surveillance and weekly outbreak briefs
+- COVID-19 historical data for African countries
+- Event-Based Surveillance (EBS) alerts
+- Vaccination coverage tracking
+- Priority diseases (Ebola, Marburg, Lassa fever, Cholera, Mpox, etc.)
+- 5 Africa CDC regions (Central, Eastern, Northern, Southern, Western)
+- 55 African Union member states
+- Regional comparisons and country summaries
+
+**Data Sources:**
+- Africa CDC: https://africacdc.org/
+- Weekly Outbreak Briefs
+- IDSR (Integrated Disease Surveillance and Response)
+- African Union Member State reports
+
+---
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -333,6 +356,9 @@ Notebooks save processed data to `./output/` directory:
 | `colombia_departments.csv` | Colombian administrative divisions | INS Colombia |
 | `colombia_diseases.csv` | Colombia notifiable diseases | SIVIGILA |
 | `colombia_event_groups.csv` | Colombia disease event groups | INS Colombia |
+| `africa_countries.csv` | African Union member states | Africa CDC |
+| `africa_regions.csv` | Africa CDC regional mapping | Africa CDC |
+| `africa_priority_diseases.csv` | Africa CDC priority diseases | Africa CDC |
 
 ---
 
@@ -368,6 +394,7 @@ These notebooks are provided under the same license as the main repository.
 - **Eurostat** for European Union health data
 - **Our World in Data** for global health research and open data
 - **INS Colombia** for Colombian public health surveillance data through SIVIGILA
+- **Africa CDC** for African public health surveillance and outbreak data
 
 ---
 
