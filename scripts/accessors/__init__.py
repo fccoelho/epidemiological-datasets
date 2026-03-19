@@ -66,6 +66,62 @@ try:
 except ImportError:
     COLOMBIA_INS_AVAILABLE = False
 
+# Africa CDC accessor (requests library only - standard)
+try:
+    from .africa_cdc import AfricaCDCAccessor
+
+    AFRICA_CDC_AVAILABLE = True
+except ImportError:
+    AFRICA_CDC_AVAILABLE = False
+
+# RKI Germany accessor (requests library only - standard)
+try:
+    from .rki_germany import RKIGermanyAccessor
+
+    RKI_GERMANY_AVAILABLE = True
+except ImportError:
+    RKI_GERMANY_AVAILABLE = False
+
+# China CDC accessor (requests + beautifulsoup4 - standard)
+try:
+    from .china_cdc import ChinaCDCAccessor
+
+    CHINA_CDC_AVAILABLE = True
+except ImportError:
+    CHINA_CDC_AVAILABLE = False
+
+# India IDSP accessor (requests + beautifulsoup4 - standard)
+try:
+    from .india_idsp import IndiaIDSPAccessor
+
+    INDIA_IDSP_AVAILABLE = True
+except ImportError:
+    INDIA_IDSP_AVAILABLE = False
+
+# HealthData.gov accessor (requests library only - standard)
+try:
+    from .healthdata_gov import HealthDataGovAccessor
+
+    HEALTHDATA_GOV_AVAILABLE = True
+except ImportError:
+    HEALTHDATA_GOV_AVAILABLE = False
+
+# UKHSA accessor (requests library only - standard)
+try:
+    from .ukhsa import UKHSAAccessor
+
+    UKHSA_AVAILABLE = True
+except ImportError:
+    UKHSA_AVAILABLE = False
+
+# Global.health accessor (requests library only - standard)
+try:
+    from .global_health import GlobalHealthAccessor
+
+    GLOBAL_HEALTH_AVAILABLE = True
+except ImportError:
+    GLOBAL_HEALTH_AVAILABLE = False
+
 # Other accessors (to be implemented)
 # from .cdc import CDCAccessor
 # from .ecdc import ECDCAccessor
@@ -103,6 +159,27 @@ if OWID_AVAILABLE:
 if COLOMBIA_INS_AVAILABLE:
     __all__.append("ColombiaINSAccessor")
 
+if AFRICA_CDC_AVAILABLE:
+    __all__.append("AfricaCDCAccessor")
+
+if RKI_GERMANY_AVAILABLE:
+    __all__.append("RKIGermanyAccessor")
+
+if CHINA_CDC_AVAILABLE:
+    __all__.append("ChinaCDCAccessor")
+
+if INDIA_IDSP_AVAILABLE:
+    __all__.append("IndiaIDSPAccessor")
+
+if HEALTHDATA_GOV_AVAILABLE:
+    __all__.append("HealthDataGovAccessor")
+
+if UKHSA_AVAILABLE:
+    __all__.append("UKHSAAccessor")
+
+if GLOBAL_HEALTH_AVAILABLE:
+    __all__.append("GlobalHealthAccessor")
+
 __version__ = "0.1.0"
 
 # Metadata about available libraries
@@ -136,6 +213,41 @@ LIBRARY_INFO = {
         "description": "Colombia INS (Instituto Nacional de Salud) health data access",
         "url": "https://www.ins.gov.co/",
         "available": COLOMBIA_INS_AVAILABLE,
+    },
+    "africa_cdc": {
+        "description": "Africa CDC (African Centres for Disease Control) data access",
+        "url": "https://africacdc.org/",
+        "available": AFRICA_CDC_AVAILABLE,
+    },
+    "rki_germany": {
+        "description": "RKI Germany (Robert Koch Institute) infectious disease surveillance",
+        "url": "https://www.rki.de/",
+        "available": RKI_GERMANY_AVAILABLE,
+    },
+    "china_cdc": {
+        "description": "China CDC Weekly surveillance data access",
+        "url": "http://weekly.chinacdc.cn/",
+        "available": CHINA_CDC_AVAILABLE,
+    },
+    "india_idsp": {
+        "description": "India IDSP (Integrated Disease Surveillance Programme) data access",
+        "url": "https://idsp.nic.in/",
+        "available": INDIA_IDSP_AVAILABLE,
+    },
+    "healthdata_gov": {
+        "description": "HealthData.gov (US health system data) access",
+        "url": "https://healthdata.gov/",
+        "available": HEALTHDATA_GOV_AVAILABLE,
+    },
+    "ukhsa": {
+        "description": "UKHSA (UK Health Security Agency) surveillance data",
+        "url": "https://www.gov.uk/government/organisations/uk-health-security-agency",
+        "available": UKHSA_AVAILABLE,
+    },
+    "global_health": {
+        "description": "Global.health pandemic/epidemic line-list data",
+        "url": "https://global.health/",
+        "available": GLOBAL_HEALTH_AVAILABLE,
     },
 }
 

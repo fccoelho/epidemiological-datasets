@@ -100,11 +100,17 @@ epidemiological-datasets/
 ├── 📁 scripts/                 # Python access scripts
 │   ├── 📁 accessors/           # Dataset-specific accessors
 │   │   ├── africa_cdc.py       # Africa CDC accessor
+│   │   ├── china_cdc.py        # China CDC Weekly accessor
 │   │   ├── colombia_ins.py     # Colombia INS/SIVIGILA accessor
 │   │   ├── datasus_pysus.py    # PySUS wrapper
 │   │   ├── eurostat.py         # Eurostat accessor
+│   │   ├── global_health.py    # Global.health accessor
+│   │   ├── healthdata_gov.py   # HealthData.gov accessor
+│   │   ├── india_idsp.py       # India IDSP accessor
 │   │   ├── owid.py             # Our World in Data accessor
 │   │   ├── paho.py             # PAHO data accessor
+│   │   ├── rki_germany.py      # RKI Germany accessor
+│   │   ├── ukhsa.py            # UKHSA accessor
 │   │   ├── who_ghoclient.py    # ghoclient wrapper
 │   │   └── __init__.py
 │   ├── 📄 __init__.py
@@ -147,7 +153,7 @@ epidemiological-datasets/
 |---------|-------------|------------------|--------------|--------|
 | [CDC Wonder](https://wonder.cdc.gov/) | US health statistics | Weekly | Open | `scripts/accessors/cdc.py` |
 | [CDC Open Data](https://data.cdc.gov/) | CDC datasets portal | Varies | Open | `scripts/accessors/cdc_opendata.py` |
-| [HealthData.gov](https://healthdata.gov/) | US health system data | Weekly | Open | Planned |
+| [HealthData.gov](https://healthdata.gov/) | US health system data | Weekly | Open | `scripts/accessors/healthdata_gov.py` |
 | [Statistics Canada - Health](https://www.statcan.gc.ca/en/health) | Canadian health data | Quarterly | Open | Planned |
 
 ### South America 🌎
@@ -169,8 +175,8 @@ epidemiological-datasets/
 |---------|-------------|------------------|--------------|--------|
 | [ECDC Surveillance Atlas](https://atlas.ecdc.europa.eu/public/index.aspx) | Infectious disease surveillance | Weekly | Open | `scripts/accessors/ecdc.py` |
 | [Eurostat Health](https://ec.europa.eu/eurostat/web/health) | EU health statistics | Annual | Open | `scripts/accessors/eurostat.py` |
-| [UK Health Security Agency](https://www.gov.uk/government/collections/health-protection-data) | UK health data | Weekly | Open | Planned |
-| [Robert Koch Institute](https://www.rki.de/EN/Content/infections/epidemiology/data.html) | German surveillance data | Weekly | Open | Planned |
+| [UK Health Security Agency](https://www.gov.uk/government/collections/health-protection-data) | UK health data | Weekly | Open | `scripts/accessors/ukhsa.py` |
+| [Robert Koch Institute](https://www.rki.de/EN/Content/infections/epidemiology/data.html) | German surveillance data | Weekly | Open | `scripts/accessors/rki_germany.py` |
 
 ### Africa 🌍
 
@@ -184,8 +190,8 @@ epidemiological-datasets/
 
 | Dataset | Description | Update Frequency | Access Level | Script |
 |---------|-------------|------------------|--------------|--------|
-| [China CDC Weekly](http://weekly.chinacdc.cn/) | Chinese surveillance data | Weekly | Open | Planned |
-| [IDSP India](https://idsp.nic.in/) | Indian disease surveillance | Weekly | Open* | Planned |
+| [China CDC Weekly](http://weekly.chinacdc.cn/) | Chinese surveillance data | Weekly | Open | `scripts/accessors/china_cdc.py` |
+| [IDSP India](https://idsp.nic.in/) | Indian disease surveillance | Weekly | Open* | `scripts/accessors/india_idsp.py` |
 | [NIID Japan](https://www.niid.go.jp/niid/en/) | Japanese infectious disease data | Weekly | Open | Planned |
 | [Korea CDC](https://www.kdca.go.kr/) | Korean disease control data | Weekly | Open | Planned |
 
@@ -530,6 +536,166 @@ summary = africa_cdc.get_summary_by_country(
 - IDSR (Integrated Disease Surveillance and Response)
 - African Union Member State reports
 
+### Using RKI Germany Accessor for German Surveillance Data
+
+The RKI Germany accessor provides access to infectious disease surveillance data from Germany's Robert Koch Institute, including COVID-19 nowcasting, influenza surveillance, and notifiable diseases.
+
+**No installation required** - uses native Python libraries.
+
+**Example usage:**
+```python
+from accessors import RKIGermanyAccessor
+
+# Initialize accessor
+rki = RKIGermanyAccessor()
+
+# List German federal states
+states = rki.list_states()
+print(f"Total states: {len(states)}")
+
+# Get COVID-19 nowcasting with R estimates
+nowcast = rki.get_covid_nowcast(
+    date_range=('2022-01-01', '2022-06-30')
+)
+
+# Get COVID-19 hospitalizations
+hosp = rki.get_covid_hospitalizations(
+    states=['DE-BE', 'DE-BY'],
+    date_range=('2022-01-01', '2022-12-31')
+)
+
+# Get influenza surveillance
+flu = rki.get_influenza_data(seasons=['2022/23', '2023/24'])
+
+# Get notifiable disease data (structure)
+measles = rki.get_notifiable_disease(
+    disease='Measles',
+    years=[2022, 2023]
+)
+
+# Get vaccination data
+vax = rki.get_covid_vaccinations(states=['DE'])
+```
+
+**Features:**
+- 16 German federal states (Bundesländer)
+- COVID-19 nowcasting with 7-day R estimates
+- COVID-19 hospitalizations by state
+- COVID-19 vaccination data
+- Influenza weekly surveillance reports
+- 25 notifiable infectious diseases
+- AMR (antimicrobial resistance) surveillance structure
+
+**Data Sources:**
+- RKI GitHub: https://github.com/robert-koch-institut
+- COVID-19 Nowcasting: https://github.com/robert-koch-institut/SARS-CoV-2-Nowcasting_und_-R-Schaetzung
+- Influenza Reports: https://github.com/robert-koch-institut/Influenza-Wochenberichte
+- SurvStat@RKI: https://survstat.rki.de/
+
+### Using China CDC Accessor for Chinese Surveillance Data
+
+The China CDC accessor provides access to surveillance data from China CDC Weekly, including notifiable infectious diseases and weekly surveillance reports.
+
+**No installation required** - uses native Python libraries.
+
+**Example usage:**
+```python
+from accessors import ChinaCDCAccessor
+
+# Initialize accessor
+ccdc = ChinaCDCAccessor()
+
+# List notifiable diseases (39 categories)
+diseases = ccdc.list_notifiable_diseases()
+print(f"Total diseases: {len(diseases)}")
+
+# List Chinese provinces (31 total)
+provinces = ccdc.list_provinces()
+print(f"Total provinces: {len(provinces)}")
+
+# Get weekly report metadata
+reports = ccdc.get_weekly_reports(year=2024)
+
+# Get notifiable disease data (structure)
+disease_data = ccdc.get_notifiable_diseases(
+    diseases=['Influenza', 'Dengue'],
+    provinces=['GD', 'BJ'],
+    date_range=('2023-01-01', '2023-12-31')
+)
+
+# Get influenza surveillance structure
+flu = ccdc.get_influenza_surveillance(weeks=range(1, 53), year=2023)
+```
+
+**Features:**
+- 39 notifiable infectious diseases (Class A/B/C)
+- 31 Chinese provinces and municipalities
+- Weekly surveillance report metadata
+- ILI (Influenza-like Illness) surveillance
+- COVID-19 updates structure
+
+**Data Sources:**
+- China CDC Weekly: http://weekly.chinacdc.cn/
+- Chinese CDC: https://www.chinacdc.cn/
+
+### Using India IDSP Accessor for Indian Surveillance Data
+
+The India IDSP accessor provides access to disease surveillance data from India's Integrated Disease Surveillance Programme (IDSP), covering all states and union territories.
+
+**No installation required** - uses native Python libraries.
+
+**Example usage:**
+```python
+from accessors import IndiaIDSPAccessor
+
+# Initialize accessor
+idsp = IndiaIDSPAccessor()
+
+# List Indian states/UTs (36 total)
+states = idsp.list_states()
+print(f"Total states/UTs: {len(states)}")
+
+# List priority diseases (29 categories)
+diseases = idsp.list_priority_diseases()
+print(f"Total diseases: {len(diseases)}")
+
+# Get outbreak reports (structure)
+outbreaks = idsp.get_outbreak_reports(
+    years=[2023],
+    states=['KL', 'MH']  # Kerala, Maharashtra
+)
+
+# Get disease surveillance (structure)
+dengue = idsp.get_disease_surveillance(
+    disease='Dengue',
+    states=['KA', 'TN', 'KL'],  # Karnataka, Tamil Nadu, Kerala
+    years=[2022, 2023]
+)
+
+# Get vector-borne disease data
+vbd = idsp.get_vector_borne_diseases(
+    diseases=['Malaria', 'Dengue', 'Chikungunya']
+)
+
+# Get weekly surveillance summary
+weekly = idsp.get_weekly_surveillance_summary(
+    year=2024, week=10
+)
+```
+
+**Features:**
+- 36 Indian states and union territories
+- 29 priority diseases under IDSP surveillance
+- Weekly outbreak reports structure
+- Disease surveillance by syndrome (S/P/L)
+- Vector-borne disease data (NVBDCP)
+- Laboratory surveillance structure
+
+**Data Sources:**
+- IDSP Portal: https://idsp.nic.in/
+- NVBDCP: https://nvbdcp.gov.in/
+- NACO: http://naco.gov.in/
+
 ## 📦 Installation
 
 ### Standard Installation
@@ -646,11 +812,17 @@ Basic familiarity with Python is recommended for running scripts and examples, b
 | Script | Library Used | Status | Description |
 |--------|--------------|--------|-------------|
 | `africa_cdc.py` | Native | ✅ Available | Africa CDC (African public health data) |
+| `china_cdc.py` | Native | ✅ Available | China CDC Weekly (Chinese surveillance data) |
 | `colombia_ins.py` | Native | ✅ Available | Colombia INS (SIVIGILA surveillance data) |
 | `datasus_pysus.py` | **PySUS** | ✅ Available | Wrapper for PySUS with additional utilities |
 | `eurostat.py` | Native/eurostat | ✅ Available | Eurostat (EU) health statistics accessor |
+| `global_health.py` | Native | ✅ Available | Global.health pandemic data (⚠️ Broken - Issue #40) |
+| `healthdata_gov.py` | Native | ✅ Available | HealthData.gov (US health system data) |
+| `india_idsp.py` | Native | ✅ Available | India IDSP (Integrated Disease Surveillance Programme) |
 | `owid.py` | Native | ✅ Available | Our World in Data (COVID-19, vaccination, excess mortality) |
 | `paho.py` | Native | ✅ Available | PAHO (Pan American Health Organization) data accessor |
+| `rki_germany.py` | Native | ✅ Available | RKI Germany (Robert Koch Institute surveillance data) |
+| `ukhsa.py` | Native | ✅ Available | UKHSA (UK Health Security Agency) - ⚠️ Placeholder data only |
 | `who_ghoclient.py` | **ghoclient** | ✅ Available | Wrapper for ghoclient with pandas integration |
 | `cdc.py` | Native | 🔄 Planned | CDC Wonder and Open Data |
 | `ecdc.py` | Native | 🔄 Planned | European CDC data |
@@ -705,12 +877,12 @@ This repository complements the following open-source tools:
 
 ## 📊 Statistics
 
-- **Datasets documented:** 25+
-- **Countries covered:** 50+
+- **Datasets documented:** 30+
+- **Countries covered:** 100+
 - **Python libraries integrated:** 2 (PySUS, ghoclient)
-- **Native accessors:** 6 (PAHO, Eurostat, OWID, Africa CDC, Colombia INS, DATASUS)
+- **Native accessors:** 13 (PAHO, Eurostat, OWID, Africa CDC, Colombia INS, DATASUS, RKI Germany, China CDC, India IDSP, HealthData.gov, UKHSA, Global.health, WHO)
 - **Example notebooks:** 10
-- **Last updated:** 2026-03-18
+- **Last updated:** 2026-03-19
 
 ## 📚 Citation
 
