@@ -214,6 +214,70 @@ Access African public health surveillance data from Africa CDC, covering disease
 
 ---
 
+### 11. [11_Global_Health_Linelist_Data.ipynb](notebooks/11_Global_Health_Linelist_Data.ipynb)
+**Global.health Line-list Data**
+
+Access standardized, curated line-list data for pandemics and epidemics including COVID-19 and Monkeypox with detailed case metadata.
+
+**Topics covered:**
+- COVID-19 line-list data with case details
+- Monkeypox outbreak data
+- Case demographics (age, sex)
+- Temporal analysis of case data
+- Geocoded case locations
+- Outbreak comparison across diseases
+- Detailed case metadata (outcomes, travel history)
+
+**Data Sources:**
+- Global.health: https://global.health/
+- GitHub: https://github.com/globaldothealth/
+- License: CC BY 4.0
+
+---
+
+### 12. [12_UKHSA_Surveillance_Data.ipynb](notebooks/12_UKHSA_Surveillance_Data.ipynb)
+**UK Health Security Agency (UKHSA) Surveillance Data**
+
+Access UK public health surveillance data including infectious diseases, immunization coverage, influenza, and antimicrobial resistance.
+
+**Topics covered:**
+- Infectious disease surveillance (Measles, TB, etc.)
+- Vaccination coverage (MMR, DTP, HPV)
+- Seasonal influenza surveillance
+- Antimicrobial resistance (AMR) data
+- COVID-19 metrics for UK
+- Regional analysis (England, Wales, Scotland, Northern Ireland)
+- WHO vaccination targets comparison
+
+**Data Sources:**
+- UKHSA: https://www.gov.uk/government/collections/health-protection-data
+- License: Open Government Licence (OGL)
+
+---
+
+### 13. [13_HealthData_Gov_US_Health_System.ipynb](notebooks/13_HealthData_Gov_US_Health_System.ipynb)
+**HealthData.gov - US Health System Data**
+
+Access US health system data including hospital capacity, COVID-19 metrics, vaccination data, and testing data from HHS.
+
+**Topics covered:**
+- Hospital capacity by state
+- COVID-19 patient impact and hospitalizations
+- ICU bed utilization
+- Vaccination progress by state
+- COVID-19 testing data
+- State-by-state comparisons
+- Current hospital statistics
+- Nursing home COVID-19 data
+
+**Data Sources:**
+- HealthData.gov: https://healthdata.gov/
+- HHS Protect ecosystem
+- API: Socrata Open Data API (SODA)
+- License: Public Domain (US Government)
+
+---
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -278,7 +342,11 @@ folium>=0.12.0        # Geospatial mapping
         ├── PAHO (Americas)
         ├── Eurostat (EU)
         ├── OWID (Global)
-        └── INS Colombia (Colombia)
+        ├── INS Colombia (Colombia)
+        ├── Africa CDC (Africa)
+        ├── Global.health (Global line-list)
+        ├── UKHSA (United Kingdom)
+        └── HealthData.gov (United States)
 ```
 
 ---
@@ -359,6 +427,13 @@ Notebooks save processed data to `./output/` directory:
 | `africa_countries.csv` | African Union member states | Africa CDC |
 | `africa_regions.csv` | Africa CDC regional mapping | Africa CDC |
 | `africa_priority_diseases.csv` | Africa CDC priority diseases | Africa CDC |
+| `global_health_datasets.csv` | Global.health available datasets | Global.health |
+| `global_health_covid_linelist.csv` | COVID-19 line-list data | Global.health |
+| `ukhsa_indicators.csv` | UKHSA surveillance indicators | UKHSA |
+| `ukhsa_vaccination_coverage.csv` | UK vaccination coverage | UKHSA |
+| `healthdata_datasets.csv` | HealthData.gov dataset catalog | HealthData.gov |
+| `us_hospital_capacity.csv` | US hospital capacity by state | HealthData.gov |
+| `us_covid_metrics.csv` | US COVID-19 hospital metrics | HealthData.gov |
 
 ---
 
@@ -395,6 +470,9 @@ These notebooks are provided under the same license as the main repository.
 - **Our World in Data** for global health research and open data
 - **INS Colombia** for Colombian public health surveillance data through SIVIGILA
 - **Africa CDC** for African public health surveillance and outbreak data
+- **Global.health** for standardized pandemic line-list data
+- **UK Health Security Agency** for UK public health surveillance data
+- **HHS/HealthData.gov** for US health system open data
 
 ---
 
