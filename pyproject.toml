@@ -57,6 +57,7 @@ dependencies = [
     "xmltodict>=1.0.4",
     "whoosh>=2.7.4",
     "eurostat>=1.1.1",
+    "bs4>=0.0.2",
 ]
 
 [project.optional-dependencies]
