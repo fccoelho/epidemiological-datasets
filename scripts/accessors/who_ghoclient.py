@@ -20,6 +20,43 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# WHO Region Constants
+WHO_REGIONS = {
+    "AFRO": "Africa",
+    "AMRO": "Americas", 
+    "EMRO": "Eastern Mediterranean",
+    "EURO": "Europe",
+    "SEARO": "South-East Asia",
+    "WPRO": "Western Pacific"
+}
+
+# EMRO (Eastern Mediterranean Region) Countries
+# Source: https://www.emro.who.int/countries.html
+EMRO_COUNTRIES = {
+    "AFG": "Afghanistan",
+    "BHR": "Bahrain",
+    "DJI": "Djibouti",
+    "EGY": "Egypt",
+    "IRN": "Iran (Islamic Republic of)",
+    "IRQ": "Iraq",
+    "JOR": "Jordan",
+    "KWT": "Kuwait",
+    "LBN": "Lebanon",
+    "LBY": "Libya",
+    "MAR": "Morocco",
+    "OMN": "Oman",
+    "PAK": "Pakistan",
+    "PSE": "Palestine",
+    "QAT": "Qatar",
+    "SAU": "Saudi Arabia",
+    "SOM": "Somalia",
+    "SDN": "Sudan",
+    "SYR": "Syrian Arab Republic",
+    "TUN": "Tunisia",
+    "ARE": "United Arab Emirates",
+    "YEM": "Yemen"
+}
+
 
 class WHOAccessor:
     """
@@ -384,6 +421,166 @@ class WHOAccessor:
             indicator="COVID19_VACCINATION", countries=countries, years=years
         )
 
+    # ==================== EMRO (Eastern Mediterranean) Methods ====================
+
+    def get_emro_countries(self) -> pd.DataFrame:
+        """
+        Get list of EMRO (Eastern Mediterranean) countries.
+
+        Returns
+        -------
+            DataFrame with EMRO country codes and names
+        """
+        data = {
+            "country_code": list(EMRO_COUNTRIES.keys()),
+            "country_name": list(EMRO_COUNTRIES.values()),
+            "who_region": ["EMRO"] * len(EMRO_COUNTRIES)
+        }
+        return pd.DataFrame(data)
+
+    def get_emro_indicator(
+        self,
+        indicator: str,
+        years: Optional[List[int]] = None,
+        sex: Optional[str] = None,
+        age_group: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Fetch indicator data for all EMRO countries.
+
+        Args:
+            indicator: Indicator code (e.g., "MALARIA_EST_INCIDENCE")
+            years: List of years to fetch
+            sex: Filter by sex ("MLE", "FMLE", or "BTSX")
+            age_group: Filter by age group code
+
+        Returns
+        -------
+            DataFrame with indicator data for EMRO countries
+        """
+        emro_codes = list(EMRO_COUNTRIES.keys())
+        logger.info(f"Fetching {indicator} data for {len(emro_codes)} EMRO countries...")
+        
+        return self.get_indicator(
+            indicator=indicator,
+            years=years,
+            countries=emro_codes,
+            sex=sex,
+            age_group=age_group
+        )
+
+    def get_emro_health_trends(
+        self,
+        indicator: str,
+        start_year: int,
+        end_year: int,
+    ) -> pd.DataFrame:
+        """
+        Get health trends for EMRO region over time.
+
+        Args:
+            indicator: Indicator code
+            start_year: Start year
+            end_year: End year
+
+        Returns
+        -------
+            DataFrame with EMRO regional trends
+        """
+        years = list(range(start_year, end_year + 1))
+        data = self.get_emro_indicator(indicator=indicator, years=years)
+
+        # Calculate EMRO aggregates
+        if "value" in data.columns and "year" in data.columns:
+            trends = (
+                data.groupby("year")["value"]
+                .agg(["mean", "median", "std", "count", "min", "max"])
+                .reset_index()
+            )
+            trends.columns = [
+                "year",
+                "emro_mean",
+                "emro_median", 
+                "emro_std",
+                "n_countries",
+                "emro_min",
+                "emro_max"
+            ]
+            trends["region"] = "EMRO"
+            return trends
+
+        return data
+
+    def get_emro_malaria_data(
+        self, years: Optional[List[int]] = None
+    ) -> pd.DataFrame:
+        """
+        Get malaria incidence data for EMRO countries.
+
+        Malaria is a significant health issue in parts of the EMRO region
+        (particularly Afghanistan, Pakistan, Somalia, Sudan, Yemen).
+
+        Args:
+            years: List of years
+
+        Returns
+        -------
+            DataFrame with malaria data for EMRO countries
+        """
+        return self.get_emro_indicator(
+            indicator="MALARIA_EST_INCIDENCE",
+            years=years
+        )
+
+    def get_emro_life_expectancy(
+        self, years: Optional[List[int]] = None
+    ) -> pd.DataFrame:
+        """
+        Get healthy life expectancy (HALE) data for EMRO countries.
+
+        Args:
+            years: List of years
+
+        Returns
+        -------
+            DataFrame with HALE data for EMRO countries
+        """
+        return self.get_emro_indicator(
+            indicator="WHOSIS_000002",  # HALE at birth
+            years=years
+        )
+
+    def compare_emro_countries(
+        self, indicator: str, years: Optional[List[int]] = None
+    ) -> pd.DataFrame:
+        """
+        Compare indicator values across all EMRO countries.
+
+        Args:
+            indicator: Indicator code
+            years: List of years
+
+        Returns
+        -------
+            DataFrame pivoted by country for easy comparison
+        """
+        data = self.get_emro_indicator(indicator=indicator, years=years)
+        
+        if (
+            "value" in data.columns
+            and "country_code" in data.columns
+            and "year" in data.columns
+        ):
+            comparison = data.pivot_table(
+                index="year",
+                columns="country_code",
+                values="value",
+                aggfunc="mean"
+            )
+            return comparison
+
+        return data
+
 
 def main():
     """
@@ -407,6 +604,12 @@ def main():
     countries = who.get_countries_list()
     print(f"Total countries: {len(countries)}")
 
+    # EMRO countries example
+    print("\n🌍 EMRO (Eastern Mediterranean) Countries:")
+    emro = who.get_emro_countries()
+    print(f"Total EMRO countries: {len(emro)}")
+    print(emro.head(10).to_string())
+
     # Example: Get malaria data (commented out to avoid API calls)
     # print("\n🦟 Fetching malaria incidence data...")
     # data = who.get_malaria_incidence(
@@ -416,10 +619,20 @@ def main():
     # print(f"Retrieved {len(data)} records")
     # print(data.head())
 
+    # Example: Get EMRO malaria data (commented out to avoid API calls)
+    # print("\n🦟 Fetching malaria data for EMRO countries...")
+    # emro_malaria = who.get_emro_malaria_data(years=[2020, 2021, 2022])
+    # print(f"Retrieved {len(emro_malaria)} records")
+    # print(emro_malaria.head())
+
     print("\n✅ WHO accessor ready to use!")
     print("\nExample usage:")
     print("  who = WHOAccessor()")
     print("  data = who.get_malaria_incidence(countries=['BRA', 'IND'], years=[2022])")
+    print("\nEMRO specific:")
+    print("  emro_countries = who.get_emro_countries()")
+    print("  emro_malaria = who.get_emro_malaria_data(years=[2022])")
+    print("  emro_trends = who.get_emro_health_trends('WHOSIS_000002', 2015, 2022)")
 
 
 if __name__ == "__main__":
