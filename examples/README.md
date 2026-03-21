@@ -278,6 +278,99 @@ Access US health system data including hospital capacity, COVID-19 metrics, vacc
 
 ---
 
+### 14. [14_RKI_Germany_Surveillance_Data.ipynb](notebooks/14_RKI_Germany_Surveillance_Data.ipynb)
+**RKI Germany Surveillance Data**
+
+Access German infectious disease surveillance data from the Robert Koch Institute (RKI), including COVID-19 nowcasting, hospitalizations, vaccinations, and 25+ notifiable diseases.
+
+**Topics covered:**
+- COVID-19 R value (reproduction number) and nowcasting
+- COVID-19 hospitalizations by state (Bundesland)
+- Vaccination coverage data
+- Notifiable infectious diseases (Meldepflichtige Krankheiten)
+- Influenza weekly surveillance
+- State-level analysis across 16 federal states
+- Epidemiological reporting
+
+**Data Sources:**
+- RKI GitHub: https://github.com/robert-koch-institut
+- COVID-19 Dashboard: https://corona.rki.de/
+- SurvStat: https://survstat.rki.de/
+- License: CC-BY 4.0 / dl-de/by-2-0
+
+---
+
+### 15. [15_China_CDC_Weekly_Surveillance.ipynb](notebooks/15_China_CDC_Weekly_Surveillance.ipynb)
+**China CDC Weekly Surveillance Data**
+
+Access disease surveillance data from China CDC Weekly, covering 38 notifiable infectious diseases across 31 Chinese provinces and municipalities.
+
+**Topics covered:**
+- 38 notifiable infectious diseases (Class A, B, C)
+- Influenza surveillance (ILI%)
+- Weekly epidemiological reports
+- Province-level analysis (31 provinces/municipalities)
+- Disease classification system
+- COVID-19 weekly updates
+- Vaccination coverage data
+
+**Data Sources:**
+- China CDC Weekly: http://weekly.chinacdc.cn/
+- CNIC (Chinese CDC): http://www.chinacdc.cn/cnic/
+- License: Public health surveillance reports
+
+---
+
+### 16. [16_India_IDSP_Surveillance_Data.ipynb](notebooks/16_India_IDSP_Surveillance_Data.ipynb)
+**India IDSP (Integrated Disease Surveillance Programme) Data**
+
+Access disease surveillance data from India's IDSP, covering outbreak reports, vector-borne diseases, and priority diseases across 36 states and union territories.
+
+**Topics covered:**
+- Weekly outbreak surveillance reports
+- Priority disease tracking (30+ diseases)
+- S/P/L syndrome classification (Form S, P, L, U)
+- Vector-borne diseases (Malaria, Dengue, Chikungunya, JE, Kala-azar)
+- State/UT-level analysis (36 states and union territories)
+- Seasonal disease patterns
+- NVBDCP integration (National Vector Borne Disease Control Programme)
+
+**Data Sources:**
+- IDSP Portal: https://idsp.nic.in/
+- NVBDCP: https://nvbdcp.gov.in/
+- NACO: https://naco.gov.in/
+- License: Government of India Open Data
+
+---
+
+### 17. [17_EMRO_Health_Indicators_Analysis.ipynb](notebooks/17_EMRO_Health_Indicators_Analysis.ipynb)
+**WHO EMRO (Eastern Mediterranean Region) Health Indicators**
+
+Analyze health indicators for the WHO Eastern Mediterranean Region covering 22 countries across the Middle East, North Africa, and Central Asia.
+
+**Topics covered:**
+- Healthy Life Expectancy (HALE) trends and comparisons
+- Under-5 mortality and maternal mortality analysis
+- Malaria burden in endemic countries (Afghanistan, Pakistan, Somalia, Sudan, Yemen)
+- Multi-indicator country comparisons
+- Sub-regional analysis (Middle East, Arabian Peninsula, North Africa, Central Asia)
+- Health system disparities and conflict impacts
+- Regional health dashboard
+
+**Data Sources:**
+- WHO Global Health Observatory (GHO): https://www.who.int/data/gho
+- EMRO-specific indicators via ghoclient
+- 22 EMRO member states data
+- License: WHO Open Data
+
+**Geographic Coverage:**
+- Middle East (5): Jordan, Lebanon, Syria, Iraq, Iran
+- Arabian Peninsula (7): Saudi Arabia, UAE, Qatar, Kuwait, Bahrain, Oman, Yemen
+- North Africa (8): Egypt, Libya, Tunisia, Algeria, Morocco, Sudan, Somalia, Djibouti
+- Central/South Asia (3): Afghanistan, Pakistan, Palestine
+
+---
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -346,7 +439,11 @@ folium>=0.12.0        # Geospatial mapping
         ├── Africa CDC (Africa)
         ├── Global.health (Global line-list)
         ├── UKHSA (United Kingdom)
-        └── HealthData.gov (United States)
+        ├── HealthData.gov (United States)
+        ├── RKI Germany (Germany)
+        ├── China CDC (China)
+        ├── India IDSP (India)
+        └── WHO EMRO (Eastern Mediterranean)
 ```
 
 ---
@@ -434,6 +531,18 @@ Notebooks save processed data to `./output/` directory:
 | `healthdata_datasets.csv` | HealthData.gov dataset catalog | HealthData.gov |
 | `us_hospital_capacity.csv` | US hospital capacity by state | HealthData.gov |
 | `us_covid_metrics.csv` | US COVID-19 hospital metrics | HealthData.gov |
+| `germany_states.csv` | German federal states (Bundesländer) | RKI |
+| `germany_notifiable_diseases.csv` | Germany notifiable diseases list | RKI |
+| `covid_nowcast.csv` | COVID-19 R value and nowcasting | RKI |
+| `covid_hospitalizations.csv` | COVID-19 hospitalizations by state | RKI |
+| `china_provinces.csv` | Chinese provinces and municipalities | China CDC |
+| `china_notifiable_diseases.csv` | China 38 notifiable diseases | China CDC |
+| `weekly_reports.csv` | China CDC Weekly reports metadata | China CDC |
+| `india_states.csv` | Indian states and union territories | India IDSP |
+| `india_priority_diseases.csv` | India IDSP priority diseases | IDSP |
+| `emro_countries.csv` | EMRO member states list | WHO |
+| `emro_hale_data.csv` | Healthy Life Expectancy for EMRO | WHO |
+| `emro_malaria_data.csv` | Malaria burden data for EMRO | WHO |
 
 ---
 
@@ -473,6 +582,10 @@ These notebooks are provided under the same license as the main repository.
 - **Global.health** for standardized pandemic line-list data
 - **UK Health Security Agency** for UK public health surveillance data
 - **HHS/HealthData.gov** for US health system open data
+- **Robert Koch Institute (RKI)** for German disease surveillance data
+- **China CDC** for Chinese disease surveillance and weekly reports
+- **India IDSP/NVBDCP** for Indian disease surveillance data
+- **WHO EMRO** for Eastern Mediterranean health indicators
 
 ---
 
@@ -485,5 +598,5 @@ For questions or issues with these notebooks:
 
 ---
 
-**Last Updated:** March 2026  
+**Last Updated:** March 2026 (Added RKI Germany, China CDC, India IDSP, and WHO EMRO notebooks)  
 **Maintained by:** Epidemiological Datasets Repository Team
