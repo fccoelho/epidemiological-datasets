@@ -9,12 +9,9 @@ License: CC BY 4.0 (Open Data)
 Update Frequency: Daily (during active outbreaks)
 """
 
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Union, List
-from urllib.request import urlopen
-from urllib.error import HTTPError
+from typing import Optional, List
 
 import pandas as pd
 
@@ -33,20 +30,21 @@ class GlobalHealthAccessor:
         >>> mpox_data = gh.get_case_data(disease="Monkeypox")
     """
     
-    BASE_URL = "https://raw.githubusercontent.com/globaldothealth/list/main"
-    DATA_CATALOG_URL = "https://api.github.com/repos/globaldothealth/list/contents"
-    
-    # Known dataset paths in their GitHub repository
+    # Global.health's original GitHub URLs are no longer available (404).
+    # Data is now sourced from Our World in Data (OWID), which provides
+    # well-maintained, regularly updated datasets under open licenses.
     DATASETS = {
         "COVID-19": {
-            "url": "https://raw.githubusercontent.com/globaldothealth/list/main/data/cases.csv",
-            "description": "Global COVID-19 line-list data",
-            "fields": ["case_id", "country", "date_confirmation", "outcome", "age", "sex", "latitude", "longitude"]
+            "url": "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/cases_deaths/full_data.csv",
+            "description": "Global COVID-19 case and death data (via Our World in Data)",
+            "fields": ["date_confirmation", "country", "new_cases", "new_deaths", "total_cases", "total_deaths"],
+            "column_map": {"location": "country", "date": "date_confirmation"},
         },
         "Monkeypox": {
-            "url": "https://raw.githubusercontent.com/globaldothealth/monkeypox/main/data/monkeypox.csv",
-            "description": "Global Monkeypox line-list data",
-            "fields": ["case_id", "country", "date_confirmation", "outcome", "age", "sex"]
+            "url": "https://raw.githubusercontent.com/owid/monkeypox/main/owid-monkeypox-data.csv",
+            "description": "Global Monkeypox/Mpox case data (via Our World in Data)",
+            "fields": ["date_confirmation", "country", "total_cases", "total_deaths", "new_cases", "new_deaths"],
+            "column_map": {"location": "country", "date": "date_confirmation"},
         }
     }
     
@@ -72,10 +70,12 @@ class GlobalHealthAccessor:
         mtime = datetime.fromtimestamp(cache_path.stat().st_mtime)
         return datetime.now() - mtime < self._cache_ttl
     
-    def _download_data(self, url: str, cache_path: Path) -> pd.DataFrame:
-        """Download data from URL and cache it."""
+    def _download_data(self, url: str, cache_path: Path, column_map: dict = None) -> pd.DataFrame:
+        """Download data from URL, apply column mapping, and cache it."""
         try:
             df = pd.read_csv(url, low_memory=False)
+            if column_map:
+                df = df.rename(columns=column_map)
             df.to_csv(cache_path, index=False)
             return df
         except Exception as e:
@@ -133,7 +133,10 @@ class GlobalHealthAccessor:
         if use_cache and self._is_cache_valid(cache_path):
             df = pd.read_csv(cache_path, low_memory=False)
         else:
-            df = self._download_data(dataset_info["url"], cache_path)
+            df = self._download_data(
+                dataset_info["url"], cache_path,
+                column_map=dataset_info.get("column_map"),
+            )
         
         # Apply filters
         if country and "country" in df.columns:
