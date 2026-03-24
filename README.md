@@ -920,7 +920,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <p align="center">
   <a href="https://kwar-ai.com.br" target="_blank">
-    <img src="https://img.shields.io/badge/Kwar--AI-Health%20AI%20Solutions-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNy45M2MtMy45NS0uNDktNy0zLjg1LTctNy45M3MzLjA1LTcuNDQgNy03LjkzdjE1Ljg2em0yIDBWMTEuMWMzLjk1LjQ5IDcgMy44NSA3IDcuOTNzLTMuMDUgNy40NC03IDcuOTN6Ii8+PC9zdmc+&logoColor=white" alt="Kwar-AI" height="60">
+    <img src="assets/kwar-ai-logo.jpg" alt="Kwar-AI" height="120">
   </a>
 </p>
 
