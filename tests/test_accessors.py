@@ -349,12 +349,282 @@ class TestUtils:
         for file in accessor_files:
             file_path = accessor_dir / file
             if file_path.exists():
-                # Try to import
                 module_name = file.replace(".py", "")
                 try:
                     __import__(module_name)
                 except ImportError as e:
                     pytest.fail(f"Failed to import {module_name}: {e}")
+
+    def test_cache_manager_basic(self):
+        """Test CacheManager basic operations."""
+        import tempfile
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import CacheManager
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = CacheManager(cache_dir=tmpdir)
+            cache.set("test_key", {"data": "test_value"})
+            result = cache.get("test_key")
+            assert result == {"data": "test_value"}
+            assert cache.get("nonexistent_key") is None
+
+    def test_cache_manager_clear(self):
+        """Test CacheManager clear functionality."""
+        import tempfile
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import CacheManager
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = CacheManager(cache_dir=tmpdir)
+            cache.set("key1", {"a": 1})
+            cache.set("key2", {"b": 2})
+            cache.clear()
+            assert cache.get("key1") is None
+            assert cache.get("key2") is None
+
+    def test_rate_limiter(self):
+        """Test RateLimiter basic functionality."""
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import RateLimiter
+
+        limiter = RateLimiter(requests_per_second=10.0)
+        limiter.wait_if_needed()
+        assert limiter.last_request_time is not None
+
+    def test_standardize_country_code(self):
+        """Test country code standardization."""
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import standardize_country_code
+
+        assert standardize_country_code("br") == "BRA"
+        assert standardize_country_code("BR") == "BRA"
+        assert standardize_country_code("BRA") == "BRA"
+        assert standardize_country_code("us") == "USA"
+
+    def test_validate_year_range_valid(self):
+        """Test year range validation with valid inputs."""
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import validate_year_range
+
+        validate_year_range(2020, 2024)
+        validate_year_range(2000, 2000)
+
+    def test_validate_year_range_invalid(self):
+        """Test year range validation with invalid inputs."""
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import validate_year_range
+
+        with pytest.raises(ValueError):
+            validate_year_range(2024, 2020)
+
+        with pytest.raises(ValueError):
+            validate_year_range(1800, 2020)
+
+    def test_merge_dataframes(self):
+        """Test merge_dataframes utility."""
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import merge_dataframes
+
+        df1 = pd.DataFrame({"id": [1, 2], "a": [10, 20]})
+        df2 = pd.DataFrame({"id": [1, 2], "b": [30, 40]})
+
+        result = merge_dataframes([df1, df2], on=["id"])
+        assert "a" in result.columns
+        assert "b" in result.columns
+        assert len(result) == 2
+
+    def test_merge_dataframes_empty(self):
+        """Test merge_dataframes with empty list."""
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import merge_dataframes
+
+        result = merge_dataframes([])
+        assert result.empty
+
+    def test_merge_dataframes_single(self):
+        """Test merge_dataframes with single dataframe."""
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import merge_dataframes
+
+        df = pd.DataFrame({"a": [1, 2]})
+        result = merge_dataframes([df])
+        assert len(result) == 2
+
+    def test_save_to_multiple_formats(self):
+        """Test saving dataframe to multiple formats."""
+        import tempfile
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from utils import save_to_multiple_formats
+
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_path = Path(tmpdir) / "test_data"
+            saved = save_to_multiple_formats(
+                df, str(base_path), formats=["csv", "json"]
+            )
+            assert "csv" in saved
+            assert "json" in saved
+            assert saved["csv"].exists()
+            assert saved["json"].exists()
+
+
+class TestAccessorMethods:
+    """Tests for additional accessor methods to improve coverage."""
+
+    def test_healthdata_gov_methods(self):
+        """Test HealthData.gov accessor additional methods."""
+        from healthdata_gov import HealthDataGovAccessor
+
+        accessor = HealthDataGovAccessor()
+        datasets = accessor.list_datasets()
+        assert isinstance(datasets, pd.DataFrame)
+        assert len(datasets) > 0
+
+    def test_colombia_ins_list_methods(self):
+        """Test Colombia INS accessor list methods."""
+        from colombia_ins import ColombiaINSAccessor
+
+        accessor = ColombiaINSAccessor()
+
+        depts = accessor.list_departments()
+        assert isinstance(depts, pd.DataFrame)
+
+        diseases = accessor.list_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+
+        groups = accessor.list_event_groups()
+        assert isinstance(groups, pd.DataFrame)
+
+    def test_colombia_ins_region_methods(self):
+        """Test Colombia INS region methods."""
+        from colombia_ins import ColombiaINSAccessor
+
+        accessor = ColombiaINSAccessor()
+
+        andina = accessor.get_departments_by_region("Andina")
+        assert len(andina) > 0
+
+        vector_diseases = accessor.get_diseases_by_group(
+            "ENFERMEDADES TRANSMITIDAS POR VECTORES"
+        )
+        assert len(vector_diseases) > 0
+
+    def test_africa_cdc_list_methods(self):
+        """Test Africa CDC accessor list methods."""
+        from africa_cdc import AfricaCDCAccessor
+
+        accessor = AfricaCDCAccessor()
+
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+
+        regions = accessor.list_regions()
+        assert isinstance(regions, pd.DataFrame)
+
+        diseases = accessor.list_priority_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+
+    def test_africa_cdc_region_methods(self):
+        """Test Africa CDC region methods."""
+        from africa_cdc import AfricaCDCAccessor
+
+        accessor = AfricaCDCAccessor()
+
+        eastern = accessor.get_countries_by_region("Eastern")
+        assert len(eastern) > 0
+
+    def test_paho_list_methods(self):
+        """Test PAHO accessor list methods."""
+        from paho import PAHOAccessor
+
+        accessor = PAHOAccessor()
+
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+
+        subregions = accessor.list_subregions()
+        assert isinstance(subregions, pd.DataFrame)
+
+        vaccines = accessor.list_vaccines()
+        assert isinstance(vaccines, pd.DataFrame)
+
+        diseases = accessor.list_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+
+    def test_paho_subregion_methods(self):
+        """Test PAHO subregion methods."""
+        from paho import PAHOAccessor
+
+        accessor = PAHOAccessor()
+
+        andean = accessor.get_countries_by_subregion("Andean")
+        assert len(andean) > 0
+
+    def test_rki_list_methods(self):
+        """Test RKI accessor list methods."""
+        from rki_germany import RKIGermanyAccessor
+
+        accessor = RKIGermanyAccessor()
+
+        states = accessor.list_states()
+        assert isinstance(states, pd.DataFrame)
+
+        diseases = accessor.list_notifiable_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+
+    def test_china_cdc_list_methods(self):
+        """Test China CDC accessor list methods."""
+        from china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+
+        diseases = accessor.list_notifiable_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+
+        provinces = accessor.list_provinces()
+        assert isinstance(provinces, pd.DataFrame)
+
+    def test_india_idsp_list_methods(self):
+        """Test India IDSP accessor list methods."""
+        from india_idsp import IndiaIDSPAccessor
+
+        accessor = IndiaIDSPAccessor()
+
+        states = accessor.list_states()
+        assert isinstance(states, pd.DataFrame)
+
+        diseases = accessor.list_priority_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+
+    def test_ukhsa_list_methods(self):
+        """Test UKHSA accessor list methods."""
+        from ukhsa import UKHSAAccessor
+
+        accessor = UKHSAAccessor()
+
+        diseases = accessor.list_available_diseases()
+        assert isinstance(diseases, (pd.DataFrame, list))
 
 
 # Smoke tests - quick validation without external calls

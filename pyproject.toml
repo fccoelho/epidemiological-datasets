@@ -258,11 +258,16 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["src/epi_data"]
+source = ["src/epi_data", "scripts"]
 omit = [
     "*/tests/*",
     "*/test_*",
     "*/__pycache__/*",
+    "scripts/accessors/__init__.py",
+    "scripts/accessors/datasus_pysus.py",
+    "scripts/accessors/eurostat.py",
+    "scripts/accessors/owid.py",
+    "scripts/accessors/who_ghoclient.py",
 ]
 
 [tool.coverage.report]
