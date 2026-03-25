@@ -1,27 +1,42 @@
-"""Pytest configuration and fixtures."""
+#!/usr/bin/env python3
+"""
+Pytest configuration for epidemiological-datasets tests.
+"""
 
-import pandas as pd
 import pytest
 
 
-@pytest.fixture
-def sample_dataframe():
-    """Return a sample DataFrame for testing."""
-    return pd.DataFrame(
-        {
-            "country": ["BRA", "USA", "IND"],
-            "year": [2023, 2023, 2023],
-            "value": [100, 200, 300],
-        }
+def pytest_configure(config):
+    """Configure pytest with custom markers."""
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers", "external_api: marks tests that call external APIs"
     )
 
 
-@pytest.fixture
-def mock_api_response():
-    """Return a mock API response."""
-    return {
-        "data": [
-            {"country": "BRA", "year": 2023, "value": 100},
-            {"country": "USA", "year": 2023, "value": 200},
-        ]
-    }
+def pytest_collection_modifyitems(config, items):
+    """Modify test collection."""
+    skip_external = config.getoption("-m") == "not external_api" or \
+                   config.getini("SKIP_EXTERNAL_TESTS") == "true"
+    
+    if skip_external:
+        skip_marker = pytest.mark.skip(reason="External API tests disabled")
+        for item in items:
+            if "external_api" in item.keywords:
+                item.add_marker(skip_marker)
+
+
+# Fixture for shared test resources
+@pytest.fixture(scope="session")
+def test_cache_dir(tmp_path_factory):
+    """Provide a temporary cache directory for tests."""
+    return tmp_path_factory.mktemp("cache")
+
+
+@pytest.fixture(scope="session")
+def sample_data_dir():
+    """Provide path to sample data directory."""
+    from pathlib import Path
+    return Path(__file__).parent / "fixtures"

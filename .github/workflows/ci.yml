@@ -70,8 +70,8 @@ jobs:
         run: |
           uv pip install --system -e ".[dev]"
 
-      - name: Run tests
-        run: pytest --cov=epi_data --cov-report=xml --cov-report=term
+      - name: Run unit tests
+        run: pytest tests/ -v --ignore=tests/test_accessors.py --cov=epi_data --cov-report=xml --cov-report=term
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -80,6 +80,46 @@ jobs:
           files: ./coverage.xml
           fail_ci_if_error: false
           verbose: true
+
+  test-accessors:
+    name: Test Data Accessors
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: 'latest'
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -e ".[dev]"
+          uv pip install --system pytest-timeout
+
+      - name: Run accessor smoke tests
+        run: |
+          pytest tests/test_accessors.py::TestSmoke -v --tb=short
+
+      - name: Run accessor initialization tests
+        run: |
+          pytest tests/test_accessors.py -k "test_initialization" -v --tb=short
+        timeout-minutes: 5
+
+      - name: Run full accessor tests (external APIs)
+        run: |
+          pytest tests/test_accessors.py -v --tb=short
+        timeout-minutes: 10
+        continue-on-error: true  # Don't fail if external services are down
+        env:
+          SKIP_EXTERNAL_TESTS: "false"
 
   notebooks:
     runs-on: ubuntu-latest
