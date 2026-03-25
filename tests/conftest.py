@@ -3,6 +3,8 @@
 Pytest configuration for epidemiological-datasets tests.
 """
 
+import os
+
 import pytest
 
 
@@ -18,8 +20,11 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection."""
-    skip_external = config.getoption("-m") == "not external_api" or \
-                   config.getini("SKIP_EXTERNAL_TESTS") == "true"
+    # Check if external API tests should be skipped
+    skip_external = (
+        config.getoption("-m") == "not external_api" or
+        os.environ.get("SKIP_EXTERNAL_TESTS", "false").lower() == "true"
+    )
     
     if skip_external:
         skip_marker = pytest.mark.skip(reason="External API tests disabled")
