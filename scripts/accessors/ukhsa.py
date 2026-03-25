@@ -73,7 +73,11 @@ class UKHSAAccessor:
         Args:
             cache_dir: Directory to cache downloaded data. If None, uses temp directory.
         """
-        self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "epi_data" / "ukhsa"
+        self.cache_dir = (
+            Path(cache_dir)
+            if cache_dir
+            else Path.home() / ".cache" / "epi_data" / "ukhsa"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._cache_ttl = timedelta(hours=24)
 
@@ -102,7 +106,9 @@ class UKHSAAccessor:
         for _ in range(max_pages):
             if not page_url or page_url in seen:
                 if page_url in seen:
-                    logger.warning("Pagination loop detected, stopping at: %s", page_url)
+                    logger.warning(
+                        "Pagination loop detected, stopping at: %s", page_url
+                    )
                 break
             seen.add(page_url)
             data = self._fetch_api(page_url)
@@ -110,14 +116,14 @@ class UKHSAAccessor:
             page_url = data.get("next")
         return all_results
 
-    def _build_metric_url(self, disease: str, geography: str = "England") -> str:
+    def _build_metric_url(self, disease: str, region: str = "England") -> str:
         """Build the API URL for a disease metric."""
         if disease not in self.DISEASE_MAP:
             available = ", ".join(self.DISEASE_MAP.keys())
             raise ValueError(f"Unknown disease '{disease}'. Available: {available}")
 
         info = self.DISEASE_MAP[disease]
-        geo_encoded = quote(geography, safe="")
+        geo_encoded = quote(region, safe="")
         return (
             f"{self.API_BASE}/themes/infectious_disease"
             f"/sub_themes/{info['sub_theme']}"
@@ -129,48 +135,73 @@ class UKHSAAccessor:
 
     def get_infectious_disease_data(
         self,
-        disease: str,
+        disease: Union[str, List[str]],
         years: Optional[List[int]] = None,
-        geography: str = "England",
+        regions: Union[str, List[str]] = "England",
         use_cache: bool = True,
     ) -> pd.DataFrame:
         """
         Get infectious disease surveillance data from UKHSA.
 
         Args:
-            disease: Disease name ("COVID-19", "Influenza", "Measles", "RSV")
+            disease: Disease name or list of names ("COVID-19", "Influenza", "Measles", "RSV")
             years: Filter to specific years (optional, default: all available)
-            geography: UK geography (default: "England")
+            regions: UK region or list of regions (default: "England")
             use_cache: Whether to use cached data if available
 
         Returns:
-            DataFrame with columns: date, disease, geography, cases, year, epiweek
+            DataFrame with columns: date, disease, region, cases, year, epiweek
         """
-        cache_file = f"{disease.lower().replace('-', '_')}_{geography.lower()}.csv"
+        if isinstance(disease, list):
+            disease_key = "_".join(d.lower().replace("-", "_") for d in disease)
+        else:
+            disease_key = disease.lower().replace("-", "_")
+
+        if isinstance(regions, list):
+            regions_key = "_".join(r.lower().replace(" ", "_") for r in regions)
+        else:
+            regions_key = regions.lower().replace(" ", "_")
+
+        cache_file = f"{disease_key}_{regions_key}.csv"
         cache_path = self._get_cached_path(cache_file)
 
         if use_cache and self._is_cache_valid(cache_path):
             df = pd.read_csv(cache_path, parse_dates=["date"])
         else:
-            url = self._build_metric_url(disease, geography)
-            try:
-                records = self._fetch_all_pages(url)
-            except (HTTPError, URLError) as e:
-                raise RuntimeError(f"Failed to fetch {disease} data from UKHSA API: {e}")
+            diseases_to_fetch = disease if isinstance(disease, list) else [disease]
+            regions_to_fetch = regions if isinstance(regions, list) else [regions]
+            all_dfs = []
+            for d in diseases_to_fetch:
+                for r in regions_to_fetch:
+                    url = self._build_metric_url(d, r)
+                    try:
+                        records = self._fetch_all_pages(url)
+                    except (HTTPError, URLError) as e:
+                        raise RuntimeError(
+                            f"Failed to fetch {d} data for {r} from UKHSA API: {e}"
+                        )
+                    if records:
+                        all_dfs.append(pd.DataFrame(records))
 
-            if not records:
-                return pd.DataFrame(columns=["date", "disease", "geography", "cases", "year", "epiweek"])
+            if not all_dfs:
+                return pd.DataFrame(
+                    columns=["date", "disease", "region", "cases", "year", "epiweek"]
+                )
 
-            df = pd.DataFrame(records)
-            df = df.rename(columns={
-                "metric_value": "cases",
-                "topic": "disease",
-            })
+            df = pd.concat(all_dfs, ignore_index=True)
+            df = df.rename(
+                columns={
+                    "metric_value": "cases",
+                    "topic": "disease",
+                    "geography": "region",
+                }
+            )
             df["date"] = pd.to_datetime(df["date"])
             if "cases" not in df.columns:
-                logger.warning("API response missing 'metric_value' field; 'cases' column will be absent")
-            # Keep useful columns
-            keep = ["date", "disease", "geography", "cases", "year", "epiweek"]
+                logger.warning(
+                    "API response missing 'metric_value' field; 'cases' column will be absent"
+                )
+            keep = ["date", "disease", "region", "cases", "year", "epiweek"]
             df = df[[c for c in keep if c in df.columns]]
             df.to_csv(cache_path, index=False)
 
@@ -191,20 +222,22 @@ class UKHSAAccessor:
         """
         rows = []
         for name, info in self.DISEASE_MAP.items():
-            rows.append({
-                "disease": name,
-                "sub_theme": info["sub_theme"],
-                "metric": info["metric"],
-            })
+            rows.append(
+                {
+                    "disease": name,
+                    "sub_theme": info["sub_theme"],
+                    "metric": info["metric"],
+                }
+            )
         return pd.DataFrame(rows)
 
-    def get_available_metrics(self, disease: str, geography: str = "England") -> List[str]:
+    def get_available_metrics(self, disease: str, region: str = "England") -> List[str]:
         """
         List all available metrics for a disease from the API.
 
         Args:
             disease: Disease name
-            geography: UK geography
+            region: UK region
 
         Returns:
             List of metric names available for this disease.
@@ -214,7 +247,7 @@ class UKHSAAccessor:
             raise ValueError(f"Unknown disease '{disease}'. Available: {available}")
 
         info = self.DISEASE_MAP[disease]
-        geo_encoded = quote(geography, safe="")
+        geo_encoded = quote(region, safe="")
         url = (
             f"{self.API_BASE}/themes/infectious_disease"
             f"/sub_themes/{info['sub_theme']}"
@@ -246,7 +279,9 @@ class UKHSAAccessor:
         regions: Optional[List[str]] = None,
     ) -> pd.DataFrame:
         """Get vaccination coverage data. Currently limited to available API data."""
-        logger.info("Immunization coverage data is not yet available via the UKHSA Dashboard API.")
+        logger.info(
+            "Immunization coverage data is not yet available via the UKHSA Dashboard API."
+        )
         if isinstance(vaccines, str):
             vaccines = [vaccines]
         regions = regions or ["England"]
@@ -256,12 +291,18 @@ class UKHSAAccessor:
             for year in years:
                 for region in regions:
                     for age in age_groups:
-                        data.append({
-                            "vaccine": vaccine, "year": year, "region": region,
-                            "age_group": age, "coverage_percent": None, "target": 95.0,
-                            "data_source": "UKHSA",
-                            "note": "Immunization coverage not yet available via Dashboard API",
-                        })
+                        data.append(
+                            {
+                                "vaccine": vaccine,
+                                "year": year,
+                                "region": region,
+                                "age_group": age,
+                                "coverage_percent": None,
+                                "target": 95.0,
+                                "data_source": "UKHSA",
+                                "note": "Immunization coverage not yet available via Dashboard API",
+                            }
+                        )
         return pd.DataFrame(data)
 
     def get_seasonal_influenza_data(
@@ -295,12 +336,16 @@ class UKHSAAccessor:
         data = []
         for year in years:
             for organism in organisms:
-                data.append({
-                    "year": year, "organism": organism,
-                    "resistance_rate": None, "sample_size": None,
-                    "data_source": "UKHSA",
-                    "note": "AMR data not yet available via Dashboard API",
-                })
+                data.append(
+                    {
+                        "year": year,
+                        "organism": organism,
+                        "resistance_rate": None,
+                        "sample_size": None,
+                        "data_source": "UKHSA",
+                        "note": "AMR data not yet available via Dashboard API",
+                    }
+                )
         return pd.DataFrame(data)
 
     def get_covid19_metrics(
@@ -319,22 +364,68 @@ class UKHSAAccessor:
     def get_available_indicators(self) -> pd.DataFrame:
         """List all available surveillance indicators."""
         indicators = [
-            {"category": "Infectious Diseases", "indicator": "COVID-19 cases", "frequency": "Daily", "api_available": True},
-            {"category": "Infectious Diseases", "indicator": "Influenza cases", "frequency": "Weekly", "api_available": True},
-            {"category": "Infectious Diseases", "indicator": "Measles cases", "frequency": "Weekly", "api_available": True},
-            {"category": "Infectious Diseases", "indicator": "RSV cases", "frequency": "Weekly", "api_available": True},
-            {"category": "Vaccination", "indicator": "Childhood coverage", "frequency": "Quarterly", "api_available": False},
-            {"category": "AMR", "indicator": "Antimicrobial resistance", "frequency": "Annual", "api_available": False},
+            {
+                "category": "Infectious Diseases",
+                "indicator": "COVID-19 cases",
+                "frequency": "Daily",
+                "api_available": True,
+            },
+            {
+                "category": "Infectious Diseases",
+                "indicator": "Influenza cases",
+                "frequency": "Weekly",
+                "api_available": True,
+            },
+            {
+                "category": "Infectious Diseases",
+                "indicator": "Measles cases",
+                "frequency": "Weekly",
+                "api_available": True,
+            },
+            {
+                "category": "Infectious Diseases",
+                "indicator": "RSV cases",
+                "frequency": "Weekly",
+                "api_available": True,
+            },
+            {
+                "category": "Vaccination",
+                "indicator": "Childhood coverage",
+                "frequency": "Quarterly",
+                "api_available": False,
+            },
+            {
+                "category": "AMR",
+                "indicator": "Antimicrobial resistance",
+                "frequency": "Annual",
+                "api_available": False,
+            },
         ]
         return pd.DataFrame(indicators)
 
     def get_data_sources(self) -> pd.DataFrame:
         """Get information about UKHSA data sources."""
         sources = [
-            {"category": "Dashboard API", "name": "UKHSA Dashboard", "url": self.API_BASE},
-            {"category": "Infectious Diseases", "name": "COVID-19", "url": f"{self.API_BASE}/themes/infectious_disease/sub_themes/respiratory/topics/COVID-19"},
-            {"category": "Infectious Diseases", "name": "Influenza", "url": f"{self.API_BASE}/themes/infectious_disease/sub_themes/respiratory/topics/Influenza"},
-            {"category": "Infectious Diseases", "name": "Measles", "url": f"{self.API_BASE}/themes/infectious_disease/sub_themes/vaccine_preventable/topics/Measles"},
+            {
+                "category": "Dashboard API",
+                "name": "UKHSA Dashboard",
+                "url": self.API_BASE,
+            },
+            {
+                "category": "Infectious Diseases",
+                "name": "COVID-19",
+                "url": f"{self.API_BASE}/themes/infectious_disease/sub_themes/respiratory/topics/COVID-19",
+            },
+            {
+                "category": "Infectious Diseases",
+                "name": "Influenza",
+                "url": f"{self.API_BASE}/themes/infectious_disease/sub_themes/respiratory/topics/Influenza",
+            },
+            {
+                "category": "Infectious Diseases",
+                "name": "Measles",
+                "url": f"{self.API_BASE}/themes/infectious_disease/sub_themes/vaccine_preventable/topics/Measles",
+            },
         ]
         return pd.DataFrame(sources)
 
