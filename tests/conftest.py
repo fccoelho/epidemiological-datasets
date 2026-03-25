@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-Pytest configuration for epidemiological-datasets tests.
-"""
+"""Pytest configuration for epidemiological-datasets tests."""
 
 import os
 
@@ -25,7 +23,7 @@ def pytest_collection_modifyitems(config, items):
         config.getoption("-m") == "not external_api" or
         os.environ.get("SKIP_EXTERNAL_TESTS", "false").lower() == "true"
     )
-    
+
     if skip_external:
         skip_marker = pytest.mark.skip(reason="External API tests disabled")
         for item in items:
