@@ -321,6 +321,56 @@ class TestUKHSA:
         assert isinstance(df, pd.DataFrame)
 
 
+class TestEpiPulse:
+    """Tests for ECDC EpiPulse accessor."""
+
+    def test_initialization(self):
+        """Test accessor initializes correctly."""
+        from epipulse import EpiPulseAccessor
+
+        accessor = EpiPulseAccessor()
+        assert accessor is not None
+        assert hasattr(accessor, 'get_available_diseases')
+        assert hasattr(accessor, 'get_available_countries')
+
+    def test_get_available_diseases(self):
+        """Test listing available diseases."""
+        from epipulse import EpiPulseAccessor
+
+        accessor = EpiPulseAccessor()
+        diseases = accessor.get_available_diseases()
+
+        assert isinstance(diseases, pd.DataFrame)
+        assert len(diseases) > 0
+        assert 'disease' in diseases.columns
+        assert 'category' in diseases.columns
+
+    def test_get_available_countries(self):
+        """Test listing available countries."""
+        from epipulse import EpiPulseAccessor
+
+        accessor = EpiPulseAccessor()
+        countries = accessor.get_available_countries(region="EU")
+
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 27  # EU countries
+
+    @requires_external_api
+    def test_get_cases(self):
+        """Test fetching case data."""
+        from epipulse import EpiPulseAccessor
+
+        accessor = EpiPulseAccessor()
+        df = accessor.get_cases(
+            disease="COVID-19",
+            country="DE",
+            year=2024
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 0
+
+
 class TestUtils:
     """Tests for utility functions."""
 
@@ -344,6 +394,7 @@ class TestUtils:
             "india_idsp.py",
             "global_health.py",
             "ukhsa.py",
+            "epipulse.py",
         ]
 
         for file in accessor_files:

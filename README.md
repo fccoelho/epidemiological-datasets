@@ -173,7 +173,11 @@ epidemiological-datasets/
 
 | Dataset | Description | Update Frequency | Access Level | Script |
 |---------|-------------|------------------|--------------|--------|
+| [ECDC EpiPulse](https://epipulse.ecdc.europa.eu/) | European surveillance portal (53 countries, 50+ diseases) | Daily/Weekly | Registration | `scripts/accessors/epipulse.py` |
 | [ECDC Surveillance Atlas](https://atlas.ecdc.europa.eu/public/index.aspx) | Infectious disease surveillance | Weekly | Open | `scripts/accessors/ecdc.py` |
+| [ECDC ERVISS](https://www.ecdc.europa.eu/en/publications-data/european-respiratory-virus-surveillance-summary-erviss) | Respiratory virus surveillance (Influenza, RSV, COVID-19) | Weekly | Open | Planned |
+| [ECDC RespiCast](https://www.ecdc.europa.eu/en/publications-data/european-respiratory-diseases-forecasting-hub-respicast) | Respiratory disease forecasting hub | Weekly | Open | Planned |
+| [ECDC ESAC-Net](https://www.ecdc.europa.eu/en/publications-data/antimicrobial-consumption-dashboard) | Antimicrobial consumption network | Annual | Open | Planned |
 | [Eurostat Health](https://ec.europa.eu/eurostat/web/health) | EU health statistics | Annual | Open | `scripts/accessors/eurostat.py` |
 | [UK Health Security Agency](https://www.gov.uk/government/collections/health-protection-data) | UK health data | Weekly | Open | `scripts/accessors/ukhsa.py` |
 | [Robert Koch Institute](https://www.rki.de/EN/Content/infections/epidemiology/data.html) | German surveillance data | Weekly | Open | `scripts/accessors/rki_germany.py` |
