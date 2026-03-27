@@ -371,6 +371,57 @@ class TestEpiPulse:
         assert len(df) > 0
 
 
+class TestRespiCast:
+    """Tests for ECDC RespiCast accessor."""
+
+    def test_initialization(self):
+        """Test accessor initializes correctly."""
+        from respicast import RespiCastAccessor
+
+        accessor = RespiCastAccessor()
+        assert accessor is not None
+        assert hasattr(accessor, 'get_available_diseases')
+        assert hasattr(accessor, 'get_ensemble_forecast')
+
+    def test_get_available_diseases(self):
+        """Test listing available diseases."""
+        from respicast import RespiCastAccessor
+
+        accessor = RespiCastAccessor()
+        diseases = accessor.get_available_diseases()
+
+        assert isinstance(diseases, pd.DataFrame)
+        assert len(diseases) > 0
+        assert 'disease_key' in diseases.columns
+        assert 'disease_name' in diseases.columns
+
+    def test_get_available_countries(self):
+        """Test listing available countries."""
+        from respicast import RespiCastAccessor
+
+        accessor = RespiCastAccessor()
+        countries = accessor.get_available_countries()
+
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 30  # EU/EEA countries
+
+    @requires_external_api
+    def test_get_ensemble_forecast(self):
+        """Test fetching ensemble forecast."""
+        from respicast import RespiCastAccessor
+
+        accessor = RespiCastAccessor()
+        forecast = accessor.get_ensemble_forecast(
+            country="DE",
+            disease="influenza",
+            target="ili_rate",
+            horizon_weeks=4
+        )
+
+        assert isinstance(forecast, pd.DataFrame)
+        assert len(forecast) > 0
+
+
 class TestUtils:
     """Tests for utility functions."""
 
@@ -395,6 +446,7 @@ class TestUtils:
             "global_health.py",
             "ukhsa.py",
             "epipulse.py",
+            "respicast.py",
         ]
 
         for file in accessor_files:
