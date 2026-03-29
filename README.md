@@ -152,7 +152,7 @@ epidemiological-datasets/
 | Dataset | Description | Update Frequency | Access Level | Script |
 |---------|-------------|------------------|--------------|--------|
 | [CDC Wonder](https://wonder.cdc.gov/) | US health statistics | Weekly | Open | `scripts/accessors/cdc.py` |
-| [CDC Open Data](https://data.cdc.gov/) | CDC datasets portal | Varies | Open | `scripts/accessors/cdc_opendata.py` |
+| [CDC Open Data](https://data.cdc.gov/) | CDC datasets portal (COVID-19, Influenza, NNDSS, CDI) | Varies | Open | `scripts/accessors/cdc_opendata.py` |
 | [HealthData.gov](https://healthdata.gov/) | US health system data | Weekly | Open | `scripts/accessors/healthdata_gov.py` |
 | [Statistics Canada - Health](https://www.statcan.gc.ca/en/health) | Canadian health data | Quarterly | Open | Planned |
 

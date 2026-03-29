@@ -422,6 +422,69 @@ class TestRespiCast:
         assert len(forecast) > 0
 
 
+class TestCDCOpenData:
+    """Tests for CDC Open Data accessor."""
+
+    def test_initialization(self):
+        """Test accessor initializes correctly."""
+        from cdc_opendata import CDCOpenDataAccessor
+
+        accessor = CDCOpenDataAccessor()
+        assert accessor is not None
+        assert hasattr(accessor, 'get_available_datasets')
+        assert hasattr(accessor, 'get_covid_cases')
+
+    def test_get_available_datasets(self):
+        """Test listing available datasets."""
+        from cdc_opendata import CDCOpenDataAccessor
+
+        accessor = CDCOpenDataAccessor()
+        datasets = accessor.get_available_datasets()
+
+        assert isinstance(datasets, pd.DataFrame)
+        assert len(datasets) > 0
+        assert 'dataset_key' in datasets.columns
+        assert 'category' in datasets.columns
+
+    def test_list_notifiable_diseases(self):
+        """Test listing notifiable diseases."""
+        from cdc_opendata import CDCOpenDataAccessor
+
+        accessor = CDCOpenDataAccessor()
+        diseases = accessor.list_notifiable_diseases()
+
+        assert isinstance(diseases, list)
+        assert len(diseases) > 0
+        assert "Measles" in diseases
+        assert "Tuberculosis" in diseases
+
+    @requires_external_api
+    def test_get_covid_cases(self):
+        """Test fetching COVID-19 data."""
+        from cdc_opendata import CDCOpenDataAccessor
+
+        accessor = CDCOpenDataAccessor()
+        df = accessor.get_covid_cases(
+            state="CA",
+            limit=10
+        )
+
+        assert isinstance(df, pd.DataFrame)
+
+    @requires_external_api
+    def test_get_influenza_data(self):
+        """Test fetching influenza data."""
+        from cdc_opendata import CDCOpenDataAccessor
+
+        accessor = CDCOpenDataAccessor()
+        df = accessor.get_influenza_data(
+            state="NY",
+            limit=10
+        )
+
+        assert isinstance(df, pd.DataFrame)
+
+
 class TestUtils:
     """Tests for utility functions."""
 
@@ -447,6 +510,7 @@ class TestUtils:
             "ukhsa.py",
             "epipulse.py",
             "respicast.py",
+            "cdc_opendata.py",
         ]
 
         for file in accessor_files:
