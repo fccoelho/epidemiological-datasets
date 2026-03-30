@@ -371,6 +371,37 @@ Analyze health indicators for the WHO Eastern Mediterranean Region covering 22 c
 
 ---
 
+### 18. [18_CDC_Open_Data_Examples.ipynb](notebooks/18_CDC_Open_Data_Examples.ipynb)
+**CDC Open Data - US Public Health Surveillance**
+
+Access US Centers for Disease Control and Prevention (CDC) open data including infectious disease surveillance, chronic disease indicators, and behavioral risk factors.
+
+**Topics covered:**
+- COVID-19 cases and deaths by state
+- Influenza surveillance data (seasonal trends)
+- NNDSS - 60+ notifiable diseases (Lyme disease, Measles, Pertussis)
+- Chronic Disease Indicators (Diabetes prevalence)
+- Multi-state comparisons and rankings
+- Behavioral Risk Factor Surveillance (BRFSS)
+- HIV/AIDS, Hepatitis, STD surveillance
+- Data export and analysis workflows
+
+**Data Sources:**
+- CDC Open Data Portal: https://data.cdc.gov/
+- API: Socrata Open Data API (SODA)
+- 50 US states + territories coverage
+- License: Public Domain (US Government)
+
+**Key Datasets:**
+- COVID-19 Reported Cases and Deaths (daily)
+- Influenza Laboratory-Confirmed Cases (weekly)
+- Chronic Disease Indicators (annual)
+- NNDSS Weekly Data (60+ diseases)
+- HIV, Hepatitis, STD Surveillance
+- Vaccination Coverage Data
+
+---
+
 ## 🚀 Quick Start
 
 ### Installation

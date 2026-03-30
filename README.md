@@ -94,7 +94,15 @@ epidemiological-datasets/
 │   │   ├── 07_Eurostat_EU_Health_Data.ipynb
 │   │   ├── 08_OWID_Our_World_in_Data.ipynb
 │   │   ├── 09_Colombia_INS_SIVIGILA_Data.ipynb
-│   │   └── 10_Africa_CDC_Data.ipynb
+│   │   ├── 10_Africa_CDC_Data.ipynb
+│   │   ├── 11_Global_Health_Linelist_Data.ipynb
+│   │   ├── 12_UKHSA_Surveillance_Data.ipynb
+│   │   ├── 13_HealthData_Gov_US_Health_System.ipynb
+│   │   ├── 14_RKI_Germany_Surveillance_Data.ipynb
+│   │   ├── 15_China_CDC_Weekly_Analysis.ipynb
+│   │   ├── 16_India_IDSP_Surveillance.ipynb
+│   │   ├── 17_EMRO_Health_Indicators_Analysis.ipynb
+│   │   └── 18_CDC_Open_Data_Examples.ipynb
 │   ├── 📄 README.md
 │   └── 📄 requirements.txt
 ├── 📁 scripts/                 # Python access scripts
