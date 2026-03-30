@@ -86,6 +86,29 @@ Access European Centre for Disease Prevention and Control data.
 
 ---
 
+### 4a. [ecdc_opendata_example.ipynb](ecdc_opendata_example.ipynb)
+**ECDC Open Data Accessor**
+
+Comprehensive guide to accessing ECDC open epidemiological data including disease surveillance, weekly reports, and antimicrobial resistance data.
+
+**Topics covered:**
+- Accessing 50+ infectious disease datasets
+- Vaccine-preventable diseases (Measles, Mumps, Rubella)
+- Respiratory diseases (COVID-19, Influenza)
+- Food and waterborne diseases
+- Weekly surveillance patterns
+- Antimicrobial resistance (AMR) data
+- Cross-country comparative analysis
+- Data export for research
+
+**Data Sources:**
+- ECDC Surveillance Atlas
+- Weekly Threats Reports (CDTR)
+- Annual Epidemiological Reports (AER)
+- Antimicrobial resistance surveillance
+
+---
+
 ### 5. [05_multi_source_comparison.ipynb](notebooks/05_multi_source_comparison.ipynb)
 **Multi-Source Health Data Comparison**
 
@@ -399,6 +422,52 @@ Access US Centers for Disease Control and Prevention (CDC) open data including i
 - NNDSS Weekly Data (60+ diseases)
 - HIV, Hepatitis, STD Surveillance
 - Vaccination Coverage Data
+
+---
+
+### 19. [epipulse_example.ipynb](epipulse_example.ipynb)
+**ECDC EpiPulse - European Surveillance Portal**
+
+Access comprehensive infectious disease surveillance data from ECDC's EpiPulse portal covering 53 countries and 50+ diseases across Europe.
+
+**Topics covered:**
+- COVID-19, Influenza, RSV surveillance
+- Vaccine-preventable diseases (Measles, Mumps, Rubella)
+- Food and waterborne diseases
+- Sexually transmitted infections
+- Vector-borne diseases
+- Event-based surveillance data
+- Country-level and EU-level aggregates
+- Multi-country comparative analysis
+
+**Data Sources:**
+- EpiPulse Portal: https://epipulse.ecdc.europa.eu/
+- TESSy (The European Surveillance System)
+- 53 countries (EU/EEA + WHO European Region)
+- 50+ infectious diseases
+
+---
+
+### 20. [respicast_example.ipynb](respicast_example.ipynb)
+**ECDC RespiCast - Respiratory Disease Forecasting Hub**
+
+Access ensemble forecasts for respiratory diseases from multiple international modeling teams.
+
+**Topics covered:**
+- Influenza forecasts (ILI rate, hospital admissions)
+- COVID-19 forecasts (cases, hospitalizations, deaths)
+- RSV forecasts (hospitalizations)
+- Prediction intervals (50%, 90%, 95%)
+- 1-4 week ahead predictions
+- Truth data comparison (forecast vs actual)
+- Multi-horizon forecast analysis
+- Multi-country forecast comparison
+
+**Data Sources:**
+- RespiCast Hub: https://respicast.ecdc.europa.eu/
+- GitHub: https://github.com/european-modelling-hubs/RespiCast
+- 30 EU/EEA countries
+- Ensemble models from multiple teams
 
 ---
 

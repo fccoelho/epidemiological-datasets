@@ -485,6 +485,83 @@ class TestCDCOpenData:
         assert isinstance(df, pd.DataFrame)
 
 
+class TestECDCOpenData:
+    """Tests for ECDC Open Data accessor."""
+
+    def test_initialization(self):
+        """Test accessor initializes correctly."""
+        from ecdc_opendata import ECDCOpenDataAccessor
+
+        accessor = ECDCOpenDataAccessor()
+        assert accessor is not None
+        assert hasattr(accessor, 'get_available_diseases')
+        assert hasattr(accessor, 'get_disease_data')
+
+    def test_get_available_diseases(self):
+        """Test listing available diseases."""
+        from ecdc_opendata import ECDCOpenDataAccessor
+
+        accessor = ECDCOpenDataAccessor()
+        diseases = accessor.get_available_diseases()
+
+        assert isinstance(diseases, pd.DataFrame)
+        assert len(diseases) > 0
+        assert 'disease' in diseases.columns
+        assert 'category' in diseases.columns
+
+    def test_get_available_countries(self):
+        """Test listing available countries."""
+        from ecdc_opendata import ECDCOpenDataAccessor
+
+        accessor = ECDCOpenDataAccessor()
+        countries = accessor.get_available_countries()
+
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 30  # EU/EEA countries
+
+    def test_get_disease_data(self):
+        """Test fetching disease surveillance data."""
+        from ecdc_opendata import ECDCOpenDataAccessor
+
+        accessor = ECDCOpenDataAccessor()
+        df = accessor.get_disease_data(
+            disease="Measles",
+            years=range(2020, 2023)
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 0
+        assert 'year' in df.columns
+        assert 'cases' in df.columns
+
+    def test_get_weekly_data(self):
+        """Test fetching weekly surveillance data."""
+        from ecdc_opendata import ECDCOpenDataAccessor
+
+        accessor = ECDCOpenDataAccessor()
+        df = accessor.get_weekly_data(
+            disease="Influenza",
+            country="DE",
+            year=2023
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 0
+
+    def test_get_amr_data(self):
+        """Test fetching AMR data."""
+        from ecdc_opendata import ECDCOpenDataAccessor
+
+        accessor = ECDCOpenDataAccessor()
+        df = accessor.get_amr_data(
+            pathogen="E. coli",
+            antibiotic="cephalosporins"
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 0
+
+
 class TestUtils:
     """Tests for utility functions."""
 
@@ -511,6 +588,7 @@ class TestUtils:
             "epipulse.py",
             "respicast.py",
             "cdc_opendata.py",
+            "ecdc_opendata.py",
         ]
 
         for file in accessor_files:

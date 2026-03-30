@@ -182,7 +182,7 @@ epidemiological-datasets/
 | Dataset | Description | Update Frequency | Access Level | Script |
 |---------|-------------|------------------|--------------|--------|
 | [ECDC EpiPulse](https://epipulse.ecdc.europa.eu/) | European surveillance portal (53 countries, 50+ diseases) | Daily/Weekly | Registration | `scripts/accessors/epipulse.py` |
-| [ECDC Surveillance Atlas](https://atlas.ecdc.europa.eu/public/index.aspx) | Infectious disease surveillance | Weekly | Open | `scripts/accessors/ecdc.py` |
+| [ECDC Open Data](https://atlas.ecdc.europa.eu/) | Infectious disease surveillance (50+ diseases, 30 countries) | Weekly | Open | `scripts/accessors/ecdc_opendata.py` |
 | [ECDC ERVISS](https://www.ecdc.europa.eu/en/publications-data/european-respiratory-virus-surveillance-summary-erviss) | Respiratory virus surveillance (Influenza, RSV, COVID-19) | Weekly | Open | Planned |
 | [ECDC RespiCast](https://www.ecdc.europa.eu/en/publications-data/european-respiratory-diseases-forecasting-hub-respicast) | Respiratory disease forecasting hub | Weekly | Open | `scripts/accessors/respicast.py` |
 | [ECDC ESAC-Net](https://www.ecdc.europa.eu/en/publications-data/antimicrobial-consumption-dashboard) | Antimicrobial consumption network | Annual | Open | Planned |
