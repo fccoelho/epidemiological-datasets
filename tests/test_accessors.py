@@ -16,15 +16,19 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import responses
 
 # Add scripts directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "accessors"))
 
-# Skip marker for external API tests
-requires_external_api = pytest.mark.skipif(
-    os.getenv("SKIP_EXTERNAL_TESTS", "false").lower() == "true",
-    reason="External API tests disabled",
-)
+# Combined marker/decorator for external API tests.
+def requires_external_api(func):
+    """Mark test as external API and skip when external tests are disabled."""
+    func = pytest.mark.external_api(func)
+    return pytest.mark.skipif(
+        os.getenv("SKIP_EXTERNAL_TESTS", "false").lower() == "true",
+        reason="External API tests disabled",
+    )(func)
 
 
 class TestHealthDataGov:
@@ -732,6 +736,80 @@ class TestUtils:
             assert "json" in saved
             assert saved["csv"].exists()
             assert saved["json"].exists()
+
+
+class TestColombiaINSOffline:
+    """Offline tests for Colombia INS HTTP fetch helpers using mocked responses."""
+
+    @responses.activate
+    def test_fetch_csv_data_success(self):
+        """Return a DataFrame when CSV payload is valid."""
+        from colombia_ins import ColombiaINSAccessor
+
+        accessor = ColombiaINSAccessor()
+        url = "https://example.org/ins-dengue.csv"
+        csv_payload = "department,cases\nAntioquia,10\nValle,5\n"
+
+        responses.add(
+            responses.GET,
+            url,
+            body=csv_payload,
+            status=200,
+            content_type="text/csv",
+        )
+
+        df = accessor._fetch_csv_data(url, retries=1)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        assert list(df.columns) == ["department", "cases"]
+
+    @responses.activate
+    def test_fetch_csv_data_http_error_returns_none(self):
+        """Return None when all HTTP attempts fail."""
+        from colombia_ins import ColombiaINSAccessor
+
+        accessor = ColombiaINSAccessor()
+        url = "https://example.org/failure.csv"
+
+        responses.add(
+            responses.GET,
+            url,
+            status=500,
+            content_type="text/plain",
+        )
+
+        result = accessor._fetch_csv_data(url, retries=1)
+        assert result is None
+
+    @responses.activate
+    def test_fetch_csv_data_retry_then_success(self, monkeypatch):
+        """Retry once and succeed on the next attempt."""
+        from colombia_ins import ColombiaINSAccessor
+
+        accessor = ColombiaINSAccessor()
+        url = "https://example.org/retry.csv"
+        csv_payload = "department,cases\nBogota,7\n"
+
+        monkeypatch.setattr("colombia_ins.time.sleep", lambda *_: None)
+
+        responses.add(
+            responses.GET,
+            url,
+            status=502,
+            content_type="text/plain",
+        )
+        responses.add(
+            responses.GET,
+            url,
+            body=csv_payload,
+            status=200,
+            content_type="text/csv",
+        )
+
+        df = accessor._fetch_csv_data(url, retries=2)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 1
+        assert df.loc[0, "department"] == "Bogota"
 
 
 class TestAccessorMethods:
