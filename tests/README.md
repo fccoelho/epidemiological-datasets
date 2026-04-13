@@ -30,6 +30,11 @@ pytest tests/test_accessors.py::TestSmoke -v
 SKIP_EXTERNAL_TESTS=true pytest tests/test_accessors.py -v
 ```
 
+### Run only offline tests using marker
+```bash
+pytest tests/ -m "not external_api" -v
+```
+
 ### Run specific accessor test
 ```bash
 pytest tests/test_accessors.py::TestRKI -v
