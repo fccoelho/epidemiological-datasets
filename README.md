@@ -36,6 +36,16 @@
   <img src="https://img.shields.io/github/contributors/fccoelho/epidemiological-datasets?style=flat-square" alt="Contributors">
 </p>
 
+<p align="center">
+  <strong>Sponsored by</strong><br>
+  <a href="https://epidbot.kwar-ai.com.br" target="_blank">
+    <img src="docs/images/kwar-ai-logo.jpg" alt="Kwar-AI" width="200">
+  </a><br>
+  <em>AI-powered epidemiological intelligence</em>
+</p>
+
+---
+
 > A curated collection of openly accessible epidemiological datasets from around the world, with Python tools for easy access and analysis.
 
 ## 📋 Table of Contents
