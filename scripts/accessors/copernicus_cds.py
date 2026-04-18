@@ -36,6 +36,8 @@ Author: Flávio Codeço Coelho
 License: MIT
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import time
@@ -130,6 +132,86 @@ class CopernicusCDSAccessor:
         'africa': [40, -20, -40, 55],
         'asia': [55, 60, -15, 150],
         'north_america': [75, -170, 10, -50],
+    }
+
+    # Brazilian state capitals and major cities with coordinates (lat, lon)
+    # Format: {city_name: [latitude, longitude, state_code, ibge_code]}
+    BRAZIL_CITIES = {
+        # State capitals
+        'sao_paulo': [-23.5505, -46.6333, 'SP', 3550308],
+        'rio_de_janeiro': [-22.9068, -43.1729, 'RJ', 3304557],
+        'salvador': [-12.9714, -38.5014, 'BA', 2927408],
+        'fortaleza': [-3.7172, -38.5434, 'CE', 2304400],
+        'belo_horizonte': [-19.9167, -43.9345, 'MG', 3106200],
+        'brasilia': [-15.7975, -47.8919, 'DF', 5300108],
+        'curitiba': [-25.4284, -49.2733, 'PR', 4106902],
+        'manaus': [-3.1190, -60.0217, 'AM', 1302603],
+        'recife': [-8.0476, -34.8770, 'PE', 2611606],
+        'porto_alegre': [-30.0346, -51.2177, 'RS', 4314902],
+        'belem': [-1.4558, -48.4902, 'PA', 1501402],
+        'goiania': [-16.6869, -49.2648, 'GO', 5208707],
+        'sao_luis': [-2.5297, -44.3028, 'MA', 2111300],
+        'maceio': [-9.6659, -35.7350, 'AL', 2704302],
+        'natal': [-5.7793, -35.2009, 'RN', 2408102],
+        'teresina': [-5.0892, -42.8019, 'PI', 2211001],
+        'campo_grande': [-20.4697, -54.6201, 'MS', 5002704],
+        'joao_pessoa': [-7.1150, -34.8641, 'PB', 2507507],
+        'aracaju': [-10.9472, -37.0731, 'SE', 2800308],
+        'cuiaba': [-15.6014, -56.0979, 'MT', 5103403],
+        'florianopolis': [-27.5949, -48.5480, 'SC', 4205407],
+        'vitoria': [-20.2976, -40.2958, 'ES', 3205309],
+        'porto_velho': [-8.7612, -63.9004, 'RO', 1100205],
+        'macapa': [0.0355, -51.0705, 'AP', 1600303],
+        'boa_vista': [2.8235, -60.6758, 'RR', 1400100],
+        'rio_branco': [-9.9747, -67.8243, 'AC', 1200401],
+        'palmas': [-10.1840, -48.3347, 'TO', 1721000],
+
+        # Major non-capital cities (high dengue incidence)
+        'campinas': [-22.9053, -47.0659, 'SP', 3509502],
+        'santos': [-23.9614, -46.3281, 'SP', 3548500],
+        'ribeirao_preto': [-21.1704, -47.8103, 'SP', 3543402],
+        'sao_jose_dos_campos': [-23.1794, -45.8868, 'SP', 3549904],
+        'sorocaba': [-23.5017, -47.4581, 'SP', 3552205],
+        'nova_iguacu': [-22.7590, -43.4511, 'RJ', 3303500],
+        'duque_de_caxias': [-22.7868, -43.3131, 'RJ', 3301702],
+        'sao_goncalo': [-22.8268, -43.0539, 'RJ', 3304904],
+        'feira_de_santana': [-12.2664, -38.9663, 'BA', 2910800],
+        'vitoria_da_conquista': [-14.8619, -40.8443, 'BA', 2932907],
+        'juazeiro_do_norte': [-7.2247, -39.3136, 'CE', 2307304],
+        'petrolina': [-9.3891, -40.5031, 'PE', 2611101],
+        'jundiai': [-23.1857, -46.8978, 'SP', 3525904],
+        'piracicaba': [-22.7343, -47.6481, 'SP', 3538709],
+        'uberlandia': [-18.9186, -48.2772, 'MG', 3170206],
+        'contagem': [-19.9386, -44.0529, 'MG', 3118601],
+        'betim': [-19.9672, -44.2007, 'MG', 3106705],
+        'montes_claros': [-16.7286, -43.8578, 'MG', 3143302],
+        'sao_jose_do_rio_preto': [-20.8113, -49.3758, 'SP', 3549805],
+        'presidente_prudente': [-22.1256, -51.3889, 'SP', 3541406],
+        'londrina': [-23.3045, -51.1696, 'PR', 4113700],
+        'maringa': [-23.4205, -51.9333, 'PR', 4115200],
+        'foz_do_iguacu': [-25.5163, -54.5854, 'PR', 4108304],
+        'joinville': [-26.3044, -48.8464, 'SC', 4209102],
+        'blumenau': [-26.9187, -49.0660, 'SC', 4202404],
+        'criciuma': [-28.6782, -49.3704, 'SC', 4204608],
+        'pelotas': [-31.7719, -52.3425, 'RS', 4314407],
+        'caxias_do_sul': [-29.1631, -51.1793, 'RS', 4305108],
+        'santa_maria': [-29.6868, -53.8149, 'RS', 4316908],
+        'canoas': [-29.9170, -51.1860, 'RS', 4304606],
+        'vila_velha': [-20.3417, -40.2871, 'ES', 3205200],
+        'serra': [-20.1216, -40.3072, 'ES', 3205002],
+        'linhares': [-19.3958, -40.0644, 'ES', 3203205],
+        'aracatuba': [-21.2095, -50.4390, 'SP', 3502804],
+        'marilia': [-22.2176, -49.9501, 'SP', 3539007],
+        'itu': [-23.2642, -47.2992, 'SP', 3523909],
+        'barueri': [-23.5112, -46.8762, 'SP', 3505708],
+        'diadema': [-23.6819, -46.6203, 'SP', 3513801],
+        'maua': [-23.6677, -46.4613, 'SP', 3529401],
+        'carapicuiba': [-23.5229, -46.8345, 'SP', 3510609],
+        'osasco': [-23.5320, -46.7916, 'SP', 3534401],
+        'guarulhos': [-23.4540, -46.5335, 'SP', 3518800],
+        'sao_bernardo_do_campo': [-23.6914, -46.5646, 'SP', 3548708],
+        'santo_andre': [-23.6739, -46.5369, 'SP', 3547809],
+        'sao_caesano_do_sul': [-23.6233, -46.5552, 'SP', 3548807],
     }
     
     def __init__(
@@ -603,6 +685,314 @@ class CopernicusCDSAccessor:
             shutil.rmtree(self.cache_dir)
             self.cache_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Cache cleared")
+
+    # ── City-level Data Methods ─────────────────────────────────────────────
+
+    def get_city_bounding_box(
+        self,
+        city: str,
+        buffer_km: float = 50.0,
+    ) -> List[float]:
+        """
+        Calculate a bounding box around a city.
+
+        Args:
+            city: City name (e.g., 'sao_paulo', 'rio_de_janeiro') or IBGE geocode
+            buffer_km: Buffer distance in km around the city center (default: 50km)
+
+        Returns:
+            Bounding box [North, West, South, East] in degrees
+
+        Example:
+            >>> box = cds.get_city_bounding_box('sao_paulo', buffer_km=30)
+            >>> print(box)  # [ -23.28, -46.90, -23.82, -46.37]
+        """
+        # Try to find by IBGE code (numeric string)
+        if isinstance(city, str) and city.isdigit():
+            geocode = int(city)
+            city_data = None
+            for name, data in self.BRAZIL_CITIES.items():
+                if data[3] == geocode:
+                    city_data = data
+                    city_name = name
+                    break
+            if city_data is None:
+                raise ValueError(f"City with IBGE geocode {geocode} not found")
+        else:
+            # Normalize city name
+            city_normalized = city.lower().replace(' ', '_').replace('-', '_')
+            if city_normalized not in self.BRAZIL_CITIES:
+                # Try matching without accents
+                from unicodedata import normalize
+                city_normalized = normalize('NFKD', city_normalized).encode('ASCII', 'ignore').decode('ASCII')
+                if city_normalized not in self.BRAZIL_CITIES:
+                    available = list(self.BRAZIL_CITIES.keys())[:10]
+                    raise ValueError(
+                        f"City '{city}' not found. Try one of: {', '.join(available)}...\n"
+                        f"Use list_cities() to see all available cities."
+                    )
+            city_data = self.BRAZIL_CITIES[city_normalized]
+            city_name = city_normalized
+
+        lat, lon = city_data[0], city_data[1]
+
+        # Convert km to degrees (approximate)
+        # 1 degree lat ≈ 111 km
+        # 1 degree lon ≈ 111 km * cos(lat)
+        lat_buffer = buffer_km / 111.0
+        lon_buffer = buffer_km / (111.0 * abs(__import__('math').cos(__import__('math').radians(lat))))
+
+        # [North, West, South, East]
+        bbox = [
+            lat + lat_buffer,   # North
+            lon - lon_buffer,   # West
+            lat - lat_buffer,   # South
+            lon + lon_buffer,   # East
+        ]
+
+        logger.info(f"Bounding box for {city_name}: {bbox}")
+        return bbox
+
+    def list_cities(
+        self,
+        state: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        List available Brazilian cities with coordinates.
+
+        Args:
+            state: Filter by state code (e.g., 'SP', 'RJ', 'BA')
+
+        Returns:
+            DataFrame with city information
+        """
+        data = []
+        for name, info in self.BRAZIL_CITIES.items():
+            if state is None or info[2] == state.upper():
+                data.append({
+                    'name': name.replace('_', ' ').title(),
+                    'state': info[2],
+                    'ibge_code': info[3],
+                    'latitude': info[0],
+                    'longitude': info[1],
+                })
+
+        df = pd.DataFrame(data)
+        if not df.empty:
+            df = df.sort_values(['state', 'name'])
+        return df
+
+    def get_city_data(
+        self,
+        city: str,
+        variable: Union[str, List[str]],
+        start_date: str,
+        end_date: str,
+        buffer_km: float = 50.0,
+        dataset: str = 'era5-single-levels',
+        use_cache: bool = True,
+        **kwargs
+    ) -> Union[xr.Dataset, str]:
+        """
+        Get climate data for a specific city/municipality.
+
+        Fetches data for a bounding box around the city center.
+
+        Args:
+            city: City name (e.g., 'sao_paulo', 'rio_de_janeiro') or IBGE geocode
+            variable: Variable name(s) to retrieve
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            buffer_km: Buffer distance in km around city center (default: 50km)
+            dataset: Dataset name
+            use_cache: Whether to use cached data
+            **kwargs: Additional request parameters
+
+        Returns:
+            xarray Dataset with climate data for the city area
+
+        Example:
+            >>> cds = CopernicusCDSAccessor()
+            >>>
+            >>> # Get temperature for São Paulo with 30km buffer
+            >>> temp_sp = cds.get_city_data(
+            ...     city='sao_paulo',
+            ...     variable='2m_temperature',
+            ...     start_date='2024-01-01',
+            ...     end_date='2024-01-31',
+            ...     buffer_km=30,
+            ... )
+            >>>
+            >>> # Get data by IBGE geocode
+            >>> temp_rj = cds.get_city_data(
+            ...     city='3304557',  # Rio de Janeiro geocode
+            ...     variable='2m_temperature',
+            ...     start_date='2024-01-01',
+            ...     end_date='2024-01-31',
+            ... )
+        """
+        # Get bounding box for the city
+        bbox = self.get_city_bounding_box(city, buffer_km)
+
+        # Fetch data
+        logger.info(f"Fetching data for city '{city}' with {buffer_km}km buffer")
+        return self.get_era5_data(
+            variable=variable,
+            start_date=start_date,
+            end_date=end_date,
+            area=bbox,
+            dataset=dataset,
+            use_cache=use_cache,
+            **kwargs
+        )
+
+    def get_city_temperature(
+        self,
+        city: str,
+        start_date: str,
+        end_date: str,
+        buffer_km: float = 50.0,
+        use_cache: bool = True,
+    ) -> Union[xr.Dataset, str]:
+        """
+        Convenience method to get temperature data for a city.
+
+        Args:
+            city: City name or IBGE geocode
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            buffer_km: Buffer distance in km around city center
+            use_cache: Whether to use cached data
+
+        Returns:
+            xarray Dataset with temperature data for the city
+
+        Example:
+            >>> temp = cds.get_city_temperature('sao_paulo', '2024-01-01', '2024-01-31')
+        """
+        return self.get_city_data(
+            city=city,
+            variable='2m_temperature',
+            start_date=start_date,
+            end_date=end_date,
+            buffer_km=buffer_km,
+            use_cache=use_cache,
+        )
+
+    def get_city_precipitation(
+        self,
+        city: str,
+        start_date: str,
+        end_date: str,
+        buffer_km: float = 50.0,
+        use_cache: bool = True,
+    ) -> Union[xr.Dataset, str]:
+        """
+        Convenience method to get precipitation data for a city.
+
+        Args:
+            city: City name or IBGE geocode
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            buffer_km: Buffer distance in km around city center
+            use_cache: Whether to use cached data
+
+        Returns:
+            xarray Dataset with precipitation data for the city
+        """
+        return self.get_city_data(
+            city=city,
+            variable='total_precipitation',
+            start_date=start_date,
+            end_date=end_date,
+            buffer_km=buffer_km,
+            use_cache=use_cache,
+        )
+
+    def get_city_timeseries(
+        self,
+        city: str,
+        variable: str,
+        start_date: str,
+        end_date: str,
+        buffer_km: float = 50.0,
+        aggregation: str = 'mean',
+        spatial_agg: str = 'mean',
+        use_cache: bool = True,
+    ) -> pd.DataFrame:
+        """
+        Get a clean time series DataFrame for a city.
+
+        Convenience method that fetches data, aggregates it spatially and temporally,
+        and returns a pandas DataFrame ready for analysis.
+
+        Args:
+            city: City name or IBGE geocode
+            variable: Variable name (e.g., '2m_temperature')
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            buffer_km: Buffer distance in km around city center
+            aggregation: Temporal aggregation ('mean', 'sum', 'min', 'max', 'daily', 'weekly', 'hourly')
+            spatial_agg: Spatial aggregation ('mean', 'min', 'max')
+            use_cache: Whether to use cached data
+
+        Returns:
+            pandas DataFrame with columns: [date, value]
+
+        Example:
+            >>> # Daily mean temperature for São Paulo
+            >>> df = cds.get_city_timeseries(
+            ...     city='sao_paulo',
+            ...     variable='2m_temperature',
+            ...     start_date='2024-01-01',
+            ...     end_date='2024-01-31',
+            ...     aggregation='daily',
+            ... )
+        """
+        if not HAS_XARRAY:
+            raise ImportError("xarray is required for this method")
+
+        # Fetch data
+        ds = self.get_city_data(
+            city=city,
+            variable=variable,
+            start_date=start_date,
+            end_date=end_date,
+            buffer_km=buffer_km,
+            use_cache=use_cache,
+        )
+
+        # Spatial aggregation
+        if spatial_agg == 'mean':
+            ds_spatial = ds.mean(dim=['latitude', 'longitude'])
+        elif spatial_agg == 'min':
+            ds_spatial = ds.min(dim=['latitude', 'longitude'])
+        elif spatial_agg == 'max':
+            ds_spatial = ds.max(dim=['latitude', 'longitude'])
+        else:
+            raise ValueError(f"spatial_agg '{spatial_agg}' not supported. Use: mean, min, max")
+
+        # Temporal aggregation
+        if aggregation == 'hourly':
+            ds_final = ds_spatial
+        elif aggregation == 'daily':
+            ds_final = ds_spatial.resample(time='1D').mean()
+        elif aggregation == 'weekly':
+            ds_final = ds_spatial.resample(time='1W').mean()
+        elif aggregation in ['mean', 'sum', 'min', 'max']:
+            # These are already done by resample
+            ds_final = ds_spatial
+        else:
+            raise ValueError(f"aggregation '{aggregation}' not supported")
+
+        # Convert to DataFrame
+        df = ds_final.to_dataframe().reset_index()
+
+        # Get the variable column name (it varies depending on dataset)
+        value_col = [c for c in df.columns if c not in ['time', 'latitude', 'longitude']][0]
+        df = df.rename(columns={'time': 'date', value_col: 'value'})
+
+        return df[['date', 'value']]
 
 
 # ── Convenience Functions ────────────────────────────────────────────────────
