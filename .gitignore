@@ -65,6 +65,7 @@ secrets/
 *_keys.txt
 api_key*
 token*
+.cdsapirc
 
 # Logs
 *.log
