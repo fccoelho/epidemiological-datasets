@@ -7,23 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-19
+
+### Changed
+
+- **Package renamed** from `epidemiological-datasets` / `epi_data` to **`epidatasets`**
+- Consolidated all 21 data source accessors into `src/epidatasets/sources/`
+- All accessors now inherit from `BaseAccessor` abstract base class
+- Sources are discovered at runtime via pluggable entry-points registry
+- Utilities split into focused submodules (`cache`, `rate_limit`, `geo`, `validation`, `io`)
+- Heavy dependencies made optional (`[who]`, `[brazil]`, `[eurostat]`, `[climate]`, `[geo]`, `[viz]`, `[genomics]`, `[cli]`, `[worldbank]`, `[all]`)
+- CI workflow updated for new package structure
+
 ### Added
-- Initial project structure
-- GitHub issue templates (bug report, feature request, new data source)
-- GitHub pull request template
-- GitHub workflows (CI, issue management)
-- GitHub Discussions templates
-- Contributing guidelines
-- Code of Conduct
-- Example notebooks for PySUS, WHO, World Bank, ECDC
-- pyproject.toml configuration
+
+- `BaseAccessor` ABC with `source_name`, `source_description`, `source_url` class variables
+- Plugin registry (`_registry.py`) with `get_source()`, `list_sources()`, `reload_registry()`
+- CLI: `epidatasets sources`, `epidatasets info <source>`, `epidatasets countries <source>`
+- 21 entry-points registered in `pyproject.toml`
+- MkDocs documentation with `mkdocs-jupyter` and `mkdocstrings` (32 doc pages)
+- `.readthedocs.yaml` for ReadTheDocs integration
+- Per-source API documentation stubs
+- `test_registry.py` for plugin registry tests
+- `test_utils.py` for utility module tests
+
+### Removed
+
+- Old `src/epi_data/` package (replaced by `src/epidatasets/`)
+- `indexdir/` (empty directory)
+- `main()` functions and `__main__` blocks from accessor scripts
 
 ## [0.1.0] - 2024-03-14
 
 ### Added
-- Initial release
+- Initial release with scripts-based accessors for 21 data sources
 - Project documentation
-- Repository structure
+- Repository structure, CI, issue templates
+- Example Jupyter notebooks
 
-[Unreleased]: https://github.com/fccoelho/epidemiological-datasets/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/fccoelho/epidemiological-datasets/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/fccoelho/epidemiological-datasets/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/fccoelho/epidemiological-datasets/releases/tag/v0.1.0
