@@ -1,0 +1,3 @@
+# Registry
+
+::: epidatasets._registry

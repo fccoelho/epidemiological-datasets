@@ -1,0 +1,82 @@
+site_name: Epidatasets
+site_description: Python library for accessing epidemiological datasets worldwide
+site_url: https://epidatasets.readthedocs.io
+repo_url: https://github.com/fccoelho/epidemiological-datasets
+repo_name: fccoelho/epidemiological-datasets
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocs-jupyter:
+      include_source: true
+      execute: false
+      allow_errors: true
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick Start: quickstart.md
+  - Sources:
+      - Overview: sources/index.md
+      - WHO: sources/who.md
+      - PAHO: sources/paho.md
+      - Africa CDC: sources/africa_cdc.md
+      - ECDC: sources/ecdc.md
+      - Eurostat: sources/eurostat.md
+      - OWID: sources/owid.md
+      - RKI Germany: sources/rki.md
+      - China CDC: sources/china_cdc.md
+      - India IDSP: sources/india_idsp.md
+      - UKHSA: sources/ukhsa.md
+      - Colombia INS: sources/colombia_ins.md
+      - DATASUS (PySUS): sources/datasus.md
+      - CDC Open Data: sources/cdc_opendata.md
+      - HealthData.gov: sources/healthdata_gov.md
+      - EpiPulse: sources/epipulse.md
+      - RespiCast: sources/respicast.md
+      - Global.health: sources/global_health.md
+      - Malaria Atlas: sources/malaria_atlas.md
+      - Pathoplexus: sources/pathoplexus.md
+      - Copernicus CDS: sources/copernicus_cds.md
+      - InfoDengue: sources/infodengue.md
+  - API Reference:
+      - Overview: api/index.md
+      - Base Accessor: api/base.md
+      - Registry: api/registry.md
+      - Utilities: api/utils.md
+      - CLI: api/cli.md
+  - Examples: examples/
+  - Contributing: contributing.md
+  - Changelog: changelog.md
