@@ -1,1 +1,1 @@
-"""Tests for the epi_data package."""
+"""Tests for the epidatasets package."""

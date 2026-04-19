@@ -281,13 +281,12 @@ class MalariaAtlasAccessor:
         if end_date:
             filters.append(f"year_end <= {end_date[:4]}")
         
-        # Determine which feature type to use based on species
         if species == "Pf":
-            type_name = "Malaria:PR_Pf"
+            type_name = "Explorer:public_pf_data"
         elif species == "Pv":
-            type_name = "Malaria:PR_Pv"
+            type_name = "Explorer:public_pv_data"
         else:
-            type_name = "Malaria:PR_Data"
+            type_name = "Explorer:PR_Data"
         
         cql_filter = " AND ".join(filters) if filters else None
         
@@ -379,8 +378,9 @@ class MalariaAtlasAccessor:
         if admin_level not in self.ADMIN_LEVELS:
             raise ValueError(f"admin_level must be one of {self.ADMIN_LEVELS}")
         
+        level_num = admin_level.replace("admin", "")
         params = {
-            "typeName": f"Admin_Units:mapadmin_{admin_level}",
+            "typeName": f"Admin_Units:202403_Global_Admin_{level_num}",
             "outputFormat": "application/json",
             "propertyName": "iso,name_0,admn_level",
         }
@@ -468,8 +468,9 @@ class MalariaAtlasAccessor:
         all_features = []
         
         for level in admin_level:
+            level_num = level.replace("admin", "")
             params = {
-                "typeName": f"Admin_Units:mapadmin_{level}",
+                "typeName": f"Admin_Units:202403_Global_Admin_{level_num}",
                 "outputFormat": "application/json",
             }
             
@@ -527,10 +528,10 @@ class MalariaAtlasAccessor:
             DataFrame with vector species information
         """
         params = {
-            "typeName": "Vector_Occurrence:Vector_Occurrence",
+            "typeName": "Vector_Occurrence:201201_Global_Dominant_Vector_Surveys",
             "outputFormat": "application/json",
-            "propertyName": "species",
-            "maxFeatures": 10000,
+            "propertyName": "species_plain",
+            "count": 10000,
         }
         
         response = self._wfs_request(params)
@@ -538,9 +539,9 @@ class MalariaAtlasAccessor:
         
         species_list = []
         for feature in data.get('features', []):
-            species = feature.get('properties', {}).get('species')
-            if species:
-                species_list.append(species)
+            sp = feature.get('properties', {}).get('species_plain')
+            if sp:
+                species_list.append(sp)
         
         unique_species = sorted(set(species_list))
         
@@ -582,7 +583,7 @@ class MalariaAtlasAccessor:
             if isinstance(species, str):
                 species = [species]
             species_str = "','".join(species)
-            filters.append(f"species IN ('{species_str}')")
+            filters.append(f"species_plain IN ('{species_str}')")
         
         if country:
             filters.append(f"country = '{country}'")
@@ -597,7 +598,7 @@ class MalariaAtlasAccessor:
         cql_filter = " AND ".join(filters) if filters else None
         
         params = {
-            "typeName": "Vector_Occurrence:Vector_Occurrence",
+            "typeName": "Vector_Occurrence:201201_Global_Dominant_Vector_Surveys",
             "outputFormat": "application/json",
         }
         
@@ -652,14 +653,13 @@ class MalariaAtlasAccessor:
         }
         
         rasters = []
-        for coverage in root.findall('.//wcs:CoverageDescription', ns):
+        for coverage in root.findall('.//wcs:CoverageSummary', ns):
             coverage_id = coverage.find('wcs:CoverageId', ns)
             if coverage_id is None:
                 continue
             
             dataset_id = coverage_id.text
             
-            # Parse dataset_id to extract workspace and name
             if '__' in dataset_id:
                 parts = dataset_id.split('__')
                 ws = parts[0]
@@ -671,10 +671,8 @@ class MalariaAtlasAccessor:
             if workspace and ws != workspace:
                 continue
             
-            # Get metadata
-            metadata = coverage.find('.//ows:Metadata', ns)
-            title = coverage.find('.//ows:Title', ns)
-            abstract = coverage.find('.//ows:Abstract', ns)
+            title = coverage.find('ows:Title', ns)
+            abstract = coverage.find('ows:Abstract', ns)
             
             rasters.append({
                 'dataset_id': dataset_id,

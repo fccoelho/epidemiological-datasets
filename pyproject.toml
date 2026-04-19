@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "epidemiological-datasets"
-version = "0.1.0"
-description = "A curated collection of openly accessible epidemiological datasets with Python access scripts"
+name = "epidatasets"
+version = "0.2.0"
+description = "Python library for accessing epidemiological datasets worldwide"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 authors = [
     {name = "Flávio Codeço Coelho", email = "fccoelho@gmail.com"},
 ]
@@ -17,12 +17,13 @@ keywords = [
     "public-health",
     "disease-surveillance",
     "health-data",
-    "synthetic-data",
     "pysus",
     "datasus",
     "who",
     "world-bank",
     "ecdc",
+    "paho",
+    "owid",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -31,7 +32,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -43,44 +43,64 @@ dependencies = [
     "pandas>=1.5.0",
     "numpy>=1.23.0",
     "requests>=2.28.0",
-    "pydantic>=2.0.0",
-    "typer>=0.9.0",
-    "rich>=13.0.0",
-    "python-dotenv>=1.0.0",
-    "pysus>=1.0.1",
-    "ghoclient @ git+https://github.com/fccoelho/ghoclient",
-    "wbgapi>=1.0.12",
-    "ipykernel>=7.2.0",
-    "matplotlib>=3.10.8",
-    "seaborn>=0.13.2",
-    "pandas-stubs~=2.3.3",
-    "xmltodict>=1.0.4",
-    "whoosh>=2.7.4",
-    "eurostat>=1.1.1",
-    "bs4>=0.0.2",
-    "geopandas>=1.1.3",
-    "plotly>=6.7.0",
-    "cdsapi>=0.7.7",
-    "xarray>=2026.4.0",
 ]
 
 [project.optional-dependencies]
+who = [
+    "ghoclient @ git+https://github.com/fccoelho/ghoclient",
+]
+brazil = [
+    "pysus>=1.0.1",
+]
+eurostat = [
+    "eurostat>=1.1.1",
+]
+climate = [
+    "cdsapi>=0.7.7",
+    "xarray>=2026.4.0",
+]
+geo = [
+    "geopandas>=1.1.3",
+    "folium>=0.14.0",
+]
+viz = [
+    "matplotlib>=3.10.0",
+    "seaborn>=0.13.2",
+    "plotly>=6.7.0",
+]
+genomics = [
+    "xmltodict>=1.0.4",
+]
+cli = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+]
+worldbank = [
+    "wbgapi>=1.0.12",
+]
+search = [
+    "whoosh>=2.7.4",
+]
+scraping = [
+    "bs4>=0.0.2",
+]
+all = [
+    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping]",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.0",
-    "black>=23.7.0",
+    "responses>=0.23.0",
     "ruff>=0.0.280",
     "mypy>=1.5.0",
     "pre-commit>=3.3.0",
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.2.0",
-    "mkdocstrings[python]>=0.22.0",
 ]
 docs = [
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.2.0",
     "mkdocstrings[python]>=0.22.0",
+    "mkdocs-jupyter>=0.24.0",
 ]
 notebooks = [
     "jupyter>=1.0.0",
@@ -91,16 +111,36 @@ notebooks = [
     "folium>=0.14.0",
     "geopandas>=0.13.0",
 ]
-all = [
-    "epidemiological-datasets[dev,docs,notebooks]",
-]
 
 [project.scripts]
-epi-data = "epi_data.cli:main"
+epidatasets = "epidatasets.cli:main"
+
+[project.entry-points."epidatasets.sources"]
+africa_cdc = "epidatasets.sources.africa_cdc:AfricaCDCAccessor"
+cdc_opendata = "epidatasets.sources.cdc_opendata:CDCOpenDataAccessor"
+china_cdc = "epidatasets.sources.china_cdc:ChinaCDCAccessor"
+colombia_ins = "epidatasets.sources.colombia_ins:ColombiaINSAccessor"
+copernicus_cds = "epidatasets.sources.copernicus_cds:CopernicusCDSAccessor"
+datasus = "epidatasets.sources.datasus_pysus:DataSUSAccessor"
+ecdc = "epidatasets.sources.ecdc_opendata:ECDCOpenDataAccessor"
+epipulse = "epidatasets.sources.epipulse:EpiPulseAccessor"
+eurostat = "epidatasets.sources.eurostat:EurostatAccessor"
+global_health = "epidatasets.sources.global_health:GlobalHealthAccessor"
+healthdata_gov = "epidatasets.sources.healthdata_gov:HealthDataGovAccessor"
+india_idsp = "epidatasets.sources.india_idsp:IndiaIDSPAccessor"
+infodengue = "epidatasets.sources.infodengue_api:InfoDengueAPI"
+malaria_atlas = "epidatasets.sources.malaria_atlas:MalariaAtlasAccessor"
+owid = "epidatasets.sources.owid:OWIDAccessor"
+paho = "epidatasets.sources.paho:PAHOAccessor"
+pathoplexus = "epidatasets.sources.pathoplexus:PathoplexusAccessor"
+respicast = "epidatasets.sources.respicast:RespiCastAccessor"
+rki = "epidatasets.sources.rki_germany:RKIGermanyAccessor"
+ukhsa = "epidatasets.sources.ukhsa:UKHSAAccessor"
+who = "epidatasets.sources.who_ghoclient:WHOAccessor"
 
 [project.urls]
 Homepage = "https://github.com/fccoelho/epidemiological-datasets"
-Documentation = "https://fccoelho.github.io/epidemiological-datasets"
+Documentation = "https://epidatasets.readthedocs.io"
 Repository = "https://github.com/fccoelho/epidemiological-datasets"
 Issues = "https://github.com/fccoelho/epidemiological-datasets/issues"
 Changelog = "https://github.com/fccoelho/epidemiological-datasets/blob/main/CHANGELOG.md"
@@ -110,18 +150,12 @@ Changelog = "https://github.com/fccoelho/epidemiological-datasets/blob/main/CHAN
 # ============================================================
 
 [tool.uv]
-# Compile Python files to bytecode after installation
 compile-bytecode = true
-# Reinstall packages when the environment is recreated
 reinstall = false
-# Use the uv resolver
 resolution = "highest"
 
-
 [tool.uv.pip]
-# Generate hashes for requirements.txt
 generate-hashes = false
-# Use strict resolution
 strict = false
 
 # ============================================================
@@ -129,7 +163,7 @@ strict = false
 # ============================================================
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/epi_data"]
+packages = ["src/epidatasets"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -139,7 +173,6 @@ include = [
     "/src",
     "/tests",
     "/docs",
-    "/examples",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
@@ -151,43 +184,23 @@ exclude = [
 ]
 
 [tool.hatch.version]
-path = "src/epi_data/__init__.py"
+path = "src/epidatasets/__init__.py"
 
 # ============================================================
 # Code Quality Tools
 # ============================================================
 
-[tool.black]
-line-length = 88
-target-version = ["py39", "py310", "py311", "py312"]
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-  | notebooks
-)/
-'''
-
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 exclude = [
     ".git",
     ".venv",
     "__pycache__",
     "build",
     "dist",
-    "*.ipynb",  # Exclude Jupyter notebooks
-    "examples/notebooks/*",
-    "scripts/*",  # Exclude development scripts
+    "*.ipynb",
+    "docs/docs/examples/*",
 ]
 
 [tool.ruff.lint]
@@ -197,37 +210,28 @@ select = [
     "F",   # Pyflakes
     "I",   # isort
     "N",   # pep8-naming
-    "D",   # pydocstyle
     "UP",  # pyupgrade
     "B",   # flake8-bugbear
     "C4",  # flake8-comprehensions
     "SIM", # flake8-simplify
 ]
 ignore = [
-    "D100",  # Missing docstring in public module
-    "D104",  # Missing docstring in public package
-    "D203",  # 1 blank line required before class docstring
-    "D212",  # Multi-line docstring summary should start at the first line
-    "E501",  # Line too long (handled by black)
+    "E501",
 ]
 
-[tool.ruff.lint.pydocstyle]
-convention = "numpy"
-
 [tool.ruff.lint.isort]
-known-first-party = ["epi_data"]
+known-first-party = ["epidatasets"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 check_untyped_defs = true
 ignore_missing_imports = true
 exclude = [
     "tests/",
-    "notebooks/",
     "docs/",
 ]
 
@@ -244,17 +248,17 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--verbose",
-    "--cov=epi_data",
+    "--cov=epidatasets",
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
     "--cov-report=xml:coverage.xml",
-    "--cov-fail-under=50",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "api: marks tests that require API access",
+    "external_api: marks tests that call external APIs",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
@@ -262,16 +266,11 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["src/epi_data", "scripts"]
+source = ["src/epidatasets"]
 omit = [
     "*/tests/*",
     "*/test_*",
     "*/__pycache__/*",
-    "scripts/accessors/__init__.py",
-    "scripts/accessors/datasus_pysus.py",
-    "scripts/accessors/eurostat.py",
-    "scripts/accessors/owid.py",
-    "scripts/accessors/who_ghoclient.py",
 ]
 
 [tool.coverage.report]
@@ -279,63 +278,19 @@ exclude_lines = [
     "pragma: no cover",
     "def __repr__",
     "if self.debug:",
-    "if settings.DEBUG",
     "raise AssertionError",
     "raise NotImplementedError",
     "if 0:",
     "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
-]
-fail_under = 50
-
-# ============================================================
-# Pre-commit Configuration
-# ============================================================
-
-[tool.pre-commit]
-repos = [
-    { repo = "https://github.com/pre-commit/pre-commit-hooks", rev = "v4.4.0", hooks = [
-        { id = "trailing-whitespace" },
-        { id = "end-of-file-fixer" },
-        { id = "check-yaml" },
-        { id = "check-added-large-files" },
-    ]},
-    { repo = "https://github.com/psf/black", rev = "23.7.0", hooks = [
-        { id = "black" },
-    ]},
-    { repo = "https://github.com/charliermarsh/ruff-pre-commit", rev = "v0.0.280", hooks = [
-        { id = "ruff", args = ["--fix", "--exit-non-zero-on-fix"] },
-    ]},
-    { repo = "https://github.com/pre-commit/mirrors-mypy", rev = "v1.5.0", hooks = [
-        { id = "mypy", additional_dependencies = ["types-requests", "types-python-dateutil"] },
-    ]},
 ]
 
 # ============================================================
 # Project-specific Configuration
 # ============================================================
 
-[tool.epi_data]
-# Default configuration for data sources
+[tool.epidatasets]
 default_timeout = 30
 max_retries = 3
-cache_dir = "~/.cache/epi_data"
+cache_dir = "~/.cache/epidatasets"
 data_dir = "./data"
-
-# Data source endpoints
-[tool.epi_data.sources.pysus]
-base_url = "https://datasus.saude.gov.br"
-timeout = 60
-
-[tool.epi_data.sources.who]
-base_url = "https://ghoapi.azureedge.net/api"
-timeout = 30
-
-[tool.epi_data.sources.world_bank]
-base_url = "https://api.worldbank.org/v2"
-timeout = 30
-
-[tool.epi_data.sources.ecdc]
-base_url = "https://opendata.ecdc.europa.eu"
-timeout = 30

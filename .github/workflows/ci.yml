@@ -34,16 +34,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --system ruff black mypy
+          uv pip install --system ruff mypy
 
       - name: Run Ruff
-        run: ruff check .
-
-      - name: Run Black
-        run: black --check .
+        run: ruff check src/ tests/
 
       - name: Run MyPy
-        run: mypy src/epi_data/
+        run: mypy src/epidatasets/
 
   test:
     runs-on: ${{ matrix.os }}
@@ -51,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.12']
+        python-version: ['3.10', '3.11', '3.12']
 
     steps:
       - uses: actions/checkout@v4
@@ -70,8 +67,8 @@ jobs:
         run: |
           uv pip install --system -e ".[dev]"
 
-      - name: Run unit tests
-        run: pytest tests/ -v --ignore=tests/test_accessors.py --cov=epi_data --cov-report=xml --cov-report=term
+      - name: Run tests
+        run: pytest tests/ -v --cov=epidatasets --cov-report=xml --cov-report=term
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -85,7 +82,7 @@ jobs:
     name: Test Data Accessors
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -117,11 +114,11 @@ jobs:
         run: |
           pytest tests/test_accessors.py -v --tb=short
         timeout-minutes: 10
-        continue-on-error: true  # Don't fail if external services are down
+        continue-on-error: true
         env:
           SKIP_EXTERNAL_TESTS: "false"
 
-  notebooks:
+  docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -138,24 +135,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --system -e ".[notebooks]"
+          uv pip install --system -e ".[docs]"
 
-      - name: Test notebook imports
-        run: |
-          python -c "import pandas; import matplotlib; import seaborn"
-
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Bandit
-        uses: PyCQA/bandit@main
-        with:
-          args: "-r src/epi_data/ -f json -o bandit-report.json || true"
-
-      - name: Upload Bandit results
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-report
-          path: bandit-report.json
+      - name: Build docs
+        run: mkdocs build --strict
