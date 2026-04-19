@@ -58,6 +58,8 @@ dependencies = [
     "whoosh>=2.7.4",
     "eurostat>=1.1.1",
     "bs4>=0.0.2",
+    "geopandas>=1.1.3",
+    "plotly>=6.7.0",
 ]
 
 [project.optional-dependencies]

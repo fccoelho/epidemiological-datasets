@@ -225,13 +225,13 @@ class PathoplexusAccessor:
         if city:
             params['geoLocCity'] = city
 
-        # Date filters - LAPIS uses specific date filtering
-        # Note: Date range filtering may not be supported by all endpoints
+        # Date filters - LAPIS uses sampleCollectionDateRangeLower/Upper
+        # for date range filtering on aggregated and details endpoints
         date_filters = {}
         if date_from:
-            date_filters['sampleCollectionDateFrom'] = date_from
+            date_filters['sampleCollectionDateRangeLowerFrom'] = date_from
         if date_to:
-            date_filters['sampleCollectionDateTo'] = date_to
+            date_filters['sampleCollectionDateRangeLowerTo'] = date_to
 
         # Pathogen-specific filters
         if serotype:
@@ -255,27 +255,25 @@ class PathoplexusAccessor:
         if fields:
             params['fields'] = ','.join(fields)
 
-        # Try with date filters first, fallback to post-filtering if API rejects
-        params_with_dates = {**params, **date_filters}
-        
         try:
-            data = self._make_request('sample/details', params_with_dates, use_cache)
+            data = self._make_request('sample/details', {**params, **date_filters}, use_cache)
             df = pd.DataFrame(data.get('data', []))
         except RuntimeError as e:
             if date_filters and '400' in str(e):
-                logger.warning(f"Date filtering not supported, fetching all data and filtering locally")
+                logger.warning("Date filtering failed on API, fetching all data and filtering locally")
                 data = self._make_request('sample/details', params, use_cache)
                 df = pd.DataFrame(data.get('data', []))
-                # Apply date filtering locally
-                if not df.empty and 'sampleCollectionDate' in df.columns:
-                    df['sampleCollectionDate'] = pd.to_datetime(df['sampleCollectionDate'], errors='coerce')
+                if not df.empty and 'sampleCollectionDateRangeLower' in df.columns:
+                    df['sampleCollectionDateRangeLower'] = pd.to_datetime(
+                        df['sampleCollectionDateRangeLower'], errors='coerce'
+                    )
                     if date_from:
-                        df = df[df['sampleCollectionDate'] >= date_from]
+                        df = df[df['sampleCollectionDateRangeLower'] >= pd.Timestamp(date_from)]
                     if date_to:
-                        df = df[df['sampleCollectionDate'] <= date_to]
+                        df = df[df['sampleCollectionDateRangeLower'] <= pd.Timestamp(date_to)]
             else:
                 raise
-        
+
         return df
 
     def count_sequences(
@@ -313,9 +311,9 @@ class PathoplexusAccessor:
         if admin1:
             params['geoLocAdmin1'] = admin1
         if date_from:
-            date_filters['sampleCollectionDateFrom'] = date_from
+            date_filters['sampleCollectionDateRangeLowerFrom'] = date_from
         if date_to:
-            date_filters['sampleCollectionDateTo'] = date_to
+            date_filters['sampleCollectionDateRangeLowerTo'] = date_to
         if serotype:
             params['serotype'] = serotype
         if lineage:
@@ -326,15 +324,12 @@ class PathoplexusAccessor:
         params.update(kwargs)
 
         # Try with date filters first, fallback without if API rejects
-        params_with_dates = {**params, **date_filters}
-        
         try:
-            data = self._make_request('sample/aggregated', params_with_dates, use_cache=False)
+            data = self._make_request('sample/aggregated', {**params, **date_filters}, use_cache=False)
             return data.get('data', [{}])[0].get('count', 0)
         except RuntimeError as e:
             if date_filters and '400' in str(e):
-                logger.warning(f"Date filtering not supported for aggregated endpoint, using details endpoint")
-                # Fallback: get metadata and count locally
+                logger.warning("Date filtering not supported for aggregated endpoint, using details endpoint")
                 metadata = self.get_metadata(
                     country=country,
                     admin1=admin1,
@@ -653,6 +648,6 @@ if __name__ == "__main__":
             date_from='2024-01-01',
             limit=5,
         )
-        print(metadata[['accession', 'geoLocAdmin1', 'sampleCollectionDate', 'serotype']].to_string())
+        print(metadata[['accession', 'geoLocAdmin1', 'sampleCollectionDateRangeLower', 'serotype']].to_string())
     except Exception as e:
         print(f"Error: {e}")
