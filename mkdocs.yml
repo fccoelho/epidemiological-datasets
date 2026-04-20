@@ -77,6 +77,33 @@ nav:
       - Registry: api/registry.md
       - Utilities: api/utils.md
       - CLI: api/cli.md
-  - Examples: examples/
+  - Examples:
+      - PySUS Brazilian Health Data: examples/01_pysus_brazilian_health_data.ipynb
+      - WHO Global Health Data: examples/02_who_global_health_data.ipynb
+      - World Bank Health Indicators: examples/03_world_bank_health_indicators.ipynb
+      - ECDC European Surveillance: examples/04_ecdc_european_surveillance.ipynb
+      - Multi-Source Comparison: examples/05_multi_source_comparison.ipynb
+      - PAHO Pan American Data: examples/06_PAHO_Pan_American_Data.ipynb
+      - Eurostat EU Health Data: examples/07_Eurostat_EU_Health_Data.ipynb
+      - OWID Our World in Data: examples/08_OWID_Our_World_in_Data.ipynb
+      - Colombia INS SIVIGILA: examples/09_Colombia_INS_SIVIGILA_Data.ipynb
+      - Africa CDC Data: examples/10_Africa_CDC_Data.ipynb
+      - CDC Open Data: examples/11_CDC_Open_Data_Examples.ipynb
+      - Global Health Linelist: examples/11_Global_Health_Linelist_Data.ipynb
+      - UKHSA Surveillance: examples/12_UKHSA_Surveillance_Data.ipynb
+      - HealthData.gov US Health System: examples/13_HealthData_Gov_US_Health_System.ipynb
+      - RKI Germany Surveillance: examples/14_RKI_Germany_Surveillance_Data.ipynb
+      - China CDC Weekly Surveillance: examples/15_China_CDC_Weekly_Surveillance.ipynb
+      - India IDSP Surveillance: examples/16_India_IDSP_Surveillance_Data.ipynb
+      - EMRO Health Indicators: examples/17_EMRO_Health_Indicators_Analysis.ipynb
+      - Pathoplexus Genomic Data: examples/19_Pathoplexus_Genomic_Data.ipynb
+      - InfoDengue + Pathoplexus Integration: examples/20_Dengue_Integracao_InfoDengue_Pathoplexus.ipynb
+      - Copernicus CDS: examples/21_Copernicus_CDS_Examples.ipynb
+      - Malaria Atlas: examples/22_Malaria_Atlas_Examples.ipynb
+      - CDC Open Data (Quick): examples/cdc_opendata_example.ipynb
+      - ECDC Open Data (Quick): examples/ecdc_opendata_example.ipynb
+      - EMRO Analysis (PT): examples/emro_health_analysis.ipynb
+      - EpiPulse: examples/epipulse_example.ipynb
+      - RespiCast: examples/respicast_example.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md
