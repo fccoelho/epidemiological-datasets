@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-20
+
+### Removed
+
+- Deleted redundant `scripts/` directory (24 files) fully superseded by `src/epidatasets/`
+- Deleted duplicate `examples/` directory (content preserved in `docs/examples/`)
+- Deleted stale `issues/` directory (5 issue-tracking markdown files)
+- Added `coverage.xml` to `.gitignore`
+
+### Changed
+
+- Flattened `docs/docs/` into `docs/` to remove unnecessary nesting
+- Explicitly listed all 27 example notebooks in mkdocs navigation
+
+### Fixed
+
+- Fixed outdated `scripts.accessors.*` docstring references in 6 source files
+- Fixed outdated `scripts.accessors.*` imports in 3 example notebooks
+- Repaired broken notebooks: added missing `outputs` fields, fixed malformed JSON
+- Fixed `PAOHAccessor` -> `PAHOAccessor` typo in docs/sources/paho.md
+
+### Added
+
+- GitHub Actions workflow for Python package publishing
+
 ## [0.2.0] - 2026-04-19
 
 ### Changed

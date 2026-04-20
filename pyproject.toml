@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "epidatasets"
-version = "0.2.0"
+version = "0.3.0"
 description = "Python library for accessing epidemiological datasets worldwide"
 readme = "README.md"
 license = {text = "MIT"}
