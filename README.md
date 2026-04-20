@@ -23,8 +23,8 @@
 </p>
 
 <p align="center">
-  <a href="https://epidatasets.readthedocs.io">
-    <img src="https://readthedocs.org/projects/epidatasets/badge/?version=latest" alt="Documentation">
+  <a href="https://epidemiological-datasets.readthedocs.io">
+    <img src="https://readthedocs.org/projects/epidemiological-datasets/badge/?version=latest" alt="Documentation">
   </a>
   <a href="https://github.com/fccoelho/epidemiological-datasets/actions/workflows/ci.yml">
     <img src="https://github.com/fccoelho/epidemiological-datasets/workflows/CI/badge.svg" alt="CI Status">
