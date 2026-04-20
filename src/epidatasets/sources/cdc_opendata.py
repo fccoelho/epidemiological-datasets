@@ -46,7 +46,7 @@ class CDCOpenDataAccessor(BaseAccessor):
     - Environmental health data
     
     Example:
-        >>> from scripts.accessors.cdc_opendata import CDCOpenDataAccessor
+        >>> from epidatasets.sources.cdc_opendata import CDCOpenDataAccessor
         >>> cdc = CDCOpenDataAccessor()
         >>> 
         >>> # Get COVID-19 case data

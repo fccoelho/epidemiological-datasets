@@ -1,1 +1,0 @@
-# Epidemiological data access scripts

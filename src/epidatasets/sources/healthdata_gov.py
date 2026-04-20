@@ -31,7 +31,7 @@ class HealthDataGovAccessor(BaseAccessor):
     and other health system indicators from US healthcare facilities.
     
     Example:
-        >>> from scripts.accessors.healthdata_gov import HealthDataGovAccessor
+        >>> from epidatasets.sources.healthdata_gov import HealthDataGovAccessor
         >>> hdg = HealthDataGovAccessor()
         >>> hospitals = hdg.get_hospital_capacity(state="CA")
         >>> covid = hdg.get_covid_metrics(state="NY")

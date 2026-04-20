@@ -84,7 +84,7 @@ class CopernicusCDSAccessor(BaseAccessor):
         4. Accept the Terms of Use for each dataset you want to access
     
     Example:
-        >>> from scripts.accessors.copernicus_cds import CopernicusCDSAccessor
+        >>> from epidatasets.sources.copernicus_cds import CopernicusCDSAccessor
         >>> cds = CopernicusCDSAccessor()
         >>> 
         >>> # Get temperature data for Brazil

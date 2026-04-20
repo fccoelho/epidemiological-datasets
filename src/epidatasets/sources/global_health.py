@@ -26,7 +26,7 @@ class GlobalHealthAccessor(BaseAccessor):
     metadata including demographics, symptoms, outcomes, and travel history.
     
     Example:
-        >>> from scripts.accessors.global_health import GlobalHealthAccessor
+        >>> from epidatasets.sources.global_health import GlobalHealthAccessor
         >>> gh = GlobalHealthAccessor()
         >>> covid_data = gh.get_case_data(disease="COVID-19", country="Brazil")
         >>> mpox_data = gh.get_case_data(disease="Monkeypox")

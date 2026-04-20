@@ -51,7 +51,7 @@ class PathoplexusAccessor(BaseAccessor):
     for human viral pathogens.
 
     Example:
-        >>> from scripts.accessors.pathoplexus import PathoplexusAccessor
+        >>> from epidatasets.sources.pathoplexus import PathoplexusAccessor
         >>> ppx = PathoplexusAccessor('dengue')
         >>> metadata = ppx.get_metadata(country='Brazil', date_from='2024-01-01')
         >>> count = ppx.count_sequences(country='Brazil')

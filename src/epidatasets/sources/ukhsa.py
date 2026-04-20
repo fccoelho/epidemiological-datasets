@@ -33,7 +33,7 @@ class UKHSAAccessor(BaseAccessor):
     infectious diseases tracked by UKHSA.
 
     Example:
-        >>> from scripts.accessors.ukhsa import UKHSAAccessor
+        >>> from epidatasets.sources.ukhsa import UKHSAAccessor
         >>> ukhsa = UKHSAAccessor()
         >>> covid = ukhsa.get_infectious_disease_data("COVID-19")
         >>> measles = ukhsa.get_infectious_disease_data("Measles")
