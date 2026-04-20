@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "epidatasets"
-version = "0.3.0"
+version = "0.3.1"
 description = "Python library for accessing epidemiological datasets worldwide"
 readme = "README.md"
 license = {text = "MIT"}
@@ -47,7 +47,7 @@ dependencies = [
 
 [project.optional-dependencies]
 who = [
-    "ghoclient @ git+https://github.com/fccoelho/ghoclient",
+    "ghoclient>=1.0.4",
 ]
 brazil = [
     "pysus>=1.0.1",
