@@ -1,3 +1,3 @@
 # PAHO
 
-::: epidatasets.sources.paho.PAOHAccessor
+::: epidatasets.sources.paho.PAHOAccessor
