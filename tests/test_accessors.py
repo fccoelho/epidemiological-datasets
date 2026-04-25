@@ -113,6 +113,96 @@ class TestChinaCDC:
         provinces = accessor.list_provinces()
         assert isinstance(provinces, pd.DataFrame)
 
+    def test_parse_pdf_to_disease_table(self):
+        from pathlib import Path
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
+        if not pdf_path.exists():
+            pytest.skip("Cached China CDC PDF not available")
+
+        result = ChinaCDCAccessor.parse_pdf_to_disease_table(pdf_path)
+        assert isinstance(result, pd.DataFrame)
+        assert not result.empty
+        assert "disease_en" in result.columns
+        assert "cases" in result.columns
+        assert "deaths" in result.columns
+        assert result["cases"].notna().any()
+
+    def test_parse_pdf_tables(self):
+        from pathlib import Path
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
+        if not pdf_path.exists():
+            pytest.skip("Cached China CDC PDF not available")
+
+        tables = ChinaCDCAccessor.parse_pdf_tables(pdf_path)
+        assert isinstance(tables, list)
+
+    def test_parse_pdf_text_lines(self):
+        from pathlib import Path
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
+        if not pdf_path.exists():
+            pytest.skip("Cached China CDC PDF not available")
+
+        rows = ChinaCDCAccessor._parse_pdf_text_lines(pdf_path)
+        assert isinstance(rows, list)
+        assert len(rows) > 0
+        for row in rows:
+            assert "disease_en" in row
+            assert "cases" in row
+            assert "deaths" in row
+            assert "is_subitem" in row
+
+    def test_normalise_table(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        raw = pd.DataFrame(
+            {
+                "Disease": ["Plague", "Cholera", "Viral Hepatitis", "Total"],
+                "Cases": ["5", "12", "145,230", "145,247"],
+                "Deaths": ["0", "0", "42", "42"],
+            }
+        )
+        result = ChinaCDCAccessor._normalise_table(raw)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 3
+        assert "Total" not in result["disease_en"].values
+        assert result.iloc[0]["disease_en"] == "Plague"
+        assert result.iloc[0]["cases"] == 5
+
+    def test_disease_name_map(self):
+        from epidatasets.sources.china_cdc import _DISEASE_NAME_MAP
+
+        assert isinstance(_DISEASE_NAME_MAP, dict)
+        assert len(_DISEASE_NAME_MAP) > 0
+        assert "Influenza" in _DISEASE_NAME_MAP or "Plague" in _DISEASE_NAME_MAP
+
+    def test_get_influenza_surveillance_returns_dataframe(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+        accessor = ChinaCDCAccessor()
+        result = accessor.get_influenza_surveillance(weeks=[1, 2], year=2024)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        assert "week" in result.columns
+
+    def test_get_covid_updates_returns_dataframe(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+        accessor = ChinaCDCAccessor()
+        result = accessor.get_covid_updates()
+        assert isinstance(result, pd.DataFrame)
+
+    def test_get_vaccination_coverage_returns_dataframe(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+        accessor = ChinaCDCAccessor()
+        result = accessor.get_vaccination_coverage(vaccines=["EPI"], year=2024)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 1
+        assert result.iloc[0]["vaccine"] == "EPI"
+
 
 class TestIndiaIDSP:
     def test_initialization(self):

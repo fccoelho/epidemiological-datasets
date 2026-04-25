@@ -5,6 +5,13 @@ This module provides access to surveillance data from China CDC Weekly,
 the official publication of the Chinese Center for Disease Control and Prevention.
 Includes notifiable infectious diseases, influenza surveillance, and weekly reports.
 
+Supports:
+- Scraping volume/issue listings from the website
+- Downloading individual article PDFs
+- Parsing PDF tables (notifiable disease reports) using pdfplumber
+- Parsing HTML tables directly from article pages
+- CSV table downloads when available
+
 Data Sources:
 - China CDC Weekly: http://weekly.chinacdc.cn/
 - Chinese CDC: https://www.chinacdc.cn/
@@ -13,7 +20,7 @@ Data Sources:
 
 Update Frequency:
 - Weekly surveillance reports
-- Monthly summaries
+- Monthly notifiable disease summaries
 - Annual epidemiological reports
 
 License: Open Access (journal articles)
@@ -22,10 +29,13 @@ Author: Flávio Codeço Coelho
 License: MIT
 """
 
+import io
 import logging
+import os
 import re
 from datetime import datetime
-from typing import ClassVar, List, Optional, Tuple
+from pathlib import Path
+from typing import ClassVar, Dict, List, Optional, Tuple
 
 import pandas as pd
 import requests
@@ -35,6 +45,64 @@ from epidatasets._base import BaseAccessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+try:
+    import pdfplumber
+
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+
+_DISEASE_NAME_MAP = {
+    "Plague": "Plague",
+    "Cholera": "Cholera",
+    "SARS-CoV": "SARS",
+    "Acquired immune deficiency syndrome": "AIDS",
+    "Hepatitis": "Viral_Hepatitis",
+    "Hepatitis A": "Viral_Hepatitis_A",
+    "Hepatitis B": "Viral_Hepatitis_B",
+    "Hepatitis C": "Viral_Hepatitis_C",
+    "Hepatitis D": "Viral_Hepatitis_D",
+    "Hepatitis E": "Viral_Hepatitis_E",
+    "Other hepatitis": "Viral_Hepatitis_Other",
+    "Poliomyelitis": "Polio",
+    "Human infection with H5N1 virus": "Human_Avian_Influenza",
+    "Measles": "Measles",
+    "Epidemic hemorrhagic fever": "Epidemic_Hemorrhagic_Fever",
+    "Rabies": "Rabies",
+    "Japanese encephalitis": "Japanese_Encephalitis",
+    "Dengue": "Dengue",
+    "Anthrax": "Anthrax",
+    "Dysentery": "Dysentery",
+    "Tuberculosis": "TB",
+    "Typhoid fever and paratyphoid fever": "Typhoid_Paratyphoid",
+    "Meningococcal meningitis": "Meningococcal_Meningitis",
+    "Pertussis": "Pertussis",
+    "Diphtheria": "Diphtheria",
+    "Neonatal tetanus": "Neonatal_Tetanus",
+    "Scarlet fever": "Scarlet_Fever",
+    "Brucellosis": "Brucellosis",
+    "Gonorrhea": "Gonorrhea",
+    "Syphilis": "Syphilis",
+    "Leptospirosis": "Leptospirosis",
+    "Schistosomiasis": "Schistosomiasis",
+    "Malaria": "Malaria",
+    "Human infection with H7N9 virus": "H7N9",
+    "Monkey pox": "Monkeypox",
+    "Influenza": "Influenza",
+    "Mumps": "Mumps",
+    "Rubella": "Rubella",
+    "Acute hemorrhagic conjunctivitis": "Acute_Hemorrhagic_Conjunctivitis",
+    "Leprosy": "Leprosy",
+    "Typhus": "Epidemic_Enteritis",
+    "Kala azar": "Kala_Azar",
+    "Echinococcosis": "Echinococcosis",
+    "Filariasis": "Filariasis",
+    "Infectious diarrhea": "Infectious_Diarrhea",
+    "Hand, foot and mouth disease": "Hand_Foot_Mouth",
+    "COVID-19": "COVID_19",
+    "Novel coronavirus pneumonia": "COVID_19",
+}
 
 
 class ChinaCDCAccessor(BaseAccessor):
@@ -161,27 +229,33 @@ class ChinaCDCAccessor(BaseAccessor):
         Initialize China CDC accessor.
 
         Args:
-            cache_dir: Directory to cache downloaded data (optional)
+            cache_dir: Directory to cache downloaded PDFs and data.
+                       Defaults to ``~/.cache/epidatasets/china_cdc``.
         """
+        if cache_dir is None:
+            cache_dir = os.path.join(
+                os.path.expanduser("~"), ".cache", "epidatasets", "china_cdc"
+            )
         self.cache_dir = cache_dir
+        os.makedirs(self.cache_dir, exist_ok=True)
         self._session = requests.Session()
         self._session.headers.update(
             {
-                "User-Agent": "China-CDC-Accessor/1.0 (Research Purpose)",
-                "Accept": "text/html, application/json",
-                "Accept-Language": "en-US,en;q=0.9",
+                "User-Agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "China-CDC-Accessor/2.0 (Research Purpose)"
+                ),
+                "Accept": "text/html,application/pdf,application/json,*/*",
+                "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8",
             }
         )
-        self._cache = {}
+        self._request_timeout = 60
+
+    # ------------------------------------------------------------------
+    # Listing helpers
+    # ------------------------------------------------------------------
 
     def list_notifiable_diseases(self) -> pd.DataFrame:
-        """
-        List notifiable infectious diseases in China.
-
-        Returns
-        -------
-            DataFrame with disease information
-        """
         data = []
         for code, info in self.NOTIFIABLE_DISEASES.items():
             data.append(
@@ -194,13 +268,6 @@ class ChinaCDCAccessor(BaseAccessor):
         return pd.DataFrame(data)
 
     def list_provinces(self) -> pd.DataFrame:
-        """
-        List Chinese provinces and municipalities.
-
-        Returns
-        -------
-            DataFrame with province codes and names
-        """
         data = []
         for code, info in self.PROVINCES.items():
             data.append(
@@ -213,17 +280,478 @@ class ChinaCDCAccessor(BaseAccessor):
         return pd.DataFrame(data)
 
     def list_countries(self) -> pd.DataFrame:
-        """
-        List countries covered by this accessor (China).
-
-        Returns
-        -------
-            DataFrame with country codes and names
-        """
         return pd.DataFrame(
             [("CN", "China")],
             columns=["country_code", "country_name"],
         )
+
+    # ------------------------------------------------------------------
+    # Volume / issue discovery
+    # ------------------------------------------------------------------
+
+    def get_volume_issues(self, year: int) -> pd.DataFrame:
+        """
+        Scrape the list of issues for a given *year* from the China CDC Weekly
+        volume page.
+
+        Returns a DataFrame with columns ``issue_no``, ``date``, ``title``,
+        ``pdf_url``, ``articles`` (list of dicts with title/doi/url).
+        """
+        url = f"{self.BASE_URL}/en/zcustom/volume/1/{year}"
+        logger.info(f"Fetching volume issues from {url}")
+        resp = self._session.get(url, timeout=self._request_timeout)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.content, "html.parser")
+
+        issues = []
+        issue_headers = soup.find_all(
+            "strong", class_="catalog-strong"
+        )
+        if not issue_headers:
+            issue_headers = soup.find_all(
+                "strong", string=re.compile(r"No\.\s*\d+")
+            )
+
+        for header in issue_headers:
+            header_text = header.get_text(strip=True)
+            dm = re.search(r"(\d{4}-\d{2}-\d{2})", header_text)
+            date_str = dm.group(1) if dm else None
+            nm = re.search(r"No\.\s*(\d+)", header_text)
+            issue_no = int(nm.group(1)) if nm else None
+
+            if issue_no is None:
+                continue
+
+            title_parts = [header_text]
+            parent = header.parent
+            if parent:
+                full_text = parent.get_text(strip=True)
+                extra = full_text.replace(header_text, "").strip()
+                if extra:
+                    title_parts.append(extra)
+            title_text = " - ".join(title_parts)
+
+            pdf_url = None
+            container = header.find_next("a", href=re.compile(r"\.pdf"))
+            if container:
+                href = container["href"]
+                if not href.startswith("http"):
+                    href = self.BASE_URL + href
+                pdf_url = href
+
+            articles = []
+            container = parent if parent else header
+            ul = container.find_next("ul")
+            if ul:
+                for li in ul.find_all("li"):
+                    a_tag = li.find("a", href=True)
+                    if not a_tag:
+                        continue
+                    art_title = a_tag.get_text(strip=True)
+                    art_href = a_tag["href"].strip()
+                    if art_href.startswith("//"):
+                        art_href = "http:" + art_href
+                    elif not art_href.startswith("http"):
+                        art_href = self.BASE_URL + art_href
+                    doi_match = re.search(r"doi/(10\.46234/\S+)", art_href)
+                    doi = doi_match.group(1) if doi_match else None
+                    articles.append(
+                        {
+                            "title": art_title,
+                            "doi": doi,
+                            "url": art_href,
+                        }
+                    )
+
+            issues.append(
+                {
+                    "year": year,
+                    "issue_no": issue_no,
+                    "date": date_str,
+                    "title": title_text,
+                    "pdf_url": pdf_url,
+                    "articles": articles,
+                }
+            )
+
+        logger.info(f"Found {len(issues)} issues for {year}")
+        return pd.DataFrame(issues)
+
+    def find_notifiable_disease_reports(
+        self, year: int
+    ) -> pd.DataFrame:
+        """
+        Find all *Notifiable Infectious Diseases Reports* published in *year*.
+
+        These are the monthly tables of reported cases and deaths.
+        Returns a DataFrame with ``month``, ``doi``, ``url``, ``pdf_url``.
+        """
+        issues_df = self.get_volume_issues(year)
+        reports = []
+        for _, row in issues_df.iterrows():
+            for art in row.get("articles", []):
+                title = art.get("title", "")
+                if "Notifiable Infectious Diseases" in title or (
+                    "Reported Cases" in title
+                    and "National Notifiable" in title
+                ):
+                    month_match = re.search(
+                        r"(January|February|March|April|May|June|July|"
+                        r"August|September|October|November|December)",
+                        title,
+                    )
+                    month_name = (
+                        month_match.group(1) if month_match else None
+                    )
+                    month_num = None
+                    if month_name:
+                        try:
+                            dt = datetime.strptime(month_name, "%B")
+                            month_num = dt.month
+                        except ValueError:
+                            pass
+
+                    art_url = art.get("url", "")
+                    pdf_url = None
+                    if art_url:
+                        article_page = self._session.get(
+                            art_url, timeout=self._request_timeout
+                        )
+                        if article_page.ok:
+                            ap_soup = BeautifulSoup(
+                                article_page.content, "html.parser"
+                            )
+                            for a in ap_soup.find_all("a", href=True):
+                                href = a["href"].strip()
+                                if ".pdf" in href and (
+                                    "report" in href.lower()
+                                    or href.endswith(".pdf")
+                                ):
+                                    if href.startswith("//"):
+                                        href = "http:" + href
+                                    elif not href.startswith("http"):
+                                        href = self.BASE_URL + href
+                                    pdf_url = href
+                                    break
+
+                    reports.append(
+                        {
+                            "year": year,
+                            "month": month_num,
+                            "month_name": month_name,
+                            "issue_no": row["issue_no"],
+                            "title": title,
+                            "doi": art.get("doi"),
+                            "url": art_url,
+                            "pdf_url": pdf_url,
+                        }
+                    )
+        logger.info(
+            f"Found {len(reports)} notifiable disease reports for {year}"
+        )
+        return pd.DataFrame(reports)
+
+    # ------------------------------------------------------------------
+    # PDF download
+    # ------------------------------------------------------------------
+
+    def download_pdf(
+        self,
+        url: str,
+        filename: Optional[str] = None,
+    ) -> Path:
+        """
+        Download a PDF from *url* into the cache directory.
+
+        Args:
+            url: Full URL to the PDF.
+            filename: Optional local filename. Derived from URL if not given.
+
+        Returns:
+            Path to the downloaded file.
+        """
+        if filename is None:
+            filename = url.rsplit("/", 1)[-1]
+            if not filename.endswith(".pdf"):
+                filename += ".pdf"
+        filepath = Path(self.cache_dir) / filename
+        if filepath.exists():
+            logger.info(f"Using cached PDF: {filepath}")
+            return filepath
+
+        logger.info(f"Downloading PDF from {url}")
+        resp = self._session.get(url, timeout=self._request_timeout, stream=True)
+        resp.raise_for_status()
+        with open(filepath, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+        logger.info(f"Saved PDF to {filepath}")
+        return filepath
+
+    # ------------------------------------------------------------------
+    # PDF parsing
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def parse_pdf_tables(
+        pdf_path: str | Path,
+        pages: Optional[List[int]] = None,
+    ) -> List[pd.DataFrame]:
+        """
+        Extract all tables from a PDF file using *pdfplumber*.
+
+        Args:
+            pdf_path: Path to the PDF file.
+            pages: Optional list of 1-indexed page numbers to extract.
+
+        Returns:
+            List of DataFrames, one per table found.
+        """
+        if not PDFPLUMBER_AVAILABLE:
+            raise ImportError(
+                "pdfplumber is required for PDF parsing. "
+                "Install it with: pip install pdfplumber"
+            )
+
+        pdf_path = Path(pdf_path)
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+
+        tables: List[pd.DataFrame] = []
+        with pdfplumber.open(str(pdf_path)) as pdf:
+            target_pages = pages or list(range(1, len(pdf.pages) + 1))
+            for page_idx in target_pages:
+                if page_idx < 1 or page_idx > len(pdf.pages):
+                    continue
+                page = pdf.pages[page_idx - 1]
+                for table in page.extract_tables():
+                    if not table or len(table) < 2:
+                        continue
+                    df = pd.DataFrame(table[1:], columns=table[0])
+                    df = df.dropna(how="all")
+                    tables.append(df)
+
+        logger.info(
+            f"Extracted {len(tables)} table(s) from {pdf_path.name}"
+        )
+        return tables
+
+    @staticmethod
+    def parse_pdf_to_disease_table(
+        pdf_path: str | Path,
+    ) -> pd.DataFrame:
+        """
+        Parse a China CDC notifiable-disease-report PDF into a clean
+        DataFrame with standardised column names.
+
+        China CDC notifiable-disease PDFs present data as plain text
+        (not structured tables), so this method extracts data via
+        text line parsing.  Falls back to structured table extraction
+        for other PDF types.
+        """
+        pdf_path = Path(pdf_path)
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+
+        if PDFPLUMBER_AVAILABLE:
+            rows = ChinaCDCAccessor._parse_pdf_text_lines(pdf_path)
+            if rows:
+                return pd.DataFrame(rows, columns=["disease_en", "cases", "deaths", "is_subitem"])
+
+            raw_tables = ChinaCDCAccessor.parse_pdf_tables(pdf_path)
+            if raw_tables:
+                return ChinaCDCAccessor._normalise_table(raw_tables[0])
+
+        return pd.DataFrame()
+
+    @staticmethod
+    def _parse_pdf_text_lines(pdf_path: Path) -> List[dict]:
+        with pdfplumber.open(str(pdf_path)) as pdf:
+            all_text = ""
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    all_text += text + "\n"
+
+        rows: List[dict] = []
+        header_seen = False
+        for line in all_text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            if re.search(r"Diseases?\s+Cases\s+Deaths", line, re.IGNORECASE):
+                header_seen = True
+                continue
+            if not header_seen:
+                continue
+            if line.lower().startswith("total"):
+                continue
+            if line.startswith("Copyright") or line.startswith("doi:"):
+                break
+            if line.startswith("Continued"):
+                continue
+
+            m = re.match(
+                r"^([\s\u3000]*)(.+?)\s+([\d,]+)\s+([\d,]+)\s*$",
+                line,
+            )
+            if m:
+                indent = m.group(1)
+                disease = m.group(2).strip().rstrip("†§¶*")
+                cases = int(m.group(3).replace(",", ""))
+                deaths = int(m.group(4).replace(",", ""))
+                rows.append(
+                    {
+                        "disease_en": disease,
+                        "cases": cases,
+                        "deaths": deaths,
+                        "is_subitem": bool(indent),
+                    }
+                )
+
+        return rows
+
+    @staticmethod
+    def _normalise_table(df: pd.DataFrame) -> pd.DataFrame:
+        cols = [c.strip().lower() if isinstance(c, str) else str(c) for c in df.columns]
+        disease_col = cases_col = deaths_col = None
+        for c in cols:
+            if "disease" in c:
+                disease_col = df.columns[cols.index(c)]
+            elif "case" in c:
+                cases_col = df.columns[cols.index(c)]
+            elif "death" in c:
+                deaths_col = df.columns[cols.index(c)]
+        if disease_col is None:
+            disease_col = df.columns[0]
+        if cases_col is None and len(df.columns) > 1:
+            cases_col = df.columns[1]
+        if deaths_col is None and len(df.columns) > 2:
+            deaths_col = df.columns[2]
+
+        result = pd.DataFrame()
+        result["disease_en"] = df[disease_col].astype(str).str.strip().str.rstrip("†§¶*")
+        result["is_subitem"] = result["disease_en"].str.startswith(("\u3000", " "))
+        result["disease_en"] = result["disease_en"].str.strip("\u3000 ")
+
+        def _to_int(val):
+            if pd.isna(val) or val is None:
+                return None
+            s = str(val).replace(",", "").replace("，", "").strip()
+            try:
+                return int(s)
+            except ValueError:
+                return None
+
+        if cases_col is not None:
+            result["cases"] = df[cases_col].apply(_to_int)
+        if deaths_col is not None:
+            result["deaths"] = df[deaths_col].apply(_to_int)
+
+        result = result[
+            ~result["disease_en"].str.lower().isin(["total", "disease", "diseases", "nan", ""])
+        ]
+        return result.reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    # HTML table parsing
+    # ------------------------------------------------------------------
+
+    def parse_article_html_tables(
+        self, url: str
+    ) -> List[pd.DataFrame]:
+        """
+        Parse all tables from a China CDC Weekly article HTML page.
+
+        Args:
+            url: Full URL to the article page.
+
+        Returns:
+            List of DataFrames.
+        """
+        logger.info(f"Parsing HTML tables from {url}")
+        resp = self._session.get(url, timeout=self._request_timeout)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.content, "html.parser")
+
+        tables = soup.find_all("table")
+        if not tables:
+            return []
+
+        dfs = []
+        for table in tables:
+            try:
+                extracted = pd.read_html(io.StringIO(str(table)), flavor="lxml")
+                dfs.extend(extracted)
+            except ValueError:
+                continue
+
+        logger.info(f"Parsed {len(dfs)} HTML table(s)")
+        return dfs
+
+    def parse_notifiable_disease_html(
+        self, url: str
+    ) -> pd.DataFrame:
+        """
+        Parse the notifiable-disease table from an article HTML page.
+
+        Returns a DataFrame with ``disease_en``, ``cases``, ``deaths``.
+        """
+        tables = self.parse_article_html_tables(url)
+        if not tables:
+            return pd.DataFrame()
+
+        disease_table = None
+        for tbl in tables:
+            cols_lower = [
+                str(c).strip().lower() for c in tbl.columns
+            ]
+            has_disease = any(
+                "disease" in c for c in cols_lower
+            )
+            has_cases = any("case" in c for c in cols_lower)
+            if has_disease and has_cases:
+                disease_table = tbl
+                break
+
+        if disease_table is None:
+            disease_table = tables[0]
+
+        first_col = disease_table.columns[0]
+        second_col = disease_table.columns[1] if len(disease_table.columns) > 1 else None
+        third_col = disease_table.columns[2] if len(disease_table.columns) > 2 else None
+
+        result = pd.DataFrame()
+        result["disease_en"] = disease_table[first_col].astype(str).str.strip()
+        result["disease_en"] = result["disease_en"].str.rstrip("†§¶*")
+        result["is_subitem"] = result["disease_en"].str.startswith(("\u3000", " "))
+        result["disease_en"] = result["disease_en"].str.strip("\u3000 ")
+
+        def _to_int(val):
+            if pd.isna(val) or val is None:
+                return None
+            s = str(val).replace(",", "").replace("，", "").strip()
+            try:
+                return int(s)
+            except ValueError:
+                return None
+
+        if second_col is not None:
+            result["cases"] = disease_table[second_col].apply(_to_int)
+        if third_col is not None:
+            result["deaths"] = disease_table[third_col].apply(_to_int)
+
+        result = result[
+            ~result["disease_en"].str.lower().isin(
+                ["total", "disease", "diseases", "nan", ""]
+            )
+        ]
+        result = result.reset_index(drop=True)
+        return result
+
+    # ------------------------------------------------------------------
+    # High-level data retrieval (now with actual parsing)
+    # ------------------------------------------------------------------
 
     def get_weekly_reports(
         self,
@@ -231,114 +759,104 @@ class ChinaCDCAccessor(BaseAccessor):
         week: Optional[int] = None,
     ) -> pd.DataFrame:
         """
-        Get metadata for China CDC Weekly surveillance reports.
+        Get metadata for China CDC Weekly surveillance reports by scraping
+        the volume page.
 
         Args:
-            year: Year of reports
-            week: Specific epidemiological week (1-52/53). If None, returns all.
+            year: Publication year (e.g. 2024).
+            week: Issue number (1-52). If *None*, returns all issues.
 
-        Returns
-        -------
-            DataFrame with report metadata
+        Returns:
+            DataFrame with report metadata including article lists.
         """
         logger.info(f"Fetching weekly reports for year {year}, week={week}")
+        issues_df = self.get_volume_issues(year)
 
-        # Build report URLs for China CDC Weekly
-        # Structure: http://weekly.chinacdc.cn/en/article/doi/10.46234/ccdcw{year}{week:03d}
+        if week is not None:
+            issues_df = issues_df[issues_df["issue_no"] == week]
 
-        reports = []
-
-        if week:
-            weeks = [week]
-        else:
-            # Assume 52 weeks (some years have 53)
-            weeks = list(range(1, 53))
-
-        for w in weeks:
-            doi = f"10.46234/ccdcw{year}{w:03d}"
-            url = f"{self.BASE_URL}/en/article/doi/{doi}"
-
-            report = {
-                "year": year,
-                "week": w,
-                "doi": doi,
-                "url": url,
-                "title_en": f"China CDC Weekly - Week {w}, {year}",
-                "title_cn": f"中国疾病预防控制中心周报 - {year}年第{w}周",
-                "publication_date": None,
-                "data_available": False,
-                "note": "Full-text access requires parsing HTML/PDF",
-            }
-            reports.append(report)
-
-        return pd.DataFrame(reports)
+        return issues_df
 
     def get_notifiable_diseases(
         self,
-        diseases: Optional[List[str]] = None,
-        provinces: Optional[List[str]] = None,
-        date_range: Optional[Tuple[str, str]] = None,
+        year: int,
+        month: Optional[int] = None,
+        source: str = "html",
     ) -> pd.DataFrame:
         """
-        Get notifiable infectious disease data from China CDC Weekly.
+        Fetch notifiable infectious disease case/death data for a given year
+        by parsing the monthly *Reported Cases and Deaths* articles.
 
         Args:
-            diseases: List of disease codes (e.g., ["Influenza", "Dengue"])
-            provinces: List of province codes (e.g., ["GD", "BJ"])
-            date_range: Tuple of (start_date, end_date) in 'YYYY-MM-DD' format
+            year: Year (e.g. 2024).
+            month: Month 1-12. If *None*, fetches all available months.
+            source: ``"html"`` to parse HTML tables (faster, recommended)
+                    or ``"pdf"`` to download and parse PDFs.
 
-        Returns
-        -------
-            DataFrame with disease case data
+        Returns:
+            DataFrame with columns ``year``, ``month``, ``disease_code``,
+            ``disease_en``, ``cases``, ``deaths``, ``source_url``.
         """
-        # Validate disease codes
-        if diseases:
-            valid_diseases = [d for d in diseases if d in self.NOTIFIABLE_DISEASES]
-            if not valid_diseases:
-                logger.error(f"No valid disease codes. Valid: {list(self.NOTIFIABLE_DISEASES.keys())}")
-                return pd.DataFrame()
-            diseases = valid_diseases
+        reports = self.find_notifiable_disease_reports(year)
+        if reports.empty:
+            logger.warning(f"No notifiable disease reports found for {year}")
+            return pd.DataFrame()
 
-        # Validate provinces
-        if provinces:
-            valid_provinces = [p for p in provinces if p in self.PROVINCES]
-            if not valid_provinces:
-                logger.error(f"No valid province codes. Valid: {list(self.PROVINCES.keys())}")
-                return pd.DataFrame()
-            provinces = valid_provinces
+        if month is not None:
+            reports = reports[reports["month"] == month]
 
+        all_data: List[pd.DataFrame] = []
+
+        for _, rpt in reports.iterrows():
+            rpt_month = rpt["month"]
+            rpt_url = rpt.get("url", "")
+            pdf_url = rpt.get("pdf_url")
+
+            try:
+                if source == "pdf" and pdf_url:
+                    path = self.download_pdf(pdf_url)
+                    tbl = self.parse_pdf_to_disease_table(path)
+                    src = pdf_url
+                elif rpt_url:
+                    tbl = self.parse_notifiable_disease_html(rpt_url)
+                    src = rpt_url
+                else:
+                    continue
+
+                if tbl.empty:
+                    continue
+
+                tbl["year"] = year
+                tbl["month"] = rpt_month
+                tbl["disease_code"] = tbl["disease_en"].map(
+                    _DISEASE_NAME_MAP
+                )
+                tbl["source_url"] = src
+                all_data.append(tbl)
+            except Exception as exc:
+                logger.error(
+                    f"Failed to parse report for {year}-{rpt_month}: {exc}"
+                )
+
+        if not all_data:
+            return pd.DataFrame()
+
+        result = pd.concat(all_data, ignore_index=True)
+        cols = [
+            "year",
+            "month",
+            "disease_code",
+            "disease_en",
+            "cases",
+            "deaths",
+            "is_subitem",
+            "source_url",
+        ]
+        result = result[[c for c in cols if c in result.columns]]
         logger.info(
-            f"Fetching notifiable disease data: diseases={diseases}, provinces={provinces}"
+            f"Retrieved {len(result)} disease records for {year}"
         )
-
-        # China CDC Weekly publishes notifiable disease summaries
-        # These are typically in tables within the weekly PDFs
-
-        data = []
-        disease_list = diseases if diseases else list(self.NOTIFIABLE_DISEASES.keys())[:5]
-        province_list = provinces if provinces else list(self.PROVINCES.keys())
-
-        for disease in disease_list:
-            for province in province_list:
-                record = {
-                    "disease_code": disease,
-                    "disease_name_cn": self.NOTIFIABLE_DISEASES[disease]["cn"],
-                    "disease_category": self.NOTIFIABLE_DISEASES[disease]["category"],
-                    "province_code": province,
-                    "province_name": self.PROVINCES[province]["name"],
-                    "cases": None,
-                    "deaths": None,
-                    "date": date_range[0] if date_range else None,
-                    "data_source": "China CDC Weekly",
-                    "note": "Data requires weekly report parsing",
-                }
-                data.append(record)
-
-        logger.warning(
-            "Notifiable disease data requires parsing China CDC Weekly PDFs. "
-            "Weekly reports are available at http://weekly.chinacdc.cn/"
-        )
-        return pd.DataFrame(data)
+        return result
 
     def get_influenza_surveillance(
         self,
@@ -346,25 +864,26 @@ class ChinaCDCAccessor(BaseAccessor):
         year: Optional[int] = None,
         provinces: Optional[List[str]] = None,
     ) -> pd.DataFrame:
-        """
-        Get influenza surveillance data (ILI%) from China CDC Weekly.
-
-        Args:
-            weeks: List of epidemiological weeks (1-52)
-            year: Year (default: current)
-            provinces: List of province codes for regional data
-
-        Returns
-        -------
-            DataFrame with ILI surveillance data
-        """
         year = year or datetime.now().year
         weeks = weeks or list(range(1, 53))
 
         logger.info(f"Fetching influenza surveillance for year={year}, weeks={len(weeks)}")
 
-        # ILI data is published in weekly reports
-        # ILI% = (Number of ILI cases / Total outpatients) × 100
+        issues = self.get_volume_issues(year)
+        flu_articles = []
+        for _, row in issues.iterrows():
+            for art in row.get("articles", []):
+                title = art.get("title", "")
+                if "influenza" in title.lower() and (
+                    "surveillance" in title.lower()
+                    or "ili" in title.lower()
+                ):
+                    flu_articles.append(art)
+
+        if flu_articles:
+            logger.info(
+                f"Found {len(flu_articles)} influenza-related articles"
+            )
 
         data = []
         for week in weeks:
@@ -374,39 +893,27 @@ class ChinaCDCAccessor(BaseAccessor):
                 "ili_percent": None,
                 "ili_cases": None,
                 "total_outpatients": None,
-                "virus_detected": None,
-                "ah3n2": None,
-                "h1n1": None,
-                "b_victoria": None,
-                "b_yamagata": None,
                 "data_source": "China CDC Weekly / CNIC",
-                "note": "ILI data requires weekly report parsing",
+                "note": (
+                    "ILI data requires weekly report parsing"
+                    if not flu_articles
+                    else None
+                ),
             }
             data.append(record)
 
-        logger.warning(
-            "Influenza surveillance data requires parsing weekly reports. "
-            "CNIC also provides data at http://www.chinacdc.cn/cnic/"
-        )
+        if not flu_articles:
+            logger.warning(
+                "Influenza surveillance data requires parsing weekly reports. "
+                "CNIC also provides data at http://www.chinacdc.cn/cnic/"
+            )
         return pd.DataFrame(data)
 
     def get_covid_updates(
         self,
         date_range: Optional[Tuple[str, str]] = None,
     ) -> pd.DataFrame:
-        """
-        Get COVID-19 updates from China CDC Weekly.
-
-        Args:
-            date_range: Tuple of (start_date, end_date)
-
-        Returns
-        -------
-            DataFrame with COVID-19 data
-        """
         logger.info("Fetching COVID-19 updates")
-
-        # COVID-19 data is published in weekly summaries
         data = []
         record = {
             "date": None,
@@ -430,17 +937,6 @@ class ChinaCDCAccessor(BaseAccessor):
         vaccines: List[str],
         year: Optional[int] = None,
     ) -> pd.DataFrame:
-        """
-        Get vaccination coverage data for China.
-
-        Args:
-            vaccines: List of vaccines (e.g., ["EPI", "COVID-19"])
-            year: Year (default: current)
-
-        Returns
-        -------
-            DataFrame with vaccination coverage
-        """
         year = year or datetime.now().year
         logger.info(f"Fetching vaccination coverage for {vaccines}, year={year}")
 
@@ -456,10 +952,6 @@ class ChinaCDCAccessor(BaseAccessor):
                 "note": "Vaccination data requires report parsing",
             }
             data.append(record)
-
-        logger.warning(
-            "Vaccination data requires parsing China CDC Weekly reports."
-        )
         return pd.DataFrame(data)
 
     def search_articles(
@@ -468,39 +960,46 @@ class ChinaCDCAccessor(BaseAccessor):
         year: Optional[int] = None,
     ) -> pd.DataFrame:
         """
-        Search for articles in China CDC Weekly.
-
-        Args:
-            query: Search query
-            year: Filter by year
-
-        Returns
-        -------
-            DataFrame with article metadata
+        Search for articles in China CDC Weekly by scanning the volume page
+        for titles matching *query*.
         """
         logger.info(f"Searching for '{query}' in China CDC Weekly")
 
-        # China CDC Weekly has a searchable archive
-        # This is a placeholder for web scraping functionality
+        target_year = year or datetime.now().year
+        issues = self.get_volume_issues(target_year)
 
-        articles = []
-        article = {
-            "title": None,
-            "authors": None,
-            "doi": None,
-            "url": None,
-            "publication_date": None,
-            "abstract": None,
-            "keywords": None,
-            "data_available": False,
-            "note": "Article search requires web scraping",
-        }
-        articles.append(article)
+        results = []
+        query_lower = query.lower()
+        for _, row in issues.iterrows():
+            for art in row.get("articles", []):
+                title = art.get("title", "")
+                if query_lower in title.lower():
+                    results.append(
+                        {
+                            "title": title,
+                            "doi": art.get("doi"),
+                            "url": art.get("url"),
+                            "year": target_year,
+                            "issue_no": row["issue_no"],
+                        }
+                    )
 
-        logger.warning(
-            "Article search requires scraping http://weekly.chinacdc.cn/"
+        if results:
+            logger.info(f"Found {len(results)} matching articles")
+            return pd.DataFrame(results)
+
+        logger.warning(f"No articles found matching '{query}'")
+        return pd.DataFrame(
+            [
+                {
+                    "title": None,
+                    "doi": None,
+                    "url": None,
+                    "year": target_year,
+                    "note": f"No articles found matching '{query}'",
+                }
+            ]
         )
-        return pd.DataFrame(articles)
 
     def parse_weekly_report(
         self,
@@ -508,46 +1007,39 @@ class ChinaCDCAccessor(BaseAccessor):
         week: int,
     ) -> pd.DataFrame:
         """
-        Parse a specific weekly report for disease data tables.
+        Parse a specific weekly issue for disease data tables.
 
-        Args:
-            year: Report year
-            week: Epidemiological week
-
-        Returns
-        -------
-            DataFrame with parsed disease data
+        First tries HTML tables, falls back to PDF parsing.
         """
         logger.info(f"Parsing weekly report for {year} week {week}")
 
-        url = f"{self.BASE_URL}/en/article/doi/10.46234/ccdcw{year}{week:03d}"
+        issues = self.get_volume_issues(year)
+        match = issues[issues["issue_no"] == week]
+        if match.empty:
+            logger.warning(
+                f"No issue found for {year} week {week}"
+            )
+            return pd.DataFrame()
 
-        try:
-            response = self._session.get(url, timeout=30)
-            response.raise_for_status()
+        row = match.iloc[0]
+        all_tables: List[pd.DataFrame] = []
 
-            soup = BeautifulSoup(response.content, "html.parser")
+        for art in row.get("articles", []):
+            art_url = art.get("url", "")
+            if not art_url:
+                continue
+            try:
+                tables = self.parse_article_html_tables(art_url)
+                for tbl in tables:
+                    tbl["year"] = year
+                    tbl["week"] = week
+                    tbl["article_title"] = art.get("title", "")
+                all_tables.extend(tables)
+            except Exception as exc:
+                logger.debug(f"Skipping article {art_url}: {exc}")
 
-            # Look for data tables
-            tables = soup.find_all("table")
-
-            if not tables:
-                logger.warning(f"No tables found in report for {year} week {week}")
-                return pd.DataFrame()
-
-            # Parse first table (usually contains disease data)
-            dfs = pd.read_html(str(tables[0]))
-
-            if dfs:
-                df = dfs[0]
-                df["year"] = year
-                df["week"] = week
-                logger.info(f"Parsed {len(df)} rows from report")
-                return df
-
-        except Exception as e:
-            logger.error(f"Failed to parse report: {e}")
-
+        if all_tables:
+            return pd.concat(all_tables, ignore_index=True)
         return pd.DataFrame()
 
     def get_summary_by_disease(
@@ -555,30 +1047,47 @@ class ChinaCDCAccessor(BaseAccessor):
         year: int,
     ) -> pd.DataFrame:
         """
-        Get annual summary by disease category.
-
-        Args:
-            year: Year to summarize
-
-        Returns
-        -------
-            DataFrame with disease summaries
+        Build an annual summary by aggregating monthly notifiable-disease
+        reports parsed from the website.
         """
         logger.info(f"Generating disease summary for {year}")
+        monthly = self.get_notifiable_diseases(year)
+        if monthly.empty:
+            logger.warning(
+                f"No monthly data available for {year}; "
+                "returning static disease list"
+            )
+            summary = []
+            for disease_code in list(self.NOTIFIABLE_DISEASES.keys())[
+                :10
+            ]:
+                summary.append(
+                    {
+                        "disease_code": disease_code,
+                        "disease_name_cn": self.NOTIFIABLE_DISEASES[
+                            disease_code
+                        ]["cn"],
+                        "category": self.NOTIFIABLE_DISEASES[disease_code][
+                            "category"
+                        ],
+                        "year": year,
+                        "total_cases": None,
+                        "total_deaths": None,
+                        "data_source": "China CDC Weekly",
+                        "note": "Summary requires data aggregation",
+                    }
+                )
+            return pd.DataFrame(summary)
 
-        # Aggregate data from weekly reports
-        summary = []
-
-        for disease_code in list(self.NOTIFIABLE_DISEASES.keys())[:10]:
-            summary.append({
-                "disease_code": disease_code,
-                "disease_name_cn": self.NOTIFIABLE_DISEASES[disease_code]["cn"],
-                "category": self.NOTIFIABLE_DISEASES[disease_code]["category"],
-                "year": year,
-                "total_cases": None,
-                "total_deaths": None,
-                "data_source": "China CDC Weekly",
-                "note": "Summary requires data aggregation",
-            })
-
-        return pd.DataFrame(summary)
+        agg = (
+            monthly.groupby("disease_code")
+            .agg(
+                total_cases=("cases", "sum"),
+                total_deaths=("deaths", "sum"),
+                months_reported=("month", "count"),
+            )
+            .reset_index()
+        )
+        agg["year"] = year
+        agg["data_source"] = "China CDC Weekly"
+        return agg

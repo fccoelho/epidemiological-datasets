@@ -43,6 +43,10 @@ dependencies = [
     "pandas>=1.5.0",
     "numpy>=1.23.0",
     "requests>=2.28.0",
+    "ipykernel>=7.2.0",
+    "pandas-stubs~=2.3.3",
+    "matplotlib>=3.10.9",
+    "seaborn>=0.13.2",
 ]
 
 [project.optional-dependencies]
@@ -83,9 +87,13 @@ search = [
 ]
 scraping = [
     "bs4>=0.0.2",
+    "lxml>=4.9.0",
+]
+pdf = [
+    "pdfplumber>=0.10.0",
 ]
 all = [
-    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping]",
+    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf]",
 ]
 dev = [
     "pytest>=7.4.0",
