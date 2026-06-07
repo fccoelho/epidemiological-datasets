@@ -148,7 +148,7 @@ class EurostatAccessor(BaseAccessor):
         "hlth_cd_aro": "Causes of death - absolute numbers",
         "hlth_cd_acdr2": "Avoidable and treatable mortality by NUTS 2",
         "demo_mlexpec": "Life expectancy by age and sex",
-        "demo_pjanind__indic_de": "Infant mortality rate",
+        "demo_minfind": "Infant mortality rates",
         # Healthcare expenditure
         "hlth_sha11_hf": "Health care expenditure by financing scheme",
         "hlth_sha11_hc": "Health care expenditure by function",
@@ -168,7 +168,7 @@ class EurostatAccessor(BaseAccessor):
         "hlth_ehis_pk1b": "Physical activity by sex, age and income",
         "hlth_ehis_sk1b": "Smoking habits by sex, age and income",
         # COVID-19 specific
-        "demo_pjanind__covid": "Excess mortality during COVID-19",
+        "demo_mexrt": "Excess mortality by month",
         "hlth_ehis_ic1b": "Influenza vaccination by sex, age and risk group",
     }
 
@@ -394,6 +394,22 @@ class EurostatAccessor(BaseAccessor):
         }
         return mapping.get(country_code, country_code)
 
+    @staticmethod
+    def _find_geo_column(df: pd.DataFrame) -> Optional[str]:
+        for col in df.columns:
+            if "geo" in str(col).lower():
+                return col
+        return None
+
+    @staticmethod
+    def _get_year_columns(df: pd.DataFrame) -> List[str]:
+        year_cols = []
+        for col in df.columns:
+            s = str(col)
+            if s.isdigit() and len(s) == 4:
+                year_cols.append(col)
+        return year_cols
+
     def _get_with_library(
         self,
         indicator_code: str,
@@ -404,22 +420,23 @@ class EurostatAccessor(BaseAccessor):
     ) -> pd.DataFrame:
         """Fetch data using eurostat library."""
         try:
-            # Use eurostat library to get data
             df = eurostat.get_data_df(indicator_code)
 
-            if df is None or df.empty:
+            if df is None or (isinstance(df, pd.DataFrame) and df.empty):
                 logger.warning(f"No data returned for {indicator_code}")
                 return pd.DataFrame()
 
-            # Filter by countries if specified
-            if "geo" in df.columns and countries:
-                df = df[df["geo"].isin(countries)]
+            geo_col = self._find_geo_column(df)
 
-            # Filter by years if specified
-            if "time" in df.columns and years:
-                df = df[df["time"].isin([str(y) for y in years])]
+            if geo_col and countries:
+                df = df[df[geo_col].isin(countries)]
 
-            # Filter by sex if specified
+            if years:
+                year_cols = self._get_year_columns(df)
+                requested = [c for c in year_cols if int(c) in years]
+                non_year = [c for c in df.columns if c not in year_cols]
+                df = df[non_year + requested]
+
             if "sex" in df.columns and sex:
                 df = df[df["sex"] == sex]
 
@@ -607,7 +624,7 @@ class EurostatAccessor(BaseAccessor):
         -------
             DataFrame with infant mortality rates
         """
-        return self.get_health_indicator("demo_pjanind__indic_de", countries, years)
+        return self.get_health_indicator("demo_minfind", countries, years)
 
     def get_physicians(
         self,
@@ -710,15 +727,29 @@ class EurostatAccessor(BaseAccessor):
         if data.empty:
             return data
 
-        # Try to pivot for comparison
-        if "geo" in data.columns and "time" in data.columns:
+        geo_col = self._find_geo_column(data)
+
+        if geo_col and "time" in data.columns:
             try:
                 pivot = data.pivot_table(
-                    index="time", columns="geo", values="value", aggfunc="first"
+                    index="time", columns=geo_col, values="value", aggfunc="first"
                 )
                 return pivot
-            except:
+            except Exception:
                 pass
+
+        if geo_col:
+            year_cols = self._get_year_columns(data)
+            if year_cols:
+                try:
+                    non_year = [c for c in data.columns if c not in year_cols and c != geo_col]
+                    idx = data[geo_col]
+                    if non_year:
+                        idx = data[geo_col].astype(str) + " / " + data[non_year].astype(str).agg(" | ".join, axis=1)
+                    pivot = data.set_index(idx)[year_cols]
+                    return pivot
+                except Exception:
+                    pass
 
         return data
 
@@ -734,7 +765,21 @@ class EurostatAccessor(BaseAccessor):
             Dictionary with metadata
         """
         try:
-            url = f"{self.REST_URL}/{indicator_code}"
+            if EUROSTAT_LIB_AVAILABLE:
+                toc = eurostat.get_toc_df()
+                match = toc[toc["code"].str.lower() == indicator_code.lower()]
+                if not match.empty:
+                    row = match.iloc[0]
+                    return {
+                        "indicator_code": indicator_code,
+                        "title": row.get("title", ""),
+                        "type": row.get("type", ""),
+                        "data_start": row.get("data start", ""),
+                        "data_end": row.get("data end", ""),
+                        "last_update": row.get("last update of data", ""),
+                    }
+
+            url = f"{self.BASE_URL}/{indicator_code}"
             response = self._session.get(url, timeout=30)
             response.raise_for_status()
 
