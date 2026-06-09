@@ -34,6 +34,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from epidatasets._base import BaseAccessor
+from epidatasets.utils.pdf import PDFParser
 
 logger = logging.getLogger(__name__)
 
@@ -50,114 +51,8 @@ _PROVINCE_ALIASES = {
 }
 
 
-def _clean_cell(value) -> str:
-    if value is None:
-        return ""
-    text = str(value).strip()
-    text = re.sub(r"\s+", " ", text)
-    return text
-
-
 def _parse_numeric(value) -> Optional[int]:
-    if value is None:
-        return None
-    text = _clean_cell(value)
-    if not text or text in ("NR", "-", "N/A", "na", "—", "–"):
-        return None
-    cleaned = text.replace(",", "").replace(" ", "").strip()
-    match = re.match(r"[−\-]?\(?(\d[\d.]*)\)?", cleaned)
-    if match:
-        try:
-            return int(float(match.group(1)))
-        except ValueError:
-            return None
-    return None
-
-
-def _squash_row(row: list) -> list:
-    parts: List[str] = []
-    for cell in row:
-        c = _clean_cell(cell)
-        if c:
-            parts.append(c)
-    return [" ".join(parts)] if parts else []
-
-
-def _strip_spacer_cols(raw: list) -> list:
-    if not raw:
-        return raw
-    ncols = max(len(r) for r in raw)
-    nrows = len(raw)
-    threshold = max(3, int(nrows * 0.15))
-    keep = []
-    for col_idx in range(ncols):
-        non_empty = 0
-        for row in raw:
-            val = _clean_cell(row[col_idx]) if col_idx < len(row) else ""
-            if val:
-                non_empty += 1
-        if non_empty >= threshold:
-            keep.append(col_idx)
-    return [
-        [row[c] if c < len(row) else None for c in keep]
-        for row in raw
-    ]
-
-
-def _merge_header_rows(rows: list) -> list:
-    if not rows:
-        return []
-    ncols = max(len(r) for r in rows)
-    merged = []
-    for col_idx in range(ncols):
-        fragments = []
-        for row in rows:
-            val = _clean_cell(row[col_idx]) if col_idx < len(row) else ""
-            if val:
-                fragments.append(val)
-        merged.append(" ".join(fragments).strip() if fragments else "")
-    return merged
-
-
-def _flatten_pdfplumber_table(raw: list) -> pd.DataFrame:
-    if not raw or len(raw) < 2:
-        return pd.DataFrame()
-
-    stripped = _strip_spacer_cols(raw)
-    if not stripped or not stripped[0]:
-        return pd.DataFrame()
-
-    header_rows = []
-    data_start = 0
-    for i, row in enumerate(stripped):
-        has_numeric = any(_parse_numeric(c) is not None for c in row[1:])
-        has_text_first = bool(_clean_cell(row[0])) if row else False
-        if has_numeric and has_text_first:
-            data_start = i
-            break
-        header_rows.append(row)
-
-    if not header_rows:
-        header_rows = [stripped[0]]
-        data_start = 1
-
-    header = _merge_header_rows(header_rows)
-    if not any(header):
-        return pd.DataFrame()
-
-    ncols = len(header)
-    records = []
-    for row in stripped[data_start:]:
-        cells = [_clean_cell(c) for c in row]
-        if not any(cells):
-            continue
-        padded = cells + [""] * (ncols - len(cells))
-        records.append(padded[:ncols])
-
-    if not records:
-        return pd.DataFrame()
-
-    return pd.DataFrame(records, columns=header)
+    return PDFParser.parse_numeric(value)
 
 
 class PakistanNIHAccessor(BaseAccessor):
@@ -234,17 +129,16 @@ class PakistanNIHAccessor(BaseAccessor):
         else:
             self.cache_dir = Path.home() / ".cache" / "epi_data" / "pakistan_nih"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._cache_ttl = timedelta(days=7)
-        self._session = requests.Session()
-        self._session.headers.update(
-            {
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                )
-            }
+        self._pdf = PDFParser(
+            cache_dir=self.cache_dir,
+            cache_ttl_days=7,
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
         )
+        self._session = self._pdf._session
         self._bulletin_cache: Optional[pd.DataFrame] = None
 
     def list_countries(self) -> pd.DataFrame:
@@ -252,69 +146,6 @@ class PakistanNIHAccessor(BaseAccessor):
 
     def _get_cache_path(self, filename: str) -> Path:
         return self.cache_dir / filename
-
-    def _is_cache_valid(self, cache_path: Path) -> bool:
-        if not cache_path.exists():
-            return False
-        mtime = datetime.fromtimestamp(cache_path.stat().st_mtime)
-        return datetime.now() - mtime < self._cache_ttl
-
-    def _download_pdf(self, url: str, cache_path: Path) -> Path:
-        if self._is_cache_valid(cache_path):
-            logger.info(f"Using cached PDF: {cache_path}")
-            return cache_path
-
-        logger.info(f"Downloading PDF from: {url}")
-        response = self._session.get(url, timeout=60, stream=True)
-        response.raise_for_status()
-
-        content_type = response.headers.get("content-type", "").lower()
-        if "pdf" not in content_type and not response.content.startswith(b"%PDF"):
-            raise ValueError(f"Expected PDF, got content-type: {content_type}")
-
-        cache_path.write_bytes(response.content)
-        logger.info(f"Saved PDF to cache: {cache_path}")
-        return cache_path
-
-    def _extract_pdf_text(self, pdf_path: Path) -> str:
-        try:
-            from pypdf import PdfReader
-
-            reader = PdfReader(str(pdf_path))
-            text_parts = []
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text_parts.append(page_text)
-            return "\n".join(text_parts)
-        except ImportError:
-            logger.warning("pypdf not available. Install with: pip install pypdf")
-            return ""
-
-    def _extract_raw_tables(self, pdf_path: Path) -> List[List[List[Optional[str]]]]:
-        try:
-            import pdfplumber
-
-            all_tables = []
-            with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
-                    page_tables = page.extract_tables()
-                    for table in page_tables:
-                        if table and len(table) > 1:
-                            all_tables.append(table)
-            return all_tables
-        except ImportError:
-            logger.debug("pdfplumber not available for table extraction")
-            return []
-
-    def _extract_pdf_tables(self, pdf_path: Path) -> List[pd.DataFrame]:
-        raw_tables = self._extract_raw_tables(pdf_path)
-        result = []
-        for raw in raw_tables:
-            df = _flatten_pdfplumber_table(raw)
-            if not df.empty:
-                result.append(df)
-        return result
 
     def _scrape_bulletin_index(self, force_refresh: bool = False) -> pd.DataFrame:
         if self._bulletin_cache is not None and not force_refresh:
@@ -429,14 +260,14 @@ class PakistanNIHAccessor(BaseAccessor):
         }
 
         try:
-            pdf_path = self._download_pdf(url, cache_path)
+            pdf_path = self._pdf.download(url, filename=cache_filename)
             result["pdf_path"] = str(pdf_path)
 
             if extract_text:
-                result["text"] = self._extract_pdf_text(pdf_path)
+                result["text"] = self._pdf.extract_text(pdf_path)
             if extract_tables:
-                tables = self._extract_pdf_tables(pdf_path)
-                result["tables"] = [df.to_dict(orient="records") for df in tables]
+                tables = self._pdf.extract_tables(pdf_path)
+                result["tables"] = [t.data.to_dict(orient="records") for t in tables]
 
         except requests.HTTPError as e:
             result["error"] = f"HTTP {e.response.status_code}: {e.response.reason}"
@@ -656,7 +487,7 @@ class PakistanNIHAccessor(BaseAccessor):
         )
 
         with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
+            for page_num, page in enumerate(pdf.pages, 1):
                 page_text = page.extract_text() or ""
                 cap_match = caption_pattern.search(page_text)
                 if not cap_match:
@@ -671,7 +502,7 @@ class PakistanNIHAccessor(BaseAccessor):
 
                 best = max(tables, key=lambda t: len(t) * max(len(r) for r in t) if t else 0)
 
-                stripped = _strip_spacer_cols(best)
+                stripped = PDFParser.strip_spacer_columns(best)
                 if not stripped or len(stripped) < 2:
                     continue
 
@@ -763,8 +594,10 @@ class PakistanNIHAccessor(BaseAccessor):
         header_rows = []
         data_start = 0
         for i, row in enumerate(stripped):
-            has_numeric = any(_parse_numeric(c) is not None for c in row[1:])
-            has_text_first = bool(_clean_cell(row[0])) if row else False
+            has_numeric = any(
+                PDFParser.parse_numeric(c) is not None for c in row[1:]
+            )
+            has_text_first = bool(row[0]) if row else False
             if has_numeric and has_text_first:
                 data_start = i
                 break
@@ -774,7 +607,7 @@ class PakistanNIHAccessor(BaseAccessor):
             header_rows = [stripped[0]]
             data_start = min(1, len(stripped) - 1)
 
-        header = _merge_header_rows(header_rows)
+        header = PDFParser.merge_header_rows(header_rows)
 
         if table_type == "district" and header:
             header[0] = "District"
@@ -808,7 +641,7 @@ class PakistanNIHAccessor(BaseAccessor):
 
         data_rows = []
         for row in stripped[data_start:]:
-            cells = [_clean_cell(c) for c in row]
+            cells = [PDFParser.clean_cell(c) or "" for c in row]
             if not any(cells):
                 continue
             padded = cells + [""] * (ncols - len(cells))
@@ -1214,10 +1047,9 @@ class PakistanNIHAccessor(BaseAccessor):
     ) -> Dict[str, pd.DataFrame]:
         url = self._build_weekly_url(year, week)
         cache_filename = f"idsr_weekly_{year}_w{week:02d}.pdf"
-        cache_path = self._get_cache_path(cache_filename)
 
         try:
-            pdf_path = self._download_pdf(url, cache_path)
+            pdf_path = self._pdf.download(url, filename=cache_filename)
         except Exception as e:
             logger.error(f"Failed to download bulletin: {e}")
             return {}

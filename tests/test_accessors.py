@@ -416,14 +416,13 @@ class TestPakistanNIH:
         assert "Punjab" in accessor.PROVINCES
 
     def test_extract_pdf_text(self, accessor, sample_pdf_path):
-        text = accessor._extract_pdf_text(sample_pdf_path)
+        text = accessor._pdf.extract_text(sample_pdf_path)
         assert isinstance(text, str)
         assert len(text) > 0
 
     def test_extract_pdf_tables(self, accessor, sample_pdf_path):
-        tables = accessor._extract_pdf_tables(sample_pdf_path)
+        tables = accessor._pdf.extract_tables(sample_pdf_path)
         assert isinstance(tables, list)
-        # Real PDF may or may not have extractable tables
 
 
 class TestOmanMOH:

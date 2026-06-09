@@ -36,6 +36,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from epidatasets._base import BaseAccessor
+from epidatasets.utils.pdf import PDFParser
 
 logger = logging.getLogger(__name__)
 
@@ -134,30 +135,23 @@ class OmanMOHAccessor(BaseAccessor):
     ]
 
     def __init__(self, cache_dir: Optional[Union[str, Path]] = None):
-        """
-        Initialize Oman MOH accessor.
-
-        Args:
-            cache_dir: Directory to cache downloaded PDFs.
-                       Defaults to ~/.cache/epi_data/oman_moh.
-        """
         super().__init__()
         if cache_dir:
             self.cache_dir = Path(cache_dir)
         else:
             self.cache_dir = Path.home() / ".cache" / "epi_data" / "oman_moh"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._cache_ttl = timedelta(days=30)  # Annual reports change rarely
-        self._session = requests.Session()
-        self._session.headers.update(
-            {
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                )
-            }
+        self._pdf = PDFParser(
+            cache_dir=self.cache_dir,
+            cache_ttl_days=30,
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            timeout=120,
         )
+        self._session = self._pdf._session
 
     def list_countries(self) -> pd.DataFrame:
         """
@@ -171,101 +165,21 @@ class OmanMOHAccessor(BaseAccessor):
         )
 
     def _get_cache_path(self, filename: str) -> Path:
-        """Get full cache path for a file."""
         return self.cache_dir / filename
 
-    def _is_cache_valid(self, cache_path: Path) -> bool:
-        """Check if cached file is still valid."""
-        if not cache_path.exists():
-            return False
-        mtime = datetime.fromtimestamp(cache_path.stat().st_mtime)
-        return datetime.now() - mtime < self._cache_ttl
-
-    def _download_pdf(self, url: str, cache_path: Path) -> Path:
-        """
-        Download a PDF from URL and save to cache.
-
-        Args:
-            url: URL to download.
-            cache_path: Local path to save the file.
-
-        Returns:
-            Path to the downloaded (or cached) PDF.
-        """
-        if self._is_cache_valid(cache_path):
-            logger.info(f"Using cached PDF: {cache_path}")
-            return cache_path
-
-        logger.info(f"Downloading PDF from: {url}")
-        response = self._session.get(url, timeout=120, stream=True)
-        response.raise_for_status()
-
-        content_type = response.headers.get("content-type", "").lower()
-        if "pdf" not in content_type and not response.content.startswith(b"%PDF"):
-            raise ValueError(f"Expected PDF, got content-type: {content_type}")
-
-        cache_path.write_bytes(response.content)
-        logger.info(f"Saved PDF to cache: {cache_path}")
-        return cache_path
-
     def _extract_pdf_text(self, pdf_path: Path) -> str:
-        """
-        Extract text from a PDF file.
-
-        Args:
-            pdf_path: Path to the PDF file.
-
-        Returns:
-            Extracted text content.
-        """
-        try:
-            from pypdf import PdfReader
-
-            reader = PdfReader(str(pdf_path))
-            text_parts = []
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text_parts.append(page_text)
-            return "\n".join(text_parts)
-        except ImportError:
-            logger.warning(
-                "pypdf not available for PDF text extraction. "
-                "Install with: pip install pypdf"
-            )
-            return ""
+        return self._pdf.extract_text(pdf_path)
 
     def _extract_pdf_tables(self, pdf_path: Path) -> List[pd.DataFrame]:
-        """
-        Attempt to extract tables from a PDF.
+        extracted = self._pdf.extract_tables(pdf_path)
+        if extracted:
+            return [t.data for t in extracted]
 
-        Args:
-            pdf_path: Path to the PDF file.
-
-        Returns:
-            List of DataFrames extracted from the PDF.
-        """
-        tables: List[pd.DataFrame] = []
-
-        try:
-            import pdfplumber
-
-            with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
-                    page_tables = page.extract_tables()
-                    for table in page_tables:
-                        if table and len(table) > 1:
-                            df = pd.DataFrame(table[1:], columns=table[0])
-                            tables.append(df)
-            return tables
-        except ImportError:
-            logger.debug("pdfplumber not available for table extraction")
-
-        # Fallback text-based heuristic
         text = self._extract_pdf_text(pdf_path)
         if not text:
-            return tables
+            return []
 
+        tables: List[pd.DataFrame] = []
         lines = text.splitlines()
         table_lines = []
         for line in lines:
@@ -340,21 +254,6 @@ class OmanMOHAccessor(BaseAccessor):
         extract_text: bool = False,
         extract_tables: bool = False,
     ) -> Dict:
-        """
-        Download and optionally parse an Annual Health Report.
-
-        Args:
-            year: Report year.
-            extract_text: Whether to extract text from the PDF.
-            extract_tables: Whether to extract tables from the PDF.
-
-        Returns:
-            Dictionary with:
-                - 'year', 'title', 'url', 'pdf_path'
-                - 'text' (if extract_text=True)
-                - 'tables' (if extract_tables=True)
-                - 'error' if download failed.
-        """
         cache_filename = f"oman_annual_report_{year}.pdf"
         cache_path = self._get_cache_path(cache_filename)
 
@@ -371,19 +270,19 @@ class OmanMOHAccessor(BaseAccessor):
         }
 
         try:
-            if not self._is_cache_valid(cache_path):
+            if not cache_path.exists():
                 probed = self._probe_report_url(year)
                 if probed:
                     url = probed
                     result["url"] = url
-            pdf_path = self._download_pdf(url, cache_path)
+            pdf_path = self._pdf.download(url, filename=cache_filename)
             result["pdf_path"] = str(pdf_path)
 
             if extract_text:
-                result["text"] = self._extract_pdf_text(pdf_path)
+                result["text"] = self._pdf.extract_text(pdf_path)
             if extract_tables:
-                tables = self._extract_pdf_tables(pdf_path)
-                result["tables"] = [df.to_dict(orient="records") for df in tables]
+                tables = self._pdf.extract_tables(pdf_path)
+                result["tables"] = [t.data.to_dict(orient="records") for t in tables]
 
         except requests.HTTPError as e:
             result["error"] = f"HTTP {e.response.status_code}: {e.response.reason}"
@@ -640,7 +539,7 @@ class OmanMOHAccessor(BaseAccessor):
             )
 
         cache_path = self._get_cache_path("gadm41_OMN_1.json")
-        if self._is_cache_valid(cache_path):
+        if cache_path.exists():
             gdf = gpd.read_file(cache_path)
         else:
             logger.info("Downloading GADM GeoJSON for Oman …")

@@ -42,16 +42,10 @@ import requests
 from bs4 import BeautifulSoup
 
 from epidatasets._base import BaseAccessor
+from epidatasets.utils.pdf import PDFParser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-try:
-    import pdfplumber
-
-    PDFPLUMBER_AVAILABLE = True
-except ImportError:
-    PDFPLUMBER_AVAILABLE = False
 
 _DISEASE_NAME_MAP = {
     "Plague": "Plague",
@@ -225,13 +219,6 @@ class ChinaCDCAccessor(BaseAccessor):
     }
 
     def __init__(self, cache_dir: Optional[str] = None):
-        """
-        Initialize China CDC accessor.
-
-        Args:
-            cache_dir: Directory to cache downloaded PDFs and data.
-                       Defaults to ``~/.cache/epidatasets/china_cdc``.
-        """
         if cache_dir is None:
             cache_dir = os.path.join(
                 os.path.expanduser("~"), ".cache", "epidatasets", "china_cdc"
@@ -250,6 +237,15 @@ class ChinaCDCAccessor(BaseAccessor):
             }
         )
         self._request_timeout = 60
+        self._pdf = PDFParser(
+            cache_dir=Path(self.cache_dir),
+            cache_ttl_days=365,
+            user_agent=(
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "China-CDC-Accessor/2.0 (Research Purpose)"
+            ),
+            timeout=60,
+        )
 
     # ------------------------------------------------------------------
     # Listing helpers
@@ -460,33 +456,11 @@ class ChinaCDCAccessor(BaseAccessor):
         url: str,
         filename: Optional[str] = None,
     ) -> Path:
-        """
-        Download a PDF from *url* into the cache directory.
-
-        Args:
-            url: Full URL to the PDF.
-            filename: Optional local filename. Derived from URL if not given.
-
-        Returns:
-            Path to the downloaded file.
-        """
         if filename is None:
             filename = url.rsplit("/", 1)[-1]
             if not filename.endswith(".pdf"):
                 filename += ".pdf"
-        filepath = Path(self.cache_dir) / filename
-        if filepath.exists():
-            logger.info(f"Using cached PDF: {filepath}")
-            return filepath
-
-        logger.info(f"Downloading PDF from {url}")
-        resp = self._session.get(url, timeout=self._request_timeout, stream=True)
-        resp.raise_for_status()
-        with open(filepath, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                f.write(chunk)
-        logger.info(f"Saved PDF to {filepath}")
-        return filepath
+        return self._pdf.download(url, filename=filename)
 
     # ------------------------------------------------------------------
     # PDF parsing
@@ -497,39 +471,19 @@ class ChinaCDCAccessor(BaseAccessor):
         pdf_path: str | Path,
         pages: Optional[List[int]] = None,
     ) -> List[pd.DataFrame]:
-        """
-        Extract all tables from a PDF file using *pdfplumber*.
-
-        Args:
-            pdf_path: Path to the PDF file.
-            pages: Optional list of 1-indexed page numbers to extract.
-
-        Returns:
-            List of DataFrames, one per table found.
-        """
-        if not PDFPLUMBER_AVAILABLE:
-            raise ImportError(
-                "pdfplumber is required for PDF parsing. "
-                "Install it with: pip install pdfplumber"
-            )
-
         pdf_path = Path(pdf_path)
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
+        parser = PDFParser()
+        extracted = parser.extract_tables(pdf_path, pages=pages)
+        if not extracted:
+            return []
+
         tables: List[pd.DataFrame] = []
-        with pdfplumber.open(str(pdf_path)) as pdf:
-            target_pages = pages or list(range(1, len(pdf.pages) + 1))
-            for page_idx in target_pages:
-                if page_idx < 1 or page_idx > len(pdf.pages):
-                    continue
-                page = pdf.pages[page_idx - 1]
-                for table in page.extract_tables():
-                    if not table or len(table) < 2:
-                        continue
-                    df = pd.DataFrame(table[1:], columns=table[0])
-                    df = df.dropna(how="all")
-                    tables.append(df)
+        for t in extracted:
+            df = t.data.dropna(how="all")
+            tables.append(df)
 
         logger.info(
             f"Extracted {len(tables)} table(s) from {pdf_path.name}"
@@ -540,38 +494,26 @@ class ChinaCDCAccessor(BaseAccessor):
     def parse_pdf_to_disease_table(
         pdf_path: str | Path,
     ) -> pd.DataFrame:
-        """
-        Parse a China CDC notifiable-disease-report PDF into a clean
-        DataFrame with standardised column names.
-
-        China CDC notifiable-disease PDFs present data as plain text
-        (not structured tables), so this method extracts data via
-        text line parsing.  Falls back to structured table extraction
-        for other PDF types.
-        """
         pdf_path = Path(pdf_path)
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
-        if PDFPLUMBER_AVAILABLE:
-            rows = ChinaCDCAccessor._parse_pdf_text_lines(pdf_path)
-            if rows:
-                return pd.DataFrame(rows, columns=["disease_en", "cases", "deaths", "is_subitem"])
+        rows = ChinaCDCAccessor._parse_pdf_text_lines(pdf_path)
+        if rows:
+            return pd.DataFrame(rows, columns=["disease_en", "cases", "deaths", "is_subitem"])
 
-            raw_tables = ChinaCDCAccessor.parse_pdf_tables(pdf_path)
-            if raw_tables:
-                return ChinaCDCAccessor._normalise_table(raw_tables[0])
+        raw_tables = ChinaCDCAccessor.parse_pdf_tables(pdf_path)
+        if raw_tables:
+            return ChinaCDCAccessor._normalise_table(raw_tables[0])
 
         return pd.DataFrame()
 
     @staticmethod
     def _parse_pdf_text_lines(pdf_path: Path) -> List[dict]:
-        with pdfplumber.open(str(pdf_path)) as pdf:
-            all_text = ""
-            for page in pdf.pages:
-                text = page.extract_text()
-                if text:
-                    all_text += text + "\n"
+        parser = PDFParser()
+        all_text = parser.extract_text(pdf_path)
+        if not all_text:
+            return []
 
         rows: List[dict] = []
         header_seen = False
