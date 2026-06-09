@@ -48,6 +48,7 @@ dependencies = [
     "matplotlib>=3.10.9",
     "seaborn>=0.13.2",
     "pypdf>=6.12.1",
+    "pdfplumber>=0.11.9",
 ]
 
 [project.optional-dependencies]
