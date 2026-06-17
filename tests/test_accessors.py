@@ -492,6 +492,61 @@ class TestOmanMOH:
         assert "Masqat" in df["governorate"].values
 
 
+class TestNZHealth:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.nz_health import NZHealthAccessor
+        return NZHealthAccessor()
+
+    def test_source_name(self, accessor):
+        assert accessor.source_name == "nz_health"
+        assert "New Zealand" in accessor.source_description
+        assert "stats.govt.nz" in accessor.source_url
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "NZL"
+        assert countries.iloc[0]["country_name"] == "New Zealand"
+
+    def test_get_mortality_sample(self, accessor):
+        df = accessor.get_mortality(sample=True)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "year" in df.columns
+        assert "total_deaths" in df.columns
+        assert df["year"].min() <= 2019
+        assert df["year"].max() >= 2023
+
+    def test_get_hospital_events_sample(self, accessor):
+        df = accessor.get_hospital_events(sample=True)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "year" in df.columns
+        assert "total_discharges" in df.columns
+        assert df["year"].min() <= 2019
+        assert df["year"].max() >= 2023
+
+    def test_get_life_tables_sample(self, accessor):
+        df = accessor.get_life_tables(sample=True)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "year" in df.columns
+        assert "male_life_expectancy" in df.columns
+        assert "female_life_expectancy" in df.columns
+        assert df["year"].min() <= 2019
+        assert df["year"].max() >= 2023
+
+    def test_get_immunisation_coverage(self, accessor):
+        df = accessor.get_immunisation_coverage()
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "vaccine" in df.columns
+        assert "coverage_2023" in df.columns
+        assert "DTaP-IPV-HepB/Hib" in df["vaccine"].values
+
+
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
