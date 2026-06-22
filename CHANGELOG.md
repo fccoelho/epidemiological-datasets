@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-22
+
+### Added
+
+- New `nz_health` accessor (`NZHealthAccessor`) for New Zealand health statistics from Stats NZ and Health NZ | Te Whatu Ora (mortality, life tables, hospital events, immunisation coverage)
+- Shared `PDFParser` utility reused across PDF-based accessors
+- Example notebook for the InfoDengue accessor (`18_InfoDengue_Brazilian_Arbovirus_Surveillance.ipynb`)
+- Example notebook for the NZ Health accessor (`25_New_Zealand_Health_Data.ipynb`)
+
+### Changed
+
+- Moved `pdfplumber` to core dependencies
+- Refactored 4 accessors to use the shared `PDFParser`
+- Updated README to reflect 24 data sources and the implemented NZ Health accessor
+- Expanded mkdocs navigation to include all example notebooks
+
+### Fixed
+
+- Eurostat country/year filtering, invalid indicator codes, and notebook visualization
+- Colombia INS bulletin URLs
+- RespiCast data source and fetching mechanism
+
 ## [0.3.1] - 2026-04-20
 
 ### Fixed
