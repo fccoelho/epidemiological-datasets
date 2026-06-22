@@ -755,6 +755,51 @@ class TestMalaysiaMOH:
         assert (df["disease"].str.lower() == "hiv").all()
 
 
+class TestThailandDDC:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.thailand_ddc import ThailandDDCAccessor
+        return ThailandDDCAccessor()
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "thailand_ddc"
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "TH"
+
+    def test_list_provinces(self, accessor):
+        provinces = accessor.list_provinces()
+        assert len(provinces) >= 77
+        assert "Bangkok" in provinces["province"].values
+
+    def test_list_diseases(self, accessor):
+        diseases = accessor.list_diseases()
+        assert len(diseases) > 20
+        assert "Dengue Total" in diseases["disease"].values
+
+    def test_get_surveillance_data(self, accessor):
+        df = accessor.get_surveillance_data(year=2022)
+        assert len(df) > 0
+        assert set(df.columns) >= {"year", "province", "disease", "cases"}
+
+    def test_get_dengue_cases(self, accessor):
+        df = accessor.get_dengue_cases()
+        assert "Dengue Total" in df["disease"].values
+        assert len(df) > 0
+
+    def test_get_national_summary(self, accessor):
+        df = accessor.get_national_summary()
+        assert "cases" in df.columns
+        assert df["cases"].sum() > 0
+
+    def test_get_provincial_summary(self, accessor):
+        df = accessor.get_provincial_summary(disease="Dengue Total")
+        assert len(df) >= 77
+
+
 class TestSmoke:
     def test_package_import(self):
         import epidatasets

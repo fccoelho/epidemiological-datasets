@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.rki_germany import RKIGermanyAccessor
     from epidatasets.sources.singapore_moh import SingaporeMOHAccessor
     from epidatasets.sources.singapore_nea import SingaporeNEAAccessor
+    from epidatasets.sources.thailand_ddc import ThailandDDCAccessor
     from epidatasets.sources.ukhsa import UKHSAAccessor
     from epidatasets.sources.who_ghoclient import WHOAccessor
 
@@ -68,6 +69,7 @@ __all__ = [
     "RKIGermanyAccessor",
     "SingaporeMOHAccessor",
     "SingaporeNEAAccessor",
+    "ThailandDDCAccessor",
     "UKHSAAccessor",
     "WHOAccessor",
 ]

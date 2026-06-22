@@ -74,6 +74,7 @@ nav:
       - Singapore MOH: sources/singapore_moh.md
       - Singapore NEA: sources/singapore_nea.md
       - Malaysia MOH: sources/malaysia_moh.md
+      - Thailand DDC: sources/thailand_ddc.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md

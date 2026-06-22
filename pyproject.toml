@@ -151,6 +151,7 @@ singapore_moh = "epidatasets.sources.singapore_moh:SingaporeMOHAccessor"
 singapore_nea = "epidatasets.sources.singapore_nea:SingaporeNEAAccessor"
 respicast = "epidatasets.sources.respicast:RespiCastAccessor"
 rki = "epidatasets.sources.rki_germany:RKIGermanyAccessor"
+thailand_ddc = "epidatasets.sources.thailand_ddc:ThailandDDCAccessor"
 ukhsa = "epidatasets.sources.ukhsa:UKHSAAccessor"
 who = "epidatasets.sources.who_ghoclient:WHOAccessor"
 
