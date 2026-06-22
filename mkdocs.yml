@@ -96,10 +96,14 @@ nav:
       - China CDC Weekly Surveillance: examples/15_China_CDC_Weekly_Surveillance.ipynb
       - India IDSP Surveillance: examples/16_India_IDSP_Surveillance_Data.ipynb
       - EMRO Health Indicators: examples/17_EMRO_Health_Indicators_Analysis.ipynb
+      - InfoDengue Brazilian Arbovirus Surveillance: examples/18_InfoDengue_Brazilian_Arbovirus_Surveillance.ipynb
       - Pathoplexus Genomic Data: examples/19_Pathoplexus_Genomic_Data.ipynb
       - InfoDengue + Pathoplexus Integration: examples/20_Dengue_Integracao_InfoDengue_Pathoplexus.ipynb
       - Copernicus CDS: examples/21_Copernicus_CDS_Examples.ipynb
       - Malaria Atlas: examples/22_Malaria_Atlas_Examples.ipynb
+      - Pakistan NIH Surveillance: examples/23_Pakistan_NIH_Surveillance.ipynb
+      - Oman MOH Health Data: examples/24_Oman_MOH_Health_Data.ipynb
+      - New Zealand Health Data: examples/25_New_Zealand_Health_Data.ipynb
       - CDC Open Data (Quick): examples/cdc_opendata_example.ipynb
       - ECDC Open Data (Quick): examples/ecdc_opendata_example.ipynb
       - EMRO Analysis (PT): examples/emro_health_analysis.ipynb

@@ -50,7 +50,7 @@
 
 ---
 
-> A Python library providing unified access to **23 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **24 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -79,7 +79,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 23 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 24 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -176,7 +176,7 @@ epidemiological-datasets/
 │   ├── _base.py               # BaseAccessor ABC
 │   ├── _registry.py           # Plugin registry (entry_points)
 │   ├── cli.py                 # CLI (typer)
-│   ├── sources/               # 23 data source accessors
+│   ├── sources/               # 24 data source accessors
 │   │   ├── __init__.py
 │   │   ├── africa_cdc.py
 │   │   ├── cdc_opendata.py
@@ -192,6 +192,7 @@ epidemiological-datasets/
 │   │   ├── india_idsp.py
 │   │   ├── infodengue_api.py
 │   │   ├── malaria_atlas.py
+│   │   ├── nz_health.py
 │   │   ├── oman_moh.py
 │   │   ├── owid.py
 │   │   ├── paho.py
@@ -218,7 +219,7 @@ epidemiological-datasets/
 │       ├── index.md
 │       ├── installation.md
 │       ├── quickstart.md
-│       ├── sources/           # Per-source API docs (23 pages)
+│       ├── sources/           # Per-source API docs (24 pages)
 │       ├── api/               # API reference
 │       │   ├── base.md
 │       │   ├── registry.md
@@ -300,7 +301,7 @@ epidemiological-datasets/
 | Dataset | Description | Update Frequency | Access Level | Module |
 |---------|-------------|------------------|--------------|--------|
 | [Australian Institute of Health and Welfare](https://www.aihw.gov.au/) | Australian health data | Annual | Open | Planned |
-| [NZ Ministry of Health](https://www.health.govt.nz/nz-health-statistics) | New Zealand health statistics | Annual | Open | Planned |
+| [NZ Ministry of Health](https://www.health.govt.nz/nz-health-statistics) | New Zealand health statistics (mortality, life tables, hospital events, immunisation) | Annual | Open | `epidatasets.sources.nz_health` |
 
 ## 💻 CLI Usage
 
@@ -511,6 +512,7 @@ owid_covid = owid.get_covid_data(
 | `india_idsp` | `IndiaIDSPAccessor` | — | India IDSP disease surveillance |
 | `infodengue` | `InfoDengueAPI` | — | InfoDengue dengue surveillance (Brazil) |
 | `malaria_atlas` | `MalariaAtlasAccessor` | — | Malaria Atlas Project data |
+| `nz_health` | `NZHealthAccessor` | — | New Zealand health statistics (Stats NZ & Health NZ) |
 | `oman_moh` | `OmanMOHAccessor` | — | Oman Ministry of Health annual reports |
 | `owid` | `OWIDAccessor` | — | Our World in Data (COVID-19, vaccination) |
 | `paho` | `PAHOAccessor` | — | PAHO Pan-American health data |
@@ -525,7 +527,7 @@ owid_covid = owid.get_covid_data(
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 23 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 24 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 
@@ -595,10 +597,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## 📊 Statistics
 
-- **Data sources:** 23 registered (via plugin registry)
+- **Data sources:** 24 registered (via plugin registry)
 - **Countries covered:** 100+
 - **Optional extras:** 10 (`who`, `brazil`, `eurostat`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
-- **Example notebooks:** 20+
+- **Example notebooks:** 28+
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 
 ## 📚 Citation
