@@ -614,12 +614,6 @@ class ECDCAtlasAccessor(BaseAccessor):
             "65_plus": "cases_65_plus",
         }
         weights = [0.05, 0.15, 0.15, 0.25, 0.25, 0.15]
-        for age_key, col_name in age_cols.items():
-            base[col_name] = base["cases"].apply(
-                lambda c, w=weights[len(age_cols)]: max(
-                    0, round(rng.gauss(c * w, (c * w) ** 0.5))
-                )
-            )
         for a, w in zip(age_cols, weights):
             base[f"cases_{a}"] = base["cases"].apply(
                 lambda c, ww=w: max(0, round(rng.gauss(c * ww, (c * ww)**0.5)))
