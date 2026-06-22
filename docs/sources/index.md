@@ -1,6 +1,6 @@
 # Data Sources
 
-Epidatasets provides access to **21 epidemiological data sources** from around the world.
+Epidatasets provides access to **23 epidemiological data sources** from around the world.
 
 ## How Sources Work
 
@@ -47,3 +47,5 @@ who = get_source("who")
 | Pathoplexus | `pathoplexus` | Global | `xmltodict` |
 | Copernicus CDS | `copernicus_cds` | Global | `cdsapi`, `xarray` |
 | InfoDengue | `infodengue` | Brazil | None |
+| Singapore MOH | `singapore_moh` | Singapore | None |
+| Singapore NEA | `singapore_nea` | Singapore | `geopandas` |

@@ -547,6 +547,153 @@ class TestNZHealth:
         assert "DTaP-IPV-HepB/Hib" in df["vaccine"].values
 
 
+class TestSingaporeMOH:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.singapore_moh import SingaporeMOHAccessor
+        return SingaporeMOHAccessor()
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "singapore_moh"
+
+    def test_source_metadata(self, accessor):
+        assert "Singapore" in accessor.source_description
+        assert "data.gov.sg" in accessor.source_url
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "SG"
+        assert countries.iloc[0]["country_name"] == "Singapore"
+
+    def test_notifiable_diseases(self, accessor):
+        assert len(accessor.NOTIFIABLE_DISEASES) > 0
+        assert "Dengue Fever" in accessor.NOTIFIABLE_DISEASES
+
+    def test_resource_id(self, accessor):
+        assert (
+            accessor.RESOURCE_ID
+            == "d_ca168b2cb763640d72c4600a68f9909e"
+        )
+
+    def test_sample_data(self, accessor):
+        df = accessor._sample_data()
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert set(df.columns) >= {"epi_week", "disease", "no._of_cases"}
+        assert df["no._of_cases"].dtype.kind in {"i", "u"}
+        assert "Dengue Fever" in df["disease"].values
+
+    def test_normalise_coerces_numeric(self, accessor):
+        from epidatasets.sources.singapore_moh import SingaporeMOHAccessor
+        raw = pd.DataFrame(
+            [
+                {"_id": 1, "epi_week": "2020-W01", "disease": "Dengue Fever",
+                 "no._of_cases": "12"},
+                {"_id": 2, "epi_week": "2020-W01", "disease": "Cholera",
+                 "no._of_cases": "0"},
+            ]
+        )
+        out = SingaporeMOHAccessor._normalise(raw)
+        assert "_id" not in out.columns
+        assert out["no._of_cases"].dtype.kind in {"i", "u"}
+        # sorted by disease -> Cholera (0) before Dengue Fever (12)
+        assert set(out["no._of_cases"].tolist()) == {0, 12}
+        dengue = out[out["disease"] == "Dengue Fever"].iloc[0]
+        assert dengue["no._of_cases"] == 12
+
+    def test_get_summary_invalid_by(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.get_summary(by="invalid")
+
+    @requires_external_api
+    def test_list_diseases_live(self, accessor):
+        diseases = accessor.list_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+        assert not diseases.empty
+        assert "disease" in diseases.columns
+        assert "Dengue Fever" in diseases["disease"].values
+
+    @requires_external_api
+    def test_get_cases_live(self, accessor):
+        df = accessor.get_cases(disease="Dengue Fever", years=[2020])
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert (df["disease"] == "Dengue Fever").all()
+        assert "year" in df.columns
+        assert (df["year"] == 2020).all()
+
+
+class TestSingaporeNEA:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.singapore_nea import SingaporeNEAAccessor
+        return SingaporeNEAAccessor()
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "singapore_nea"
+
+    def test_source_metadata(self, accessor):
+        assert "Singapore" in accessor.source_description
+        assert "NEA" in accessor.source_description or "National Environment" in accessor.source_description
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "SG"
+        assert countries.iloc[0]["country_name"] == "Singapore"
+
+    def test_list_regions(self, accessor):
+        regions = accessor.list_regions()
+        assert isinstance(regions, pd.DataFrame)
+        assert "Central" in regions["region"].values
+        assert "has_cases_data" in regions.columns
+
+    def test_dataset_ids_present(self, accessor):
+        assert accessor.WEEKLY_CASES_ID.startswith("d_")
+        assert accessor.DENGUE_CLUSTERS_ID.startswith("d_")
+        assert "Central" in accessor.REGIONAL_CASES_IDS
+        assert "Central" in accessor.BREEDING_HABITATS_IDS
+
+    def test_weekly_summary_invalid_by(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.get_weekly_summary(by="invalid")
+
+    def test_sample_clusters(self, accessor):
+        df = accessor._sample_clusters()
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "case_size" in df.columns
+        assert "locality" in df.columns
+
+    def test_parse_nea_date(self, accessor):
+        from epidatasets.sources.singapore_nea import _parse_nea_date
+        assert _parse_nea_date("20260616150717") == "2026-06-16T15:07:17"
+        assert _parse_nea_date(None) is None
+        assert _parse_nea_date("notadate") == "notadate"
+
+    @requires_external_api
+    def test_get_weekly_cases_live(self, accessor):
+        df = accessor.get_weekly_cases(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert set(df.columns) >= {"year", "eweek", "type_dengue", "number"}
+        assert "Dengue" in df["type_dengue"].values
+
+    @requires_external_api
+    def test_get_dengue_clusters_live(self, accessor):
+        df = accessor.get_dengue_clusters(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "case_size" in df.columns
+        assert "longitude" in df.columns
+        assert df["longitude"].notna().any()
+
+
 class TestSmoke:
     def test_package_import(self):
         import epidatasets

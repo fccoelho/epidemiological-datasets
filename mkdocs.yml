@@ -71,6 +71,8 @@ nav:
       - Pathoplexus: sources/pathoplexus.md
       - Copernicus CDS: sources/copernicus_cds.md
       - InfoDengue: sources/infodengue.md
+      - Singapore MOH: sources/singapore_moh.md
+      - Singapore NEA: sources/singapore_nea.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md
@@ -104,6 +106,8 @@ nav:
       - Pakistan NIH Surveillance: examples/23_Pakistan_NIH_Surveillance.ipynb
       - Oman MOH Health Data: examples/24_Oman_MOH_Health_Data.ipynb
       - New Zealand Health Data: examples/25_New_Zealand_Health_Data.ipynb
+      - Singapore MOH Infectious Disease: examples/26_Singapore_MOH_Infectious_Disease.ipynb
+      - Singapore NEA Dengue Data: examples/27_Singapore_NEA_Dengue_Data.ipynb
       - CDC Open Data (Quick): examples/cdc_opendata_example.ipynb
       - ECDC Open Data (Quick): examples/ecdc_opendata_example.ipynb
       - EMRO Analysis (PT): examples/emro_health_analysis.ipynb
