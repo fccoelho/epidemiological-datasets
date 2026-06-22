@@ -54,6 +54,7 @@ nav:
       - PAHO: sources/paho.md
       - Africa CDC: sources/africa_cdc.md
       - ECDC: sources/ecdc.md
+      - ECDC Atlas: sources/ecdc_atlas.md
       - Eurostat: sources/eurostat.md
       - OWID: sources/owid.md
       - RKI Germany: sources/rki.md

@@ -1,6 +1,6 @@
 # Data Sources
 
-Epidatasets provides access to **26 epidemiological data sources** from around the world.
+Epidatasets provides access to **27 epidemiological data sources** from around the world.
 
 ## How Sources Work
 
@@ -30,6 +30,7 @@ who = get_source("who")
 | PAHO | `paho` | Americas | None |
 | Our World in Data | `owid` | Global | None |
 | ECDC Open Data | `ecdc` | Europe | None |
+| ECDC Atlas | `ecdc_atlas` | Europe | None |
 | Eurostat | `eurostat` | Europe | `eurostat` |
 | RKI Germany | `rki` | Germany | None |
 | UKHSA | `ukhsa` | UK | None |

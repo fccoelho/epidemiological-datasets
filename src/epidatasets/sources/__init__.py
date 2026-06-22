@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.copernicus_cds import CopernicusCDSAccessor
     from epidatasets.sources.datasus_pysus import DataSUSAccessor
     from epidatasets.sources.ecdc_opendata import ECDCOpenDataAccessor
+    from epidatasets.sources.ecdc_atlas import ECDCAtlasAccessor
     from epidatasets.sources.epipulse import EpiPulseAccessor
     from epidatasets.sources.eurostat import EurostatAccessor
     from epidatasets.sources.global_health import GlobalHealthAccessor
@@ -52,6 +53,7 @@ __all__ = [
     "CopernicusCDSAccessor",
     "DataSUSAccessor",
     "ECDCOpenDataAccessor",
+    "ECDCAtlasAccessor",
     "EpiPulseAccessor",
     "EurostatAccessor",
     "GlobalHealthAccessor",

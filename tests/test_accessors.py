@@ -839,6 +839,56 @@ class TestIndonesiaMOH:
         assert df["cases"].sum() > 0
 
 
+class TestECDCAtlas:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.ecdc_atlas import ECDCAtlasAccessor
+        return ECDCAtlasAccessor()
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "ecdc_atlas"
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert len(countries) >= 30
+        assert "DE" in countries["country_code"].values
+
+    def test_get_available_diseases(self, accessor):
+        diseases = accessor.get_available_diseases()
+        assert len(diseases) >= 50
+        assert "Measles" in diseases["disease"].values
+
+    def test_get_disease_categories(self, accessor):
+        cats = accessor.get_disease_categories()
+        assert len(cats) >= 7
+        assert "vaccine_preventable" in cats["category"].values
+
+    def test_get_disease_data(self, accessor):
+        df = accessor.get_disease_data("Measles", years=[2022])
+        assert len(df) > 0
+        assert (df["disease"] == "Measles").all()
+
+    def test_get_amr_data(self, accessor):
+        df = accessor.get_amr_data(pathogen="E. coli")
+        assert len(df) > 0
+        assert (df["pathogen"] == "E. coli").all()
+
+    def test_get_spatial_data(self, accessor):
+        df = accessor.get_spatial_data("Measles")
+        assert "longitude" in df.columns
+        assert "latitude" in df.columns
+
+    def test_get_summary_statistics(self, accessor):
+        df = accessor.get_summary_statistics()
+        assert "total_cases" in df.columns
+        assert df["total_cases"].sum() > 0
+
+    def test_invalid_disease_raises(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.get_disease_data("NonExistentDisease")
+
+
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
