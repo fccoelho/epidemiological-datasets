@@ -109,6 +109,7 @@ nav:
       - New Zealand Health Data: examples/25_New_Zealand_Health_Data.ipynb
       - Singapore MOH Infectious Disease: examples/26_Singapore_MOH_Infectious_Disease.ipynb
       - Singapore NEA Dengue Data: examples/27_Singapore_NEA_Dengue_Data.ipynb
+      - Malaysia MOH Health Data: examples/28_Malaysia_MOH_Health_Data.ipynb
       - CDC Open Data (Quick): examples/cdc_opendata_example.ipynb
       - ECDC Open Data (Quick): examples/ecdc_opendata_example.ipynb
       - EMRO Analysis (PT): examples/emro_health_analysis.ipynb
