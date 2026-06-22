@@ -800,6 +800,45 @@ class TestThailandDDC:
         assert len(df) >= 77
 
 
+class TestIndonesiaMOH:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.indonesia_moh import IndonesiaMOHAccessor
+        return IndonesiaMOHAccessor()
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "indonesia_moh"
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "ID"
+
+    def test_list_provinces(self, accessor):
+        provinces = accessor.list_provinces()
+        assert len(provinces) >= 38
+        assert "DKI Jakarta" in provinces["province"].values
+
+    def test_list_diseases(self, accessor):
+        diseases = accessor.list_diseases()
+        assert len(diseases) >= 20
+        assert "Dengue Fever" in diseases["disease"].values
+
+    def test_get_dengue_cases(self, accessor):
+        df = accessor.get_dengue_cases()
+        assert "Dengue Fever" in df["disease"].values
+
+    def test_get_tuberculosis_cases(self, accessor):
+        df = accessor.get_tuberculosis_cases()
+        assert "Tuberculosis (all forms)" in df["disease"].values
+
+    def test_get_national_summary(self, accessor):
+        df = accessor.get_national_summary()
+        assert "cases" in df.columns
+        assert df["cases"].sum() > 0
+
+
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
