@@ -694,6 +694,67 @@ class TestSingaporeNEA:
         assert df["longitude"].notna().any()
 
 
+class TestMalaysiaMOH:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.malaysia_moh import MalaysiaMOHAccessor
+        return MalaysiaMOHAccessor()
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "malaysia_moh"
+
+    def test_source_metadata(self, accessor):
+        assert "Malaysia" in accessor.source_description
+        assert "data.gov.my" in accessor.source_url
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "MY"
+        assert countries.iloc[0]["country_name"] == "Malaysia"
+
+    def test_list_states(self, accessor):
+        states = accessor.list_states()
+        assert isinstance(states, pd.DataFrame)
+        assert "Malaysia" in states["state"].values
+        assert "Selangor" in states["state"].values
+
+    def test_dataset_ids(self, accessor):
+        for key in ["covid_cases", "hospital_beds", "std_state",
+                     "infant_immunisation", "blood_donations"]:
+            assert key in accessor.DATASETS
+
+    def test_cache_dir_created(self, accessor):
+        assert accessor.cache_dir.exists()
+
+    @requires_external_api
+    def test_get_covid_cases_live(self, accessor):
+        df = accessor.get_covid_cases(state="Malaysia",
+                                       start_date="2022-01-01",
+                                       end_date="2022-01-05")
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert (df["state"] == "Malaysia").all()
+
+    @requires_external_api
+    def test_get_hospital_beds_live(self, accessor):
+        df = accessor.get_hospital_beds(
+            state="Malaysia", hospital_type="all"
+        )
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "beds" in df.columns
+
+    @requires_external_api
+    def test_get_std_cases_live(self, accessor):
+        df = accessor.get_std_cases(disease="HIV")
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert (df["disease"].str.lower() == "hiv").all()
+
+
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
