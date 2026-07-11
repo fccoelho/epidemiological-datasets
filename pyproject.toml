@@ -61,6 +61,9 @@ brazil = [
 eurostat = [
     "eurostat>=1.1.1",
 ]
+earthengine = [
+    "earthengine-api>=0.1.400",
+]
 climate = [
     "cdsapi>=0.7.7",
     "xarray>=2026.4.0",
@@ -95,7 +98,7 @@ pdf = [
     "pdfplumber>=0.10.0",
 ]
 all = [
-    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf]",
+    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf,earthengine]",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -137,6 +140,7 @@ ecdc_atlas = "epidatasets.sources.ecdc_atlas:ECDCAtlasAccessor"
 epipulse = "epidatasets.sources.epipulse:EpiPulseAccessor"
 eurostat = "epidatasets.sources.eurostat:EurostatAccessor"
 global_health = "epidatasets.sources.global_health:GlobalHealthAccessor"
+google_earth_engine = "epidatasets.sources.google_earth_engine:GoogleEarthEngineAccessor"
 healthdata_gov = "epidatasets.sources.healthdata_gov:HealthDataGovAccessor"
 india_idsp = "epidatasets.sources.india_idsp:IndiaIDSPAccessor"
 infodengue = "epidatasets.sources.infodengue_api:InfoDengueAPI"

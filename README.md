@@ -50,7 +50,7 @@
 
 ---
 
-> A Python library providing unified access to **24 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **25 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -79,7 +79,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 24 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 25 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -108,6 +108,9 @@ pip install epidatasets[eurostat]
 
 # Climate/environmental data (Copernicus CDS)
 pip install epidatasets[climate]
+
+# Google Earth Engine satellite imagery
+pip install epidatasets[earthengine]
 
 # Geospatial visualization
 pip install epidatasets[geo]
@@ -176,7 +179,7 @@ epidemiological-datasets/
 │   ├── _base.py               # BaseAccessor ABC
 │   ├── _registry.py           # Plugin registry (entry_points)
 │   ├── cli.py                 # CLI (typer)
-│   ├── sources/               # 24 data source accessors
+│   ├── sources/               # 25 data source accessors
 │   │   ├── __init__.py
 │   │   ├── africa_cdc.py
 │   │   ├── cdc_opendata.py
@@ -188,6 +191,7 @@ epidemiological-datasets/
 │   │   ├── epipulse.py
 │   │   ├── eurostat.py
 │   │   ├── global_health.py
+│   │   ├── google_earth_engine.py
 │   │   ├── healthdata_gov.py
 │   │   ├── india_idsp.py
 │   │   ├── infodengue_api.py
@@ -219,7 +223,7 @@ epidemiological-datasets/
 │       ├── index.md
 │       ├── installation.md
 │       ├── quickstart.md
-│       ├── sources/           # Per-source API docs (24 pages)
+│       ├── sources/           # Per-source API docs (25 pages)
 │       ├── api/               # API reference
 │       │   ├── base.md
 │       │   ├── registry.md
@@ -245,6 +249,7 @@ epidemiological-datasets/
 | [Global.health](https://global.health/) | Pandemic linelist data | Varies | Open | `epidatasets.sources.global_health` |
 | [Malaria Atlas Project](https://malariaatlas.org/) | Malaria prevalence & vector data | Annual | Open | `epidatasets.sources.malaria_atlas` |
 | [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/) | Environmental & climate data | Varies | Open | `epidatasets.sources.copernicus_cds` |
+| [Google Earth Engine](https://earthengine.google.com/) | Satellite imagery (Landsat, Sentinel-2, MODIS) — vegetation, built-up, water indices | Varies (per-scene) | Free registration | `epidatasets.sources.google_earth_engine` |
 | [Pathoplexus](https://pathoplexus.org/) | Pathogen genomic data | Continuous | Open | `epidatasets.sources.pathoplexus` |
 | [InfoDengue](https://info.dengue.mat.br/) | Dengue surveillance (Brazil) | Weekly | Open | `epidatasets.sources.infodengue_api` |
 
@@ -508,6 +513,7 @@ owid_covid = owid.get_covid_data(
 | `epipulse` | `EpiPulseAccessor` | — | ECDC EpiPulse surveillance portal |
 | `eurostat` | `EurostatAccessor` | `[eurostat]` | EU health statistics |
 | `global_health` | `GlobalHealthAccessor` | — | Global.health pandemic linelist data |
+| `google_earth_engine` | `GoogleEarthEngineAccessor` | `[earthengine]` | Google Earth Engine satellite imagery indices |
 | `healthdata_gov` | `HealthDataGovAccessor` | — | US HealthData.gov |
 | `india_idsp` | `IndiaIDSPAccessor` | — | India IDSP disease surveillance |
 | `infodengue` | `InfoDengueAPI` | — | InfoDengue dengue surveillance (Brazil) |
@@ -527,7 +533,7 @@ owid_covid = owid.get_covid_data(
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 24 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 25 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 
@@ -597,9 +603,9 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## 📊 Statistics
 
-- **Data sources:** 24 registered (via plugin registry)
+- **Data sources:** 25 registered (via plugin registry)
 - **Countries covered:** 100+
-- **Optional extras:** 10 (`who`, `brazil`, `eurostat`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
+- **Optional extras:** 11 (`who`, `brazil`, `eurostat`, `climate`, `earthengine`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
 - **Example notebooks:** 28+
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 

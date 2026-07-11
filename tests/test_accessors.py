@@ -888,6 +888,58 @@ class TestECDCAtlas:
         with pytest.raises(ValueError):
             accessor.get_disease_data("NonExistentDisease")
 
+class TestGoogleEarthEngine:
+    @pytest.fixture
+    def accessor(self):
+        from epidatasets.sources.google_earth_engine import GoogleEarthEngineAccessor
+        return GoogleEarthEngineAccessor(project=os.getenv("EE_PROJECT"))
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "google_earth_engine"
+
+    @requires_external_api
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) > 100
+        assert "country_code" in countries.columns
+        assert "country_name" in countries.columns
+
+    @requires_external_api
+    def test_get_ndvi_urban_area(self, accessor):
+        """Downtown São Paulo: expect NDVI in a valid, low-vegetation range."""
+        ndvi = accessor.get_ndvi(
+            lon=-46.63, lat=-23.55,
+            start_date="2021-03-01", end_date="2021-03-31",
+        )
+        assert ndvi is not None
+        assert -1.0 <= ndvi <= 1.0
+
+    @requires_external_api
+    def test_get_built_up_index_forest_vs_urban(self, accessor):
+        """NDBI should be lower (more negative) for dense forest than for a dense urban core."""
+        forest_ndbi = accessor.get_built_up_index(
+            lon=-62.5, lat=-4.0,
+            start_date="2021-01-01", end_date="2021-12-31",
+        )
+        urban_ndbi = accessor.get_built_up_index(
+            lon=-46.63, lat=-23.55,
+            start_date="2021-03-01", end_date="2021-03-31",
+        )
+        assert forest_ndbi is not None
+        assert urban_ndbi is not None
+        assert forest_ndbi < urban_ndbi
+
+    @requires_external_api
+    def test_no_imagery_raises_clear_error(self, accessor):
+        """A 1-day window over a persistently cloudy region should raise a
+        clear ValueError, not a cryptic band-name crash."""
+        with pytest.raises(ValueError, match="No Landsat 8 images found"):
+            accessor.get_ndvi(
+                lon=-62.5, lat=-4.0,
+                start_date="2021-03-01", end_date="2021-03-02",
+            )
 
 class TestSmoke:
     def test_package_import(self):
