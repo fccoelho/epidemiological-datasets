@@ -1287,3 +1287,375 @@ class TestDiseaseSh:
         df = accessor.get_global_totals()
         assert len(df) == 1
         assert df.iloc[0]["cases"] > 0
+
+
+# Minimal swagger fixture for DEMAS discovery tests
+_DEMAS_SWAGGER = {
+    "swagger": "2.0",
+    "info": {"title": "DEMAS - API de Dados Abertos"},
+    "tags": [
+        {"name": "Agravo Arboviroses", "description": "Arboviroses"},
+        {"name": "Vacinação", "description": "Vacinação"},
+        {"name": "CNES", "description": "CNES"},
+    ],
+    "paths": {
+        "/arboviroses/dengue": {
+            "get": {
+                "tags": ["Agravo Arboviroses"],
+                "summary": "Obtém base de ocorrência de arbovirose Dengue",
+                "parameters": [
+                    {"name": "nu_ano", "in": "query", "type": "string"},
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/arboviroses/chikungunya": {
+            "get": {
+                "tags": ["Agravo Arboviroses"],
+                "summary": "Obtém base de ocorrência de arbovirose Chikungunya",
+                "parameters": [
+                    {"name": "nu_ano", "in": "query", "type": "string"},
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/vacinacao/doses-aplicadas-pni-2024": {
+            "get": {
+                "tags": ["Vacinação"],
+                "summary": "Dose aplicadas pelo Programa Nacional de Imunizações (PNI) - 2024",
+                "parameters": [
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/cnes/estabelecimentos/{codigo_cnes}": {
+            "get": {
+                "tags": ["CNES"],
+                "summary": "Obtém estabelecimento utilizando o código CNES.",
+                "parameters": [
+                    {"name": "codigo_cnes", "in": "path", "type": "integer"},
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/autenticacao/login": {
+            "post": {
+                "tags": ["Autenticação"],
+                "summary": "Obtém access token",
+            }
+        },
+    },
+}
+
+
+class TestDemas:
+    """Tests for the DEMAS (Portal de Dados Abertos do SUS) accessor.
+
+    Network-free tests mock the swagger spec and data endpoints via the
+    ``responses`` library.  Live tests are gated behind ``@requires_external_api``.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.demas import DemasAccessor
+
+        return DemasAccessor(cache_dir=str(tmp_path / "demas"))
+
+    @responses.activate
+    def test_initialization(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        # Force reload of swagger for this fresh accessor
+        accessor._swagger = None
+        assert accessor.source_name == "demas"
+        assert "DEMAS" in accessor.source_description
+        assert accessor.source_url == "https://dadosabertos.saude.gov.br/"
+        assert accessor.cache_dir.exists()
+        assert accessor.MAX_PAGE_SIZE == 20
+
+    @responses.activate
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "BR"
+        assert countries.iloc[0]["country_name"] == "Brazil"
+
+    @responses.activate
+    def test_list_domains(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        domains = accessor.list_domains(use_cache=False)
+        assert isinstance(domains, pd.DataFrame)
+        assert "Agravo Arboviroses" in domains["domain"].values
+        assert "Vacinação" in domains["domain"].values
+
+    @responses.activate
+    def test_list_datasets(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        df = accessor.list_datasets(use_cache=False)
+        # 4 GET endpoints (the POST login is excluded)
+        assert len(df) == 4
+        assert set(df.columns) == {
+            "domain",
+            "endpoint",
+            "summary",
+            "has_year_filter",
+            "query_params",
+        }
+        assert "/arboviroses/dengue" in df["endpoint"].values
+        dengue = df[df["endpoint"] == "/arboviroses/dengue"].iloc[0]
+        assert dengue["domain"] == "Agravo Arboviroses"
+        assert bool(dengue["has_year_filter"]) is True
+        # PNI 2024 has no nu_ano filter
+        pni = df[df["endpoint"] == "/vacinacao/doses-aplicadas-pni-2024"].iloc[0]
+        assert bool(pni["has_year_filter"]) is False
+
+    @responses.activate
+    def test_list_datasets_domain_filter(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        df = accessor.list_datasets(domain="Agravo Arboviroses", use_cache=False)
+        assert len(df) == 2
+        assert (df["domain"] == "Agravo Arboviroses").all()
+
+    @responses.activate
+    def test_search_datasets(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        matches = accessor.search_datasets("dengue", use_cache=False)
+        assert len(matches) == 1
+        assert matches.iloc[0]["endpoint"] == "/arboviroses/dengue"
+
+    @responses.activate
+    def test_search_datasets_portuguese(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        matches = accessor.search_datasets("vacinação", use_cache=False)
+        assert len(matches) == 1
+        assert matches.iloc[0]["endpoint"] == "/vacinacao/doses-aplicadas-pni-2024"
+
+    @responses.activate
+    def test_get_dataset_single_page(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json={"parametros": [{"id_agravo": "A90", "nu_ano": "2024", "sg_uf": "RJ"}]},
+            status=200,
+        )
+        df = accessor.get_dataset("/arboviroses/dengue", year=2024, use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 1
+        assert df.iloc[0]["id_agravo"] == "A90"
+        assert df.iloc[0]["sg_uf"] == "RJ"
+        # Verify the year filter was sent as nu_ano
+        sent_params = responses.calls[0].request.params
+        assert sent_params["nu_ano"] == "2024"
+
+    @responses.activate
+    def test_get_dataset_varied_response_key(self, accessor):
+        """The response list key varies per endpoint; verify auto-extraction."""
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/cnes/tipounidades",
+            json={"tipos_unidade": [{"codigo": 1, "nome": "Hospital"}]},
+            status=200,
+        )
+        df = accessor.get_dataset("/cnes/tipounidades", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["nome"] == "Hospital"
+
+    @responses.activate
+    def test_get_dataset_limit_capped(self, accessor):
+        """The accessor must enforce the 20-record server cap."""
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json={"parametros": []},
+            status=200,
+        )
+        accessor.get_dataset("/arboviroses/dengue", limit=500, use_cache=False)
+        sent_params = responses.calls[0].request.params
+        assert sent_params["limit"] == "20"
+
+    @responses.activate
+    def test_get_dataset_path_params(self, accessor):
+        """Path parameters like {codigo_cnes} are substituted."""
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos/12345",
+            json={"estabelecimento": [{"codigo_cnes": 12345, "nome": "Hospital X"}]},
+            status=200,
+        )
+        df = accessor.get_dataset(
+            "/cnes/estabelecimentos/{codigo_cnes}",
+            path_params={"codigo_cnes": 12345},
+            use_cache=False,
+        )
+        assert len(df) == 1
+        assert df.iloc[0]["codigo_cnes"] == 12345
+
+    @responses.activate
+    def test_get_dataset_all_pagination(self, accessor):
+        """get_dataset_all pages until a short page is returned."""
+        # Page 0 and 1 are full (20 records), page 2 is partial (5)
+        full_page = {"parametros": [{"id": i} for i in range(20)]}
+        short_page = {"parametros": [{"id": i} for i in range(5)]}
+
+        # Use responses with multiple registrations keyed by query params
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "0", "nu_ano": "2024"})],
+        )
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "1", "nu_ano": "2024"})],
+        )
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=short_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "2", "nu_ano": "2024"})],
+        )
+        df = accessor.get_dataset_all(
+            "/arboviroses/dengue", year=2024, use_cache=False
+        )
+        assert len(df) == 45  # 20 + 20 + 5
+        assert len(responses.calls) == 3
+
+    @responses.activate
+    def test_get_dataset_all_max_pages(self, accessor):
+        """max_pages caps the number of requests."""
+        full_page = {"parametros": [{"id": i} for i in range(20)]}
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "0"})],
+        )
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "1"})],
+        )
+        df = accessor.get_dataset_all(
+            "/arboviroses/dengue", max_pages=2, use_cache=False
+        )
+        assert len(df) == 40
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_get_arbovirose(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/chikungunya",
+            json={"parametros": [{"id_agravo": "A92.0"}]},
+            status=200,
+        )
+        df = accessor.get_arbovirose(disease="chikungunya", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["id_agravo"] == "A92.0"
+
+    @responses.activate
+    def test_get_vacinacao_pni(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/vacinacao/doses-aplicadas-pni-2024",
+            json={"doses_aplicadas_pni": [{"vacina": "COVID-19", "dose": 1}]},
+            status=200,
+        )
+        df = accessor.get_vacinacao_pni(year=2024, use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["vacina"] == "COVID-19"
+
+    def test_get_vacinacao_pni_invalid_year(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.get_vacinacao_pni(year=2019)
+        with pytest.raises(ValueError):
+            accessor.get_vacinacao_pni(year=2027)
+
+    def test_get_sindrome_gripal_invalid_year(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.get_sindrome_gripal(year=2024)
+
+    def test_extract_records_helper(self):
+        from epidatasets.sources.demas import DemasAccessor
+
+        assert DemasAccessor._extract_records({"parametros": [{"a": 1}]}) == [{"a": 1}]
+        assert DemasAccessor._extract_records({"doses_aplicadas_pni": [{"b": 2}]}) == [
+            {"b": 2}
+        ]
+        assert DemasAccessor._extract_records([{"c": 3}]) == [{"c": 3}]
+        assert DemasAccessor._extract_records({"no": "list"}) == []
+        assert DemasAccessor._extract_records(None) == []
+
+    def test_fill_path_params_helper(self):
+        from epidatasets.sources.demas import DemasAccessor
+
+        assert (
+            DemasAccessor._fill_path_params(
+                "/cnes/estabelecimentos/{codigo_cnes}", {"codigo_cnes": 12345}
+            )
+            == "/cnes/estabelecimentos/12345"
+        )
+        assert (
+            DemasAccessor._fill_path_params("/arboviroses/dengue", None)
+            == "/arboviroses/dengue"
+        )
+
+    @requires_external_api
+    def test_list_datasets_live(self, accessor):
+        accessor._swagger = None
+        df = accessor.list_datasets(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 50
+        assert "/arboviroses/dengue" in df["endpoint"].values
+
+    @requires_external_api
+    def test_get_dataset_live(self, accessor):
+        df = accessor.get_dataset("/arboviroses/dengue", year=2024, use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty

@@ -78,6 +78,7 @@ nav:
       - Thailand DDC: sources/thailand_ddc.md
       - Indonesia MOH: sources/indonesia_moh.md
       - disease.sh: sources/disease_sh.md
+      - DEMAS (Dados Abertos do SUS): sources/demas.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md
@@ -118,6 +119,7 @@ nav:
       - Indonesia MOH Surveillance: examples/30_Indonesia_MOH_Surveillance.ipynb
       - ECDC Atlas: examples/31_ECDC_Atlas_Surveillance.ipynb
       - disease.sh COVID-19 & Influenza: examples/32_disease_sh_COVID19_Influenza.ipynb
+      - DEMAS Dados Abertos do SUS: examples/33_DEMAS_Dados_Abertos_SUS.ipynb
       - CDC Open Data (Quick): examples/cdc_opendata_example.ipynb
       - ECDC Open Data (Quick): examples/ecdc_opendata_example.ipynb
       - EMRO Analysis (PT): examples/emro_health_analysis.ipynb
