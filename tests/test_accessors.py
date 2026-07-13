@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import responses
 
 
 def requires_external_api(func):
@@ -892,7 +893,7 @@ class TestECDCAtlas:
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
-        assert epidatasets.__version__
+        assert epidatasets.__version__()
 
     def test_base_accessor_import(self):
         from epidatasets._base import BaseAccessor
@@ -902,3 +903,387 @@ class TestSmoke:
         from pathlib import Path
         sources_dir = Path(__file__).parent.parent / "src" / "epidatasets" / "sources"
         assert sources_dir.exists()
+
+
+class TestDiseaseSh:
+    """Tests for the disease.sh API accessor.
+
+    Network-free tests use the ``responses`` library to mock the disease.sh
+    API.  Live tests are gated behind ``@requires_external_api``.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.disease_sh import DiseaseShAccessor
+
+        return DiseaseShAccessor(cache_dir=str(tmp_path / "disease_sh"))
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "disease_sh"
+        assert "disease.sh" in accessor.source_description
+        assert accessor.source_url == "https://disease.sh/"
+        assert accessor.cache_dir.exists()
+
+    def test_available_diseases(self, accessor):
+        diseases = accessor.get_available_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+        assert len(diseases) == 2
+        assert "covid19" in diseases["disease_key"].values
+        assert "influenza" in diseases["disease_key"].values
+
+    def test_influenza_summary(self, accessor):
+        summary = accessor.get_influenza_summary()
+        assert isinstance(summary, pd.DataFrame)
+        assert len(summary) == 3
+        assert set(summary["endpoint_key"]) == {
+            "ilinet",
+            "public_health_lab",
+            "clinical_lab",
+        }
+
+    @responses.activate
+    def test_list_countries(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries",
+            json=[
+                {
+                    "country": "Afghanistan",
+                    "countryInfo": {
+                        "iso2": "AF",
+                        "iso3": "AFG",
+                        "lat": 33,
+                        "long": 65,
+                    },
+                    "cases": 234174,
+                },
+                {
+                    "country": "Brazil",
+                    "countryInfo": {
+                        "iso2": "BR",
+                        "iso3": "BRA",
+                        "lat": -14,
+                        "long": -51,
+                    },
+                    "cases": 37700000,
+                },
+            ],
+            status=200,
+        )
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 2
+        assert set(countries.columns) >= {
+            "country_code",
+            "country_name",
+            "iso3",
+            "lat",
+            "long",
+        }
+        assert "BR" in countries["country_code"].values
+        assert "Brazil" in countries["country_name"].values
+
+    @responses.activate
+    def test_get_global_totals(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={
+                "updated": 1783967832683,
+                "cases": 704753890,
+                "deaths": 7010681,
+                "recovered": 675619811,
+                "active": 22123398,
+                "tests": 7026505313,
+                "population": 7944935131,
+                "affectedCountries": 231,
+            },
+            status=200,
+        )
+        df = accessor.get_global_totals(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 1
+        assert df.iloc[0]["cases"] == 704753890
+        assert df.iloc[0]["deaths"] == 7010681
+        assert pd.notna(df.iloc[0]["updated"])
+
+    @responses.activate
+    def test_get_country_data_single(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/USA",
+            json={
+                "country": "USA",
+                "countryInfo": {"iso2": "US", "iso3": "USA", "lat": 38, "long": -97},
+                "cases": 103646975,
+                "deaths": 1127928,
+                "population": 333000000,
+                "updated": 1783967832814,
+            },
+            status=200,
+        )
+        df = accessor.get_country_data(country="USA", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["country"] == "USA"
+        assert df.iloc[0]["country_code"] == "US"
+        assert df.iloc[0]["cases"] == 103646975
+
+    @responses.activate
+    def test_get_historical_country(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/USA",
+            json={
+                "country": "USA",
+                "province": ["mainland"],
+                "timeline": {
+                    "cases": {"1/1/23": 100, "1/2/23": 110, "1/3/23": 120},
+                    "deaths": {"1/1/23": 5, "1/2/23": 6, "1/3/23": 7},
+                    "recovered": {"1/1/23": 0, "1/2/23": 0, "1/3/23": 0},
+                },
+            },
+            status=200,
+        )
+        df = accessor.get_historical(country="USA", lastdays=3, use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 3
+        assert set(df.columns) >= {"country", "date", "cases", "deaths", "recovered"}
+        assert (df["country"] == "USA").all()
+        # Date parsing from M/D/YY
+        assert df["date"].dtype.kind == "M"
+        first = df.iloc[0]
+        assert first["date"] == pd.Timestamp("2023-01-01")
+        assert first["cases"] == 100
+
+    @responses.activate
+    def test_get_historical_date_filter(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/USA",
+            json={
+                "country": "USA",
+                "province": ["mainland"],
+                "timeline": {
+                    "cases": {
+                        "1/1/23": 100,
+                        "1/2/23": 110,
+                        "1/3/23": 120,
+                        "1/4/23": 130,
+                        "1/5/23": 140,
+                    },
+                    "deaths": {
+                        "1/1/23": 5,
+                        "1/2/23": 6,
+                        "1/3/23": 7,
+                        "1/4/23": 8,
+                        "1/5/23": 9,
+                    },
+                    "recovered": {f"1/{d}/23": 0 for d in range(1, 6)},
+                },
+            },
+            status=200,
+        )
+        df = accessor.get_historical(
+            country="USA",
+            lastdays=5,
+            start_date="2023-01-02",
+            end_date="2023-01-04",
+            use_cache=False,
+        )
+        assert len(df) == 3
+        assert df["date"].min() == pd.Timestamp("2023-01-02")
+        assert df["date"].max() == pd.Timestamp("2023-01-04")
+
+    @responses.activate
+    def test_get_historical_global(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/all",
+            json={
+                "cases": {"3/5/23": 676024901, "3/6/23": 676082941},
+                "deaths": {"3/5/23": 6877749, "3/6/23": 6878115},
+                "recovered": {"3/5/23": 0, "3/6/23": 0},
+            },
+            status=200,
+        )
+        df = accessor.get_historical(country=None, lastdays=2, use_cache=False)
+        assert len(df) == 2
+        assert (df["country"] == "World").all()
+        assert df.iloc[0]["cases"] == 676024901
+
+    @responses.activate
+    def test_get_vaccine_coverage_global(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/vaccine/coverage",
+            json=[
+                {
+                    "total": 13578774356,
+                    "daily": 0,
+                    "totalPerHundred": 0,
+                    "dailyPerMillion": 0,
+                    "date": "7/17/25",
+                },
+                {
+                    "total": 13578774356,
+                    "daily": 1000,
+                    "totalPerHundred": 0,
+                    "dailyPerMillion": 0,
+                    "date": "7/18/25",
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_vaccine_coverage(country=None, lastdays=2, use_cache=False)
+        assert len(df) == 2
+        assert "total" in df.columns
+        assert df["date"].dtype.kind == "M"
+
+    @responses.activate
+    def test_get_vaccine_coverage_country(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/vaccine/coverage/countries",
+            json=[
+                {
+                    "country": "Afghanistan",
+                    "timeline": [
+                        {
+                            "total": 22964750,
+                            "daily": 0,
+                            "totalPerHundred": 0,
+                            "dailyPerMillion": 0,
+                            "date": "7/19/25",
+                        },
+                    ],
+                },
+                {
+                    "country": "Brazil",
+                    "timeline": [
+                        {
+                            "total": 500000000,
+                            "daily": 500,
+                            "totalPerHundred": 220,
+                            "dailyPerMillion": 2,
+                            "date": "7/19/25",
+                        },
+                    ],
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_vaccine_coverage(country="Brazil", lastdays=1, use_cache=False)
+        assert len(df) == 1
+        assert (df["country"] == "Brazil").all()
+        assert df.iloc[0]["total"] == 500000000
+
+    @responses.activate
+    def test_get_states(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/states",
+            json=[
+                {
+                    "state": "California",
+                    "updated": 1783967832172,
+                    "cases": 12711918,
+                    "deaths": 112443,
+                    "population": 39512223,
+                },
+                {
+                    "state": "Texas",
+                    "updated": 1783967832172,
+                    "cases": 8000000,
+                    "deaths": 95000,
+                    "population": 30000000,
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_states(use_cache=False)
+        assert len(df) == 2
+        assert "California" in df["state"].values
+        assert pd.notna(df.iloc[0]["updated"])
+
+    @responses.activate
+    def test_get_influenza_ilinet(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/influenza/CDC/ILINet",
+            json={
+                "updated": 1783934241274,
+                "source": "www.cdc.gov/flu",
+                "data": [
+                    {
+                        "week": "2021 - 40/52",
+                        "age 0-4": 13064,
+                        "age 5-24": 13042,
+                        "totalILI": 39191,
+                        "totalPatients": 2010559,
+                        "percentUnweightedILI": 1.9,
+                        "percentWeightedILI": 2,
+                    },
+                    {
+                        "week": "2021 - 41/52",
+                        "age 0-4": 13019,
+                        "totalILI": 37217,
+                        "totalPatients": 1973817,
+                        "percentUnweightedILI": 1.9,
+                        "percentWeightedILI": 1.9,
+                    },
+                ],
+            },
+            status=200,
+        )
+        df = accessor.get_influenza_ilinet(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        assert "year" in df.columns
+        assert "week_num" in df.columns
+        assert df.iloc[0]["year"] == 2021
+        assert df.iloc[0]["week_num"] == 40
+        assert df.iloc[0]["totalILI"] == 39191
+        assert df.iloc[0]["source"] == "www.cdc.gov/flu"
+        assert pd.notna(df.iloc[0]["updated"])
+
+    @responses.activate
+    def test_get_influenza_clinical_lab(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/influenza/CDC/USCL",
+            json={
+                "updated": 1783934242481,
+                "source": "www.cdc.gov/flu",
+                "data": [
+                    {
+                        "week": "2021 - 40/52",
+                        "totalA": 38,
+                        "totalB": 28,
+                        "percentPositiveA": 0.07,
+                        "percentPositiveB": 0.05,
+                        "totalTests": 49177,
+                        "percentPositive": 0.13,
+                    },
+                ],
+            },
+            status=200,
+        )
+        df = accessor.get_influenza_clinical_lab(use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["totalA"] == 38
+        assert df.iloc[0]["totalTests"] == 49177
+        assert df.iloc[0]["year"] == 2021
+
+    @requires_external_api
+    def test_list_countries_live(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) > 200
+        assert "BR" in countries["country_code"].values
+
+    @requires_external_api
+    def test_get_global_totals_live(self, accessor):
+        df = accessor.get_global_totals()
+        assert len(df) == 1
+        assert df.iloc[0]["cases"] > 0

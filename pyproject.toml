@@ -19,6 +19,7 @@ keywords = [
     "health-data",
     "pysus",
     "datasus",
+    "disease.sh",
     "who",
     "world-bank",
     "ecdc",
@@ -132,6 +133,7 @@ china_cdc = "epidatasets.sources.china_cdc:ChinaCDCAccessor"
 colombia_ins = "epidatasets.sources.colombia_ins:ColombiaINSAccessor"
 copernicus_cds = "epidatasets.sources.copernicus_cds:CopernicusCDSAccessor"
 datasus = "epidatasets.sources.datasus_pysus:DataSUSAccessor"
+disease_sh = "epidatasets.sources.disease_sh:DiseaseShAccessor"
 ecdc = "epidatasets.sources.ecdc_opendata:ECDCOpenDataAccessor"
 ecdc_atlas = "epidatasets.sources.ecdc_atlas:ECDCAtlasAccessor"
 epipulse = "epidatasets.sources.epipulse:EpiPulseAccessor"

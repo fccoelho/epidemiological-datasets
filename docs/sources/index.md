@@ -1,6 +1,6 @@
 # Data Sources
 
-Epidatasets provides access to **27 epidemiological data sources** from around the world.
+Epidatasets provides access to **28 epidemiological data sources** from around the world.
 
 ## How Sources Work
 
@@ -53,3 +53,4 @@ who = get_source("who")
 | Malaysia MOH | `malaysia_moh` | Malaysia | None |
 | Thailand DDC | `thailand_ddc` | Thailand | None |
 | Indonesia MOH | `indonesia_moh` | Indonesia | None |
+| disease.sh | `disease_sh` | Global | None |
