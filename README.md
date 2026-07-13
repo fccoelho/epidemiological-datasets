@@ -5,6 +5,9 @@
   <img src="https://img.shields.io/pypi/v/epidatasets?style=flat-square&logo=pypi&color=blue" alt="PyPI">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT">
   <img src="https://img.shields.io/badge/Code%20Style-Black-black.svg" alt="Code style: Black">
+  <a href="https://epidbot.kwar-ai.com.br">
+    <img src="https://img.shields.io/badge/EpidBot-Ready-brightgreen.svg?logo=robot&logoColor=white" alt="EpidBot Ready">
+  </a>
 </p>
 
 <p align="center">
