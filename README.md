@@ -5,6 +5,9 @@
   <img src="https://img.shields.io/pypi/v/epidatasets?style=flat-square&logo=pypi&color=blue" alt="PyPI">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT">
   <img src="https://img.shields.io/badge/Code%20Style-Black-black.svg" alt="Code style: Black">
+  <a href="https://epidbot.kwar-ai.com.br">
+    <img src="https://img.shields.io/badge/EpidBot-Ready-brightgreen.svg?logo=robot&logoColor=white" alt="EpidBot Ready">
+  </a>
 </p>
 
 <p align="center">
@@ -50,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **25 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **32 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -79,7 +82,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 25 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 32 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -179,7 +182,7 @@ epidemiological-datasets/
 │   ├── _base.py               # BaseAccessor ABC
 │   ├── _registry.py           # Plugin registry (entry_points)
 │   ├── cli.py                 # CLI (typer)
-│   ├── sources/               # 25 data source accessors
+│   ├── sources/               # 32 data source accessors
 │   │   ├── __init__.py
 │   │   ├── africa_cdc.py
 │   │   ├── cdc_opendata.py
@@ -533,7 +536,7 @@ owid_covid = owid.get_covid_data(
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 25 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 32 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 

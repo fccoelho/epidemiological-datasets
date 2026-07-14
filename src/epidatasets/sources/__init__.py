@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from epidatasets.sources.colombia_ins import ColombiaINSAccessor
     from epidatasets.sources.copernicus_cds import CopernicusCDSAccessor
     from epidatasets.sources.datasus_pysus import DataSUSAccessor
+    from epidatasets.sources.demas import DemasAccessor
+    from epidatasets.sources.disease_sh import DiseaseShAccessor
     from epidatasets.sources.ecdc_opendata import ECDCOpenDataAccessor
     from epidatasets.sources.ecdc_atlas import ECDCAtlasAccessor
     from epidatasets.sources.epipulse import EpiPulseAccessor
@@ -52,6 +54,8 @@ __all__ = [
     "ColombiaINSAccessor",
     "CopernicusCDSAccessor",
     "DataSUSAccessor",
+    "DemasAccessor",
+    "DiseaseShAccessor",
     "ECDCOpenDataAccessor",
     "ECDCAtlasAccessor",
     "EpiPulseAccessor",

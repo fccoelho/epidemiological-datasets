@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import responses
 
 
 def requires_external_api(func):
@@ -944,7 +945,7 @@ class TestGoogleEarthEngine:
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
-        assert epidatasets.__version__
+        assert epidatasets.__version__()
 
     def test_base_accessor_import(self):
         from epidatasets._base import BaseAccessor
@@ -954,3 +955,759 @@ class TestSmoke:
         from pathlib import Path
         sources_dir = Path(__file__).parent.parent / "src" / "epidatasets" / "sources"
         assert sources_dir.exists()
+
+
+class TestDiseaseSh:
+    """Tests for the disease.sh API accessor.
+
+    Network-free tests use the ``responses`` library to mock the disease.sh
+    API.  Live tests are gated behind ``@requires_external_api``.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.disease_sh import DiseaseShAccessor
+
+        return DiseaseShAccessor(cache_dir=str(tmp_path / "disease_sh"))
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "disease_sh"
+        assert "disease.sh" in accessor.source_description
+        assert accessor.source_url == "https://disease.sh/"
+        assert accessor.cache_dir.exists()
+
+    def test_available_diseases(self, accessor):
+        diseases = accessor.get_available_diseases()
+        assert isinstance(diseases, pd.DataFrame)
+        assert len(diseases) == 2
+        assert "covid19" in diseases["disease_key"].values
+        assert "influenza" in diseases["disease_key"].values
+
+    def test_influenza_summary(self, accessor):
+        summary = accessor.get_influenza_summary()
+        assert isinstance(summary, pd.DataFrame)
+        assert len(summary) == 3
+        assert set(summary["endpoint_key"]) == {
+            "ilinet",
+            "public_health_lab",
+            "clinical_lab",
+        }
+
+    @responses.activate
+    def test_list_countries(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries",
+            json=[
+                {
+                    "country": "Afghanistan",
+                    "countryInfo": {
+                        "iso2": "AF",
+                        "iso3": "AFG",
+                        "lat": 33,
+                        "long": 65,
+                    },
+                    "cases": 234174,
+                },
+                {
+                    "country": "Brazil",
+                    "countryInfo": {
+                        "iso2": "BR",
+                        "iso3": "BRA",
+                        "lat": -14,
+                        "long": -51,
+                    },
+                    "cases": 37700000,
+                },
+            ],
+            status=200,
+        )
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 2
+        assert set(countries.columns) >= {
+            "country_code",
+            "country_name",
+            "iso3",
+            "lat",
+            "long",
+        }
+        assert "BR" in countries["country_code"].values
+        assert "Brazil" in countries["country_name"].values
+
+    @responses.activate
+    def test_get_global_totals(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={
+                "updated": 1783967832683,
+                "cases": 704753890,
+                "deaths": 7010681,
+                "recovered": 675619811,
+                "active": 22123398,
+                "tests": 7026505313,
+                "population": 7944935131,
+                "affectedCountries": 231,
+            },
+            status=200,
+        )
+        df = accessor.get_global_totals(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 1
+        assert df.iloc[0]["cases"] == 704753890
+        assert df.iloc[0]["deaths"] == 7010681
+        assert pd.notna(df.iloc[0]["updated"])
+
+    @responses.activate
+    def test_get_country_data_single(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/USA",
+            json={
+                "country": "USA",
+                "countryInfo": {"iso2": "US", "iso3": "USA", "lat": 38, "long": -97},
+                "cases": 103646975,
+                "deaths": 1127928,
+                "population": 333000000,
+                "updated": 1783967832814,
+            },
+            status=200,
+        )
+        df = accessor.get_country_data(country="USA", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["country"] == "USA"
+        assert df.iloc[0]["country_code"] == "US"
+        assert df.iloc[0]["cases"] == 103646975
+
+    @responses.activate
+    def test_get_historical_country(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/USA",
+            json={
+                "country": "USA",
+                "province": ["mainland"],
+                "timeline": {
+                    "cases": {"1/1/23": 100, "1/2/23": 110, "1/3/23": 120},
+                    "deaths": {"1/1/23": 5, "1/2/23": 6, "1/3/23": 7},
+                    "recovered": {"1/1/23": 0, "1/2/23": 0, "1/3/23": 0},
+                },
+            },
+            status=200,
+        )
+        df = accessor.get_historical(country="USA", lastdays=3, use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 3
+        assert set(df.columns) >= {"country", "date", "cases", "deaths", "recovered"}
+        assert (df["country"] == "USA").all()
+        # Date parsing from M/D/YY
+        assert df["date"].dtype.kind == "M"
+        first = df.iloc[0]
+        assert first["date"] == pd.Timestamp("2023-01-01")
+        assert first["cases"] == 100
+
+    @responses.activate
+    def test_get_historical_date_filter(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/USA",
+            json={
+                "country": "USA",
+                "province": ["mainland"],
+                "timeline": {
+                    "cases": {
+                        "1/1/23": 100,
+                        "1/2/23": 110,
+                        "1/3/23": 120,
+                        "1/4/23": 130,
+                        "1/5/23": 140,
+                    },
+                    "deaths": {
+                        "1/1/23": 5,
+                        "1/2/23": 6,
+                        "1/3/23": 7,
+                        "1/4/23": 8,
+                        "1/5/23": 9,
+                    },
+                    "recovered": {f"1/{d}/23": 0 for d in range(1, 6)},
+                },
+            },
+            status=200,
+        )
+        df = accessor.get_historical(
+            country="USA",
+            lastdays=5,
+            start_date="2023-01-02",
+            end_date="2023-01-04",
+            use_cache=False,
+        )
+        assert len(df) == 3
+        assert df["date"].min() == pd.Timestamp("2023-01-02")
+        assert df["date"].max() == pd.Timestamp("2023-01-04")
+
+    @responses.activate
+    def test_get_historical_global(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/all",
+            json={
+                "cases": {"3/5/23": 676024901, "3/6/23": 676082941},
+                "deaths": {"3/5/23": 6877749, "3/6/23": 6878115},
+                "recovered": {"3/5/23": 0, "3/6/23": 0},
+            },
+            status=200,
+        )
+        df = accessor.get_historical(country=None, lastdays=2, use_cache=False)
+        assert len(df) == 2
+        assert (df["country"] == "World").all()
+        assert df.iloc[0]["cases"] == 676024901
+
+    @responses.activate
+    def test_get_vaccine_coverage_global(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/vaccine/coverage",
+            json=[
+                {
+                    "total": 13578774356,
+                    "daily": 0,
+                    "totalPerHundred": 0,
+                    "dailyPerMillion": 0,
+                    "date": "7/17/25",
+                },
+                {
+                    "total": 13578774356,
+                    "daily": 1000,
+                    "totalPerHundred": 0,
+                    "dailyPerMillion": 0,
+                    "date": "7/18/25",
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_vaccine_coverage(country=None, lastdays=2, use_cache=False)
+        assert len(df) == 2
+        assert "total" in df.columns
+        assert df["date"].dtype.kind == "M"
+
+    @responses.activate
+    def test_get_vaccine_coverage_country(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/vaccine/coverage/countries",
+            json=[
+                {
+                    "country": "Afghanistan",
+                    "timeline": [
+                        {
+                            "total": 22964750,
+                            "daily": 0,
+                            "totalPerHundred": 0,
+                            "dailyPerMillion": 0,
+                            "date": "7/19/25",
+                        },
+                    ],
+                },
+                {
+                    "country": "Brazil",
+                    "timeline": [
+                        {
+                            "total": 500000000,
+                            "daily": 500,
+                            "totalPerHundred": 220,
+                            "dailyPerMillion": 2,
+                            "date": "7/19/25",
+                        },
+                    ],
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_vaccine_coverage(country="Brazil", lastdays=1, use_cache=False)
+        assert len(df) == 1
+        assert (df["country"] == "Brazil").all()
+        assert df.iloc[0]["total"] == 500000000
+
+    @responses.activate
+    def test_get_states(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/states",
+            json=[
+                {
+                    "state": "California",
+                    "updated": 1783967832172,
+                    "cases": 12711918,
+                    "deaths": 112443,
+                    "population": 39512223,
+                },
+                {
+                    "state": "Texas",
+                    "updated": 1783967832172,
+                    "cases": 8000000,
+                    "deaths": 95000,
+                    "population": 30000000,
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_states(use_cache=False)
+        assert len(df) == 2
+        assert "California" in df["state"].values
+        assert pd.notna(df.iloc[0]["updated"])
+
+    @responses.activate
+    def test_get_influenza_ilinet(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/influenza/CDC/ILINet",
+            json={
+                "updated": 1783934241274,
+                "source": "www.cdc.gov/flu",
+                "data": [
+                    {
+                        "week": "2021 - 40/52",
+                        "age 0-4": 13064,
+                        "age 5-24": 13042,
+                        "totalILI": 39191,
+                        "totalPatients": 2010559,
+                        "percentUnweightedILI": 1.9,
+                        "percentWeightedILI": 2,
+                    },
+                    {
+                        "week": "2021 - 41/52",
+                        "age 0-4": 13019,
+                        "totalILI": 37217,
+                        "totalPatients": 1973817,
+                        "percentUnweightedILI": 1.9,
+                        "percentWeightedILI": 1.9,
+                    },
+                ],
+            },
+            status=200,
+        )
+        df = accessor.get_influenza_ilinet(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        assert "year" in df.columns
+        assert "week_num" in df.columns
+        assert df.iloc[0]["year"] == 2021
+        assert df.iloc[0]["week_num"] == 40
+        assert df.iloc[0]["totalILI"] == 39191
+        assert df.iloc[0]["source"] == "www.cdc.gov/flu"
+        assert pd.notna(df.iloc[0]["updated"])
+
+    @responses.activate
+    def test_get_influenza_clinical_lab(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/influenza/CDC/USCL",
+            json={
+                "updated": 1783934242481,
+                "source": "www.cdc.gov/flu",
+                "data": [
+                    {
+                        "week": "2021 - 40/52",
+                        "totalA": 38,
+                        "totalB": 28,
+                        "percentPositiveA": 0.07,
+                        "percentPositiveB": 0.05,
+                        "totalTests": 49177,
+                        "percentPositive": 0.13,
+                    },
+                ],
+            },
+            status=200,
+        )
+        df = accessor.get_influenza_clinical_lab(use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["totalA"] == 38
+        assert df.iloc[0]["totalTests"] == 49177
+        assert df.iloc[0]["year"] == 2021
+
+    @requires_external_api
+    def test_list_countries_live(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) > 200
+        assert "BR" in countries["country_code"].values
+
+    @requires_external_api
+    def test_get_global_totals_live(self, accessor):
+        df = accessor.get_global_totals()
+        assert len(df) == 1
+        assert df.iloc[0]["cases"] > 0
+
+
+# Minimal swagger fixture for DEMAS discovery tests
+_DEMAS_SWAGGER = {
+    "swagger": "2.0",
+    "info": {"title": "DEMAS - API de Dados Abertos"},
+    "tags": [
+        {"name": "Agravo Arboviroses", "description": "Arboviroses"},
+        {"name": "Vacinação", "description": "Vacinação"},
+        {"name": "CNES", "description": "CNES"},
+    ],
+    "paths": {
+        "/arboviroses/dengue": {
+            "get": {
+                "tags": ["Agravo Arboviroses"],
+                "summary": "Obtém base de ocorrência de arbovirose Dengue",
+                "parameters": [
+                    {"name": "nu_ano", "in": "query", "type": "string"},
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/arboviroses/chikungunya": {
+            "get": {
+                "tags": ["Agravo Arboviroses"],
+                "summary": "Obtém base de ocorrência de arbovirose Chikungunya",
+                "parameters": [
+                    {"name": "nu_ano", "in": "query", "type": "string"},
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/vacinacao/doses-aplicadas-pni-2024": {
+            "get": {
+                "tags": ["Vacinação"],
+                "summary": "Dose aplicadas pelo Programa Nacional de Imunizações (PNI) - 2024",
+                "parameters": [
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/cnes/estabelecimentos/{codigo_cnes}": {
+            "get": {
+                "tags": ["CNES"],
+                "summary": "Obtém estabelecimento utilizando o código CNES.",
+                "parameters": [
+                    {"name": "codigo_cnes", "in": "path", "type": "integer"},
+                    {"name": "limit", "in": "query", "type": "integer"},
+                    {"name": "offset", "in": "query", "type": "integer"},
+                ],
+            }
+        },
+        "/autenticacao/login": {
+            "post": {
+                "tags": ["Autenticação"],
+                "summary": "Obtém access token",
+            }
+        },
+    },
+}
+
+
+class TestDemas:
+    """Tests for the DEMAS (Portal de Dados Abertos do SUS) accessor.
+
+    Network-free tests mock the swagger spec and data endpoints via the
+    ``responses`` library.  Live tests are gated behind ``@requires_external_api``.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.demas import DemasAccessor
+
+        return DemasAccessor(cache_dir=str(tmp_path / "demas"))
+
+    @responses.activate
+    def test_initialization(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        # Force reload of swagger for this fresh accessor
+        accessor._swagger = None
+        assert accessor.source_name == "demas"
+        assert "DEMAS" in accessor.source_description
+        assert accessor.source_url == "https://dadosabertos.saude.gov.br/"
+        assert accessor.cache_dir.exists()
+        assert accessor.MAX_PAGE_SIZE == 20
+
+    @responses.activate
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "BR"
+        assert countries.iloc[0]["country_name"] == "Brazil"
+
+    @responses.activate
+    def test_list_domains(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        domains = accessor.list_domains(use_cache=False)
+        assert isinstance(domains, pd.DataFrame)
+        assert "Agravo Arboviroses" in domains["domain"].values
+        assert "Vacinação" in domains["domain"].values
+
+    @responses.activate
+    def test_list_datasets(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        df = accessor.list_datasets(use_cache=False)
+        # 4 GET endpoints (the POST login is excluded)
+        assert len(df) == 4
+        assert set(df.columns) == {
+            "domain",
+            "endpoint",
+            "summary",
+            "has_year_filter",
+            "query_params",
+        }
+        assert "/arboviroses/dengue" in df["endpoint"].values
+        dengue = df[df["endpoint"] == "/arboviroses/dengue"].iloc[0]
+        assert dengue["domain"] == "Agravo Arboviroses"
+        assert bool(dengue["has_year_filter"]) is True
+        # PNI 2024 has no nu_ano filter
+        pni = df[df["endpoint"] == "/vacinacao/doses-aplicadas-pni-2024"].iloc[0]
+        assert bool(pni["has_year_filter"]) is False
+
+    @responses.activate
+    def test_list_datasets_domain_filter(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        df = accessor.list_datasets(domain="Agravo Arboviroses", use_cache=False)
+        assert len(df) == 2
+        assert (df["domain"] == "Agravo Arboviroses").all()
+
+    @responses.activate
+    def test_search_datasets(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        matches = accessor.search_datasets("dengue", use_cache=False)
+        assert len(matches) == 1
+        assert matches.iloc[0]["endpoint"] == "/arboviroses/dengue"
+
+    @responses.activate
+    def test_search_datasets_portuguese(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/static/swagger.json",
+            json=_DEMAS_SWAGGER,
+            status=200,
+        )
+        accessor._swagger = None
+        matches = accessor.search_datasets("vacinação", use_cache=False)
+        assert len(matches) == 1
+        assert matches.iloc[0]["endpoint"] == "/vacinacao/doses-aplicadas-pni-2024"
+
+    @responses.activate
+    def test_get_dataset_single_page(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json={"parametros": [{"id_agravo": "A90", "nu_ano": "2024", "sg_uf": "RJ"}]},
+            status=200,
+        )
+        df = accessor.get_dataset("/arboviroses/dengue", year=2024, use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 1
+        assert df.iloc[0]["id_agravo"] == "A90"
+        assert df.iloc[0]["sg_uf"] == "RJ"
+        # Verify the year filter was sent as nu_ano
+        sent_params = responses.calls[0].request.params
+        assert sent_params["nu_ano"] == "2024"
+
+    @responses.activate
+    def test_get_dataset_varied_response_key(self, accessor):
+        """The response list key varies per endpoint; verify auto-extraction."""
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/cnes/tipounidades",
+            json={"tipos_unidade": [{"codigo": 1, "nome": "Hospital"}]},
+            status=200,
+        )
+        df = accessor.get_dataset("/cnes/tipounidades", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["nome"] == "Hospital"
+
+    @responses.activate
+    def test_get_dataset_limit_capped(self, accessor):
+        """The accessor must enforce the 20-record server cap."""
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json={"parametros": []},
+            status=200,
+        )
+        accessor.get_dataset("/arboviroses/dengue", limit=500, use_cache=False)
+        sent_params = responses.calls[0].request.params
+        assert sent_params["limit"] == "20"
+
+    @responses.activate
+    def test_get_dataset_path_params(self, accessor):
+        """Path parameters like {codigo_cnes} are substituted."""
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos/12345",
+            json={"estabelecimento": [{"codigo_cnes": 12345, "nome": "Hospital X"}]},
+            status=200,
+        )
+        df = accessor.get_dataset(
+            "/cnes/estabelecimentos/{codigo_cnes}",
+            path_params={"codigo_cnes": 12345},
+            use_cache=False,
+        )
+        assert len(df) == 1
+        assert df.iloc[0]["codigo_cnes"] == 12345
+
+    @responses.activate
+    def test_get_dataset_all_pagination(self, accessor):
+        """get_dataset_all pages until a short page is returned."""
+        # Page 0 and 1 are full (20 records), page 2 is partial (5)
+        full_page = {"parametros": [{"id": i} for i in range(20)]}
+        short_page = {"parametros": [{"id": i} for i in range(5)]}
+
+        # Use responses with multiple registrations keyed by query params
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "0", "nu_ano": "2024"})],
+        )
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "1", "nu_ano": "2024"})],
+        )
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=short_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "2", "nu_ano": "2024"})],
+        )
+        df = accessor.get_dataset_all(
+            "/arboviroses/dengue", year=2024, use_cache=False
+        )
+        assert len(df) == 45  # 20 + 20 + 5
+        assert len(responses.calls) == 3
+
+    @responses.activate
+    def test_get_dataset_all_max_pages(self, accessor):
+        """max_pages caps the number of requests."""
+        full_page = {"parametros": [{"id": i} for i in range(20)]}
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "0"})],
+        )
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/dengue",
+            json=full_page,
+            status=200,
+            match=[responses.matchers.query_param_matcher({"limit": "20", "offset": "1"})],
+        )
+        df = accessor.get_dataset_all(
+            "/arboviroses/dengue", max_pages=2, use_cache=False
+        )
+        assert len(df) == 40
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_get_arbovirose(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/arboviroses/chikungunya",
+            json={"parametros": [{"id_agravo": "A92.0"}]},
+            status=200,
+        )
+        df = accessor.get_arbovirose(disease="chikungunya", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["id_agravo"] == "A92.0"
+
+    @responses.activate
+    def test_get_vacinacao_pni(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://apidadosabertos.saude.gov.br/vacinacao/doses-aplicadas-pni-2024",
+            json={"doses_aplicadas_pni": [{"vacina": "COVID-19", "dose": 1}]},
+            status=200,
+        )
+        df = accessor.get_vacinacao_pni(year=2024, use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["vacina"] == "COVID-19"
+
+    def test_get_vacinacao_pni_invalid_year(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.get_vacinacao_pni(year=2019)
+        with pytest.raises(ValueError):
+            accessor.get_vacinacao_pni(year=2027)
+
+    def test_get_sindrome_gripal_invalid_year(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.get_sindrome_gripal(year=2024)
+
+    def test_extract_records_helper(self):
+        from epidatasets.sources.demas import DemasAccessor
+
+        assert DemasAccessor._extract_records({"parametros": [{"a": 1}]}) == [{"a": 1}]
+        assert DemasAccessor._extract_records({"doses_aplicadas_pni": [{"b": 2}]}) == [
+            {"b": 2}
+        ]
+        assert DemasAccessor._extract_records([{"c": 3}]) == [{"c": 3}]
+        assert DemasAccessor._extract_records({"no": "list"}) == []
+        assert DemasAccessor._extract_records(None) == []
+
+    def test_fill_path_params_helper(self):
+        from epidatasets.sources.demas import DemasAccessor
+
+        assert (
+            DemasAccessor._fill_path_params(
+                "/cnes/estabelecimentos/{codigo_cnes}", {"codigo_cnes": 12345}
+            )
+            == "/cnes/estabelecimentos/12345"
+        )
+        assert (
+            DemasAccessor._fill_path_params("/arboviroses/dengue", None)
+            == "/arboviroses/dengue"
+        )
+
+    @requires_external_api
+    def test_list_datasets_live(self, accessor):
+        accessor._swagger = None
+        df = accessor.list_datasets(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 50
+        assert "/arboviroses/dengue" in df["endpoint"].values
+
+    @requires_external_api
+    def test_get_dataset_live(self, accessor):
+        df = accessor.get_dataset("/arboviroses/dengue", year=2024, use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-13
+
+### Added
+
+- New `disease_sh` accessor (`DiseaseShAccessor`) for the disease.sh open API — global/country/state COVID-19 totals, historical time series with date-range filtering, vaccine coverage, and US CDC influenza surveillance (ILINet, Public Health Lab, Clinical Lab). No API key required.
+- New `demas` accessor (`DemasAccessor`) for the DEMAS Portal de Dados Abertos do SUS (Brazilian Ministry of Health) — 80+ public health datasets (arboviroses, vacinação, CNES, SISAGUA, vigilância ambiental, saúde indígena) via Swagger-based dataset discovery and paginated data fetching. No API key required.
+- Example notebook for the disease.sh accessor (`32_disease_sh_COVID19_Influenza.ipynb`)
+- Example notebook for the DEMAS accessor (`33_DEMAS_Dados_Abertos_SUS.ipynb`)
+- Mocked HTTP tests for both accessors using the `responses` library
+
+### Changed
+
+- Bumped source count to 32 data sources in the docs index and README
+- Registered `disease_sh` and `demas` entry-points and keywords in `pyproject.toml`
+- Synced `__init__.py` runtime `__version__` with the package version
+
 ## [0.5.0] - 2026-06-22
 
 ### Added
