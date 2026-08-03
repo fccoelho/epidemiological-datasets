@@ -68,6 +68,7 @@ nav:
       - EpiPulse: sources/epipulse.md
       - RespiCast: sources/respicast.md
       - Global.health: sources/global_health.md
+      - GISAID: sources/gisaid.md
       - GMPD (Global Mammal Parasite Database): sources/gmpd.md
       - Malaria Atlas: sources/malaria_atlas.md
       - Pathoplexus: sources/pathoplexus.md
@@ -98,7 +99,7 @@ nav:
       - Colombia INS SIVIGILA: examples/09_Colombia_INS_SIVIGILA_Data.ipynb
       - Africa CDC Data: examples/10_Africa_CDC_Data.ipynb
       - CDC Open Data: examples/11_CDC_Open_Data_Examples.ipynb
-      - Global Health Linelist: examples/11_Global_Health_Linelist_Data.ipynb
+      - Global Health Linelist: examples/41_Global_Health_Linelist_Data.ipynb
       - UKHSA Surveillance: examples/12_UKHSA_Surveillance_Data.ipynb
       - HealthData.gov US Health System: examples/13_HealthData_Gov_US_Health_System.ipynb
       - RKI Germany Surveillance: examples/14_RKI_Germany_Surveillance_Data.ipynb
@@ -122,10 +123,11 @@ nav:
       - disease.sh COVID-19 & Influenza: examples/32_disease_sh_COVID19_Influenza.ipynb
       - DEMAS Dados Abertos do SUS: examples/33_DEMAS_Dados_Abertos_SUS.ipynb
       - GMPD Global Mammal Parasite Database: examples/34_GMPD_Global_Mammal_Parasite_Database.ipynb
-      - CDC Open Data (Quick): examples/cdc_opendata_example.ipynb
-      - ECDC Open Data (Quick): examples/ecdc_opendata_example.ipynb
-      - EMRO Analysis (PT): examples/emro_health_analysis.ipynb
-      - EpiPulse: examples/epipulse_example.ipynb
-      - RespiCast: examples/respicast_example.ipynb
+      - GISAID: examples/39_gisaid_example.ipynb
+      - CDC Open Data (Quick): examples/35_cdc_opendata_example.ipynb
+      - ECDC Open Data (Quick): examples/36_ecdc_opendata_example.ipynb
+      - EMRO Analysis (PT): examples/37_emro_health_analysis.ipynb
+      - EpiPulse: examples/38_epipulse_example.ipynb
+      - RespiCast: examples/40_respicast_example.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md

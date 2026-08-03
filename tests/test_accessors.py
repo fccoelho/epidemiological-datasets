@@ -2000,3 +2000,283 @@ class TestGMPD:
         summary = accessor.get_summary_statistics(use_cache=True)
         assert isinstance(summary, pd.DataFrame)
         assert summary.iloc[0]["total_records"] > 1000
+
+
+# ---------------------------------------------------------------------------
+# GISAID Tests
+# ---------------------------------------------------------------------------
+
+GISAID_TEST_CREDS = {"username": "test_user", "password": "test_pass"}
+
+
+class TestGISAID:
+    """Tests for GISAID accessor.
+
+    Tests use explicit credentials to avoid triggering the credential
+    discovery flow which would raise ValueError without env vars/config.
+    Browser automation tests (query, download) are gated behind
+    @requires_external_api since they need Playwright + real credentials.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid"),
+        )
+        yield acc
+        acc.close()
+
+    @pytest.fixture
+    def accessor_epiflu(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiFlu",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_flu"),
+        )
+        yield acc
+        acc.close()
+
+    def test_initialization(self, accessor):
+        assert accessor.source_name == "gisaid"
+        assert accessor.database == "EpiCoV"
+        assert accessor.cache_dir.exists()
+        assert "GISAID" in accessor.source_description
+
+    def test_initialization_epiflu(self, accessor_epiflu):
+        assert accessor_epiflu.database == "EpiFlu"
+
+    def test_initialization_epipox(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiPox",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_pox"),
+        )
+        try:
+            assert acc.database == "EpiPox"
+        finally:
+            acc.close()
+
+    def test_initialization_epirsv(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiRSV",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_rsv"),
+        )
+        try:
+            assert acc.database == "EpiRSV"
+        finally:
+            acc.close()
+
+    def test_initialization_epiarbo(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiArbo",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_arbo"),
+        )
+        try:
+            assert acc.database == "EpiArbo"
+        finally:
+            acc.close()
+
+    def test_invalid_database(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        with pytest.raises(ValueError, match="not supported"):
+            GISAIDAccessor(
+                database="InvalidDB",
+                username="test_user",
+                password="test_pass",
+                cache_dir=str(tmp_path / "gisaid_invalid"),
+            )
+
+    def test_list_databases(self, accessor):
+        dbs = accessor.list_databases()
+        assert isinstance(dbs, pd.DataFrame)
+        assert len(dbs) == 5
+        assert "EpiCoV" in dbs["database"].values
+        assert "EpiFlu" in dbs["database"].values
+        assert "EpiPox" in dbs["database"].values
+        assert "EpiRSV" in dbs["database"].values
+        assert "EpiArbo" in dbs["database"].values
+        assert "description" in dbs.columns
+        assert "pathogens" in dbs.columns
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) > 190
+        assert "country_code" in countries.columns
+        assert "country_name" in countries.columns
+        assert "region" in countries.columns
+        assert "BRA" in countries["country_code"].values
+        assert "USA" in countries["country_code"].values
+
+    def test_get_regions(self, accessor):
+        regions = accessor.get_regions()
+        assert isinstance(regions, list)
+        assert len(regions) == 6
+        assert "South America" in regions
+        assert "Europe" in regions
+        assert "Asia" in regions
+        assert "Africa" in regions
+        assert "North America" in regions
+        assert "Oceania" in regions
+
+    def test_get_countries_by_region_valid(self, accessor):
+        df = accessor.get_countries_by_region("South America")
+        assert isinstance(df, pd.DataFrame)
+        assert "BRA" in df["country_code"].values
+        assert "Brazil" in df["country_name"].values
+
+    def test_get_countries_by_region_invalid(self, accessor):
+        with pytest.raises(ValueError, match="not found"):
+            accessor.get_countries_by_region("Atlantis")
+
+    def test_credential_loading_from_env(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("GISAID_USERNAME", "env_user")
+        monkeypatch.setenv("GISAID_PASSWORD", "env_pass")
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV", cache_dir=str(tmp_path / "gisaid_env")
+        )
+        try:
+            assert acc.username == "env_user"
+            assert acc.password == "env_pass"
+        finally:
+            acc.close()
+
+    def test_credential_loading_from_config(self, tmp_path):
+        config_dir = tmp_path / "epi_data"
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / "gisaid.json"
+        config_file.write_text(
+            '{"username": "config_user", "password": "config_pass"}'
+        )
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV",
+            config_path=str(config_file),
+            cache_dir=str(tmp_path / "gisaid_cfg"),
+        )
+        try:
+            assert acc.username == "config_user"
+            assert acc.password == "config_pass"
+        finally:
+            acc.close()
+
+    def test_missing_credentials_non_interactive(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("GISAID_USERNAME", raising=False)
+        monkeypatch.delenv("GISAID_PASSWORD", raising=False)
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        with pytest.raises((ValueError, OSError)):
+            GISAIDAccessor(
+                database="EpiCoV",
+                cache_dir=str(tmp_path / "gisaid_noauth"),
+            )
+
+    def test_constructor_credentials_override(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("GISAID_USERNAME", "env_user")
+        monkeypatch.setenv("GISAID_PASSWORD", "env_pass")
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV",
+            username="explicit_user",
+            password="explicit_pass",
+            cache_dir=str(tmp_path / "gisaid_override"),
+        )
+        try:
+            assert acc.username == "explicit_user"
+            assert acc.password == "explicit_pass"
+        finally:
+            acc.close()
+
+    def test_info(self, accessor):
+        info_str = accessor.info()
+        assert "EpiCoV" in info_str
+        assert "GISAID" in info_str
+        assert "5,000" in info_str
+
+    def test_info_for_different_database(self, accessor_epiflu):
+        info_str = accessor_epiflu.info()
+        assert "EpiFlu" in info_str
+        assert "Influenza" in info_str
+
+    def test_countries_dataframe_structure(self, accessor):
+        df = accessor.list_countries()
+        assert df["country_code"].str.len().between(2, 3).all()
+        assert df["country_name"].notna().all()
+        assert df["region"].notna().all()
+        regions = df["region"].unique()
+        assert len(regions) == 6
+
+    def test_worker_thread_runs_in_separate_thread(self, accessor):
+        import threading
+
+        main_tid = threading.get_ident()
+
+        def _get_tid():
+            return threading.get_ident()
+
+        worker_tid = accessor._worker(_get_tid)
+        assert worker_tid != main_tid, (
+            "Worker must run in a separate thread from main"
+        )
+
+    def test_worker_thread_returns_result(self, accessor):
+        result = accessor._worker(lambda x, y: x + y, 10, 32)
+        assert result == 42
+
+    def test_worker_thread_propagates_exceptions(self, accessor):
+        with pytest.raises(ValueError, match="test error"):
+            accessor._worker(lambda: (_ for _ in ()).throw(ValueError("test error")))
+
+    def test_jupyter_asyncio_compatibility(self, accessor):
+        """Simulate Jupyter's asyncio event loop and verify the worker
+        thread still functions correctly."""
+        import asyncio
+
+        async def _with_running_loop():
+            main_tid = id(asyncio.get_running_loop())
+
+            def _check():
+                # Verify we can get a result from the worker while
+                # an asyncio loop is running on the main thread
+                return "ok"
+
+            result = accessor._worker(_check)
+            return result, main_tid
+
+        loop = asyncio.new_event_loop()
+        try:
+            result, _ = loop.run_until_complete(_with_running_loop())
+            assert result == "ok"
+        finally:
+            loop.close()
+
+    @requires_external_api
+    def test_query_live(self):
+        import os
+
+        from epidatasets.sources.gisaid import GISAIDAccessor
+
+        username = os.getenv("GISAID_USERNAME")
+        password = os.getenv("GISAID_PASSWORD")
+        if not username or not password:
+            pytest.skip("GISAID credentials not set")
+        acc = GISAIDAccessor(database="EpiCoV", username=username, password=password)
+        try:
+            df = acc.query(location="Brazil", nrows=10)
+            assert isinstance(df, pd.DataFrame)
+        finally:
+            acc.close()

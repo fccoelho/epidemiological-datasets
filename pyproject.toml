@@ -94,11 +94,16 @@ scraping = [
     "bs4>=0.0.2",
     "lxml>=4.9.0",
 ]
+gisaid = [
+    "playwright>=1.40.0",
+    "beautifulsoup4>=4.12.0",
+    "nest-asyncio>=1.5.0",
+]
 pdf = [
     "pdfplumber>=0.10.0",
 ]
 all = [
-    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf]",
+    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf,gisaid]",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -141,6 +146,7 @@ ecdc = "epidatasets.sources.ecdc_opendata:ECDCOpenDataAccessor"
 ecdc_atlas = "epidatasets.sources.ecdc_atlas:ECDCAtlasAccessor"
 epipulse = "epidatasets.sources.epipulse:EpiPulseAccessor"
 eurostat = "epidatasets.sources.eurostat:EurostatAccessor"
+gisaid = "epidatasets.sources.gisaid:GISAIDAccessor"
 global_health = "epidatasets.sources.global_health:GlobalHealthAccessor"
 gmpd = "epidatasets.sources.gmpd:GMPDAccessor"
 healthdata_gov = "epidatasets.sources.healthdata_gov:HealthDataGovAccessor"
