@@ -1659,3 +1659,344 @@ class TestDemas:
         df = accessor.get_dataset("/arboviroses/dengue", year=2024, use_cache=False)
         assert isinstance(df, pd.DataFrame)
         assert not df.empty
+
+
+# Sample GMPD main CSV for mocked tests (columns match the real schema).
+_GMPD_MAIN_CSV = (
+    "Group,HostReportedName,HostCorrectedName,HostOrder,HostFamily,HostEnvironment,"
+    "ParasiteReportedName,ParasiteCorrectedName,HasBinomialName,ParType,ParPhylum,"
+    "ParClass,Citation,LocationName,Longitude,Latitude,PopulationType,SamplingBasis,"
+    "SampleNotes,Prevalence,HostsSampled,HostSex,HostAge,Intensity,IntensityMeasure,"
+    "NativeRange,NumSamples,SamplingType\n"
+    "carnivores,Acinonyx jubatus,Acinonyx jubatus,Carnivora,Felidae,terrestrial,"
+    "Feline coronavirus,Alphacoronavirus Alphacoronavirus 1,yes,Virus,RNA virus,ss+,"
+    "Kennedy et al. 2003,Namibia and South Africa,18.49,-22.96,WN,Animals,NA,0.581,"
+    "43,NA,NA,,NA,Yes,43,Serology\n"
+    "carnivores,Acinonyx jubatus,Acinonyx jubatus,Carnivora,Felidae,terrestrial,"
+    "Feline coronavirus,Alphacoronavirus Alphacoronavirus 1,yes,Virus,RNA virus,ss+,"
+    "Kennedy et al. 2003,Namibia and South Africa,18.49,-22.96,WN,Animals,NA,0.163,"
+    "43,NA,NA,,NA,Yes,43,PCR\n"
+    "primates,Pan troglodytes,Pan troglodytes,Primates,Hominidae,terrestrial,"
+    "Plasmodium falciparum,Plasmodium falciparum,yes,Protozoa,Apicomplexa,Aconoidasica,"
+    "Liu et al. 2010,Cameroon,11.50,3.87,WN,Animals,NA,0.25,120,F,Adult,NA,NA,Yes,"
+    "120,Blood smear\n"
+    "primates,Gorilla gorilla,Gorilla gorilla,Primates,Hominidae,terrestrial,"
+    "Strongyloides fulleborni,Strongyloides fulleborni,yes,Helminth,Nematoda,"
+    "Chromadorea,Hasegawa et al. 2010,NA,NA,NA,WN,Faecal,NA,0.75,40,M,Adult,3.2,epg,"
+    "Yes,40,Faecal\n"
+    "ungulates,Bos taurus,Bos taurus,Artiodactyla,Bovidae,terrestrial,"
+    "Bacillus anthracis,Bacillus anthracis,yes,Bacteria,Firmicutes,Bacilli,"
+    "Hugh-Jones et al. 2008,NA,NA,NA,WN,Animals,NA,NA,NA,NA,NA,,No,NA,NA,Culture\n"
+)
+
+
+class TestGMPD:
+    """Tests for the Global Mammal Parasite Database (GMPD) accessor.
+
+    Network-free tests mock the GMPD main CSV via the ``responses`` library.
+    Live tests are gated behind ``@requires_external_api``.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.gmpd import GMPDAccessor
+
+        return GMPDAccessor(cache_dir=str(tmp_path / "gmpd"))
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "gmpd"
+        assert "Global Mammal Parasite Database" in accessor.source_description
+        assert accessor.source_url == "https://parasites.nunn-lab.org/"
+        assert accessor.cache_dir.exists()
+
+    def test_host_groups_constant(self, accessor):
+        assert "primates" in accessor.HOST_GROUPS
+        assert "carnivores" in accessor.HOST_GROUPS
+        assert "ungulates" in accessor.HOST_GROUPS
+
+    def test_list_host_groups(self, accessor):
+        groups = accessor.list_host_groups()
+        assert isinstance(groups, pd.DataFrame)
+        assert len(groups) == 3
+        assert set(groups["group"]) == {"Primates", "Carnivores", "Ungulates"}
+
+    def test_list_datasets(self, accessor):
+        datasets = accessor.list_datasets()
+        assert isinstance(datasets, pd.DataFrame)
+        assert "GMPD_main" in datasets["dataset"].values
+        main = datasets[datasets["dataset"] == "GMPD_main"].iloc[0]
+        assert bool(main["available"]) is True
+        assert main["method"] == "get_records"
+
+    def test_column_map_keys(self, accessor):
+        # Every canonical column maps to a snake_case name
+        for raw in ("Group", "HostCorrectedName", "ParType", "Citation", "Longitude"):
+            assert raw in accessor.COLUMN_MAP
+
+    @responses.activate
+    def test_list_countries(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        countries = accessor.list_countries(use_cache=False)
+        assert isinstance(countries, pd.DataFrame)
+        assert {"country_code", "country_name", "record_count"}.issubset(
+            countries.columns
+        )
+        # "NA" location is excluded; two unique localities remain
+        assert len(countries) == 2
+        assert "Namibia and South Africa" in countries["country_name"].values
+        assert countries.iloc[0]["record_count"] == 2  # most frequent
+
+    @responses.activate
+    def test_get_records_all(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 5
+        # Columns are normalized to snake_case
+        assert "host_corrected_name" in df.columns
+        assert "parasite_type" in df.columns
+        assert "group" in df.columns
+        # group is title-cased
+        assert set(df["group"]) <= {"Primates", "Carnivores", "Ungulates"}
+        # numeric coercion
+        assert df["hosts_sampled"].dtype.kind in {"i", "u", "f"}
+        assert df["longitude"].dtype.kind in {"i", "u", "f"}
+
+    @responses.activate
+    def test_get_records_filter_group(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(group="Primates", use_cache=False)
+        assert (df["group"] == "Primates").all()
+        assert len(df) == 2
+        # case-insensitive filtering
+        df2 = accessor.get_records(group="primates", use_cache=False)
+        assert (df2["group"] == "Primates").all()
+
+    @responses.activate
+    def test_get_records_filter_parasite_type(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(parasite_type="Virus", use_cache=False)
+        assert len(df) == 2
+        assert (df["parasite_type"] == "Virus").all()
+
+    @responses.activate
+    def test_get_records_has_coordinates(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        geo = accessor.get_records(has_coordinates=True, use_cache=False)
+        assert geo["longitude"].notna().all()
+        assert len(geo) == 3
+        no_geo = accessor.get_records(has_coordinates=False, use_cache=False)
+        assert no_geo["longitude"].isna().all()
+
+    @responses.activate
+    def test_get_records_filter_host_and_location(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(host="Pan troglodytes", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["host_corrected_name"] == "Pan troglodytes"
+
+        loc = accessor.get_records(location="Cameroon", use_cache=False)
+        assert len(loc) == 1
+        assert loc.iloc[0]["location_name"] == "Cameroon"
+
+    @responses.activate
+    def test_list_hosts(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        hosts = accessor.list_hosts(use_cache=False)
+        assert isinstance(hosts, pd.DataFrame)
+        assert "host" in hosts.columns
+        assert "record_count" in hosts.columns
+        assert "Acinonyx jubatus" in hosts["host"].values
+        # Acinonyx jubatus has 2 records -> should rank first
+        assert hosts.iloc[0]["host"] == "Acinonyx jubatus"
+        assert hosts.iloc[0]["record_count"] == 2
+
+    @responses.activate
+    def test_list_parasites(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        parasites = accessor.list_parasites(parasite_type="Virus", use_cache=False)
+        assert isinstance(parasites, pd.DataFrame)
+        assert "parasite" in parasites.columns
+        assert len(parasites) == 1
+        assert parasites.iloc[0]["record_count"] == 2
+
+    @responses.activate
+    def test_list_parasite_types(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        types = accessor.list_parasite_types(use_cache=False)
+        assert isinstance(types, pd.DataFrame)
+        assert "parasite_type" in types.columns
+        assert "record_count" in types.columns
+        # Virus has 2 records and is the most frequent
+        assert types.iloc[0]["parasite_type"] == "Virus"
+        assert types.iloc[0]["record_count"] == 2
+
+    @responses.activate
+    def test_get_interactions(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        interactions = accessor.get_interactions(use_cache=False)
+        assert isinstance(interactions, pd.DataFrame)
+        assert {"host_corrected_name", "parasite_corrected_name", "record_count"}.issubset(
+            interactions.columns
+        )
+        # Acinonyx jubatus <-> Alphacoronavirus is supported by 2 records
+        ace = interactions[
+            interactions["host_corrected_name"] == "Acinonyx jubatus"
+        ]
+        assert len(ace) == 1
+        assert ace.iloc[0]["record_count"] == 2
+        assert "citations" in interactions.columns
+
+    @responses.activate
+    def test_get_summary_statistics(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        summary = accessor.get_summary_statistics(use_cache=False)
+        assert isinstance(summary, pd.DataFrame)
+        assert len(summary) == 1
+        row = summary.iloc[0]
+        assert row["total_records"] == 5
+        assert row["unique_hosts"] == 4
+        assert row["unique_citations"] == 4
+        assert row["georeferenced_records"] == 3
+        assert row["host_groups"] == 3
+
+    @responses.activate
+    def test_search_records(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        # Match parasite name substring
+        df = accessor.search_records("Plasmodium", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["parasite_corrected_name"] == "Plasmodium falciparum"
+        # Match host name substring (case-insensitive)
+        df2 = accessor.search_records("gorilla", use_cache=False)
+        assert len(df2) == 1
+        assert df2.iloc[0]["host_corrected_name"] == "Gorilla gorilla"
+
+    @responses.activate
+    def test_cache_write_and_read(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        # First call downloads and writes the cache
+        accessor.get_records(use_cache=True)
+        cache_file = accessor.cache_dir / "GMPD_main.csv"
+        assert cache_file.exists()
+        # Only one network call happened
+        assert len(responses.calls) == 1
+
+        # Second call should be served from cache (no new network call)
+        accessor.get_records(use_cache=True)
+        assert len(responses.calls) == 1
+
+    def test_clear_cache(self, tmp_path):
+        from epidatasets.sources.gmpd import GMPDAccessor
+
+        acc = GMPDAccessor(cache_dir=str(tmp_path / "gmpd2"))
+        cache_file = acc.cache_dir / "GMPD_main.csv"
+        cache_file.write_text("dummy")
+        assert cache_file.exists()
+        acc.clear_cache()
+        assert not cache_file.exists()
+
+    @requires_external_api
+    def test_get_records_live(self, accessor):
+        df = accessor.get_records(group="Primates", parasite_type="Virus", use_cache=True)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert (df["group"] == "Primates").all()
+
+    @requires_external_api
+    def test_get_summary_statistics_live(self, accessor):
+        summary = accessor.get_summary_statistics(use_cache=True)
+        assert isinstance(summary, pd.DataFrame)
+        assert summary.iloc[0]["total_records"] > 1000

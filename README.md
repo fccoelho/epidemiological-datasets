@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **32 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **33 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -82,7 +82,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 32 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 33 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -246,6 +246,7 @@ epidemiological-datasets/
 | [Global Health Data Exchange (GHDx)](http://ghdx.healthdata.org/) | Catalog of health datasets | Varies | Varies | Catalog only |
 | [HDX (Humanitarian Data Exchange)](https://data.humdata.org/) | Health in crisis contexts | Real-time | Open | Planned |
 | [Global.health](https://global.health/) | Pandemic linelist data | Varies | Open | `epidatasets.sources.global_health` |
+| [GMPD (Global Mammal Parasite Database)](https://parasites.nunn-lab.org/) | Wild mammal host-parasite associations (primates, carnivores, ungulates) | Irregular | Open | `epidatasets.sources.gmpd` |
 | [Malaria Atlas Project](https://malariaatlas.org/) | Malaria prevalence & vector data | Annual | Open | `epidatasets.sources.malaria_atlas` |
 | [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/) | Environmental & climate data | Varies | Open | `epidatasets.sources.copernicus_cds` |
 | [Pathoplexus](https://pathoplexus.org/) | Pathogen genomic data | Continuous | Open | `epidatasets.sources.pathoplexus` |
@@ -511,6 +512,7 @@ owid_covid = owid.get_covid_data(
 | `epipulse` | `EpiPulseAccessor` | — | ECDC EpiPulse surveillance portal |
 | `eurostat` | `EurostatAccessor` | `[eurostat]` | EU health statistics |
 | `global_health` | `GlobalHealthAccessor` | — | Global.health pandemic linelist data |
+| `gmpd` | `GMPDAccessor` | — | Global Mammal Parasite Database (wild mammals) |
 | `healthdata_gov` | `HealthDataGovAccessor` | — | US HealthData.gov |
 | `india_idsp` | `IndiaIDSPAccessor` | — | India IDSP disease surveillance |
 | `infodengue` | `InfoDengueAPI` | — | InfoDengue dengue surveillance (Brazil) |
@@ -530,7 +532,7 @@ owid_covid = owid.get_covid_data(
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 32 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 33 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 
@@ -600,7 +602,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## 📊 Statistics
 
-- **Data sources:** 24 registered (via plugin registry)
+- **Data sources:** 33 registered (via plugin registry)
 - **Countries covered:** 100+
 - **Optional extras:** 10 (`who`, `brazil`, `eurostat`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
 - **Example notebooks:** 28+

@@ -1,6 +1,6 @@
 # Data Sources
 
-Epidatasets provides access to **29 epidemiological data sources** from around the world.
+Epidatasets provides access to **33 epidemiological data sources** from around the world.
 
 ## How Sources Work
 
@@ -44,6 +44,7 @@ who = get_source("who")
 | EpiPulse | `epipulse` | Europe | None |
 | RespiCast | `respicast` | Europe | None |
 | Global.health | `global_health` | Global | None |
+| GMPD (Global Mammal Parasite Database) | `gmpd` | Global | None |
 | Malaria Atlas | `malaria_atlas` | Global | None |
 | Pathoplexus | `pathoplexus` | Global | `xmltodict` |
 | Copernicus CDS | `copernicus_cds` | Global | `cdsapi`, `xarray` |
