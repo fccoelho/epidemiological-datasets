@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-13
+
+### Added
+
+- New `disease_sh` accessor (`DiseaseShAccessor`) for the disease.sh open API — global/country/state COVID-19 totals, historical time series with date-range filtering, vaccine coverage, and US CDC influenza surveillance (ILINet, Public Health Lab, Clinical Lab). No API key required.
+- New `demas` accessor (`DemasAccessor`) for the DEMAS Portal de Dados Abertos do SUS (Brazilian Ministry of Health) — 80+ public health datasets (arboviroses, vacinação, CNES, SISAGUA, vigilância ambiental, saúde indígena) via Swagger-based dataset discovery and paginated data fetching. No API key required.
+- Example notebook for the disease.sh accessor (`32_disease_sh_COVID19_Influenza.ipynb`)
+- Example notebook for the DEMAS accessor (`33_DEMAS_Dados_Abertos_SUS.ipynb`)
+- Mocked HTTP tests for both accessors using the `responses` library
+
+### Changed
+
+- Bumped source count to 32 data sources in the docs index and README
+- Registered `disease_sh` and `demas` entry-points and keywords in `pyproject.toml`
+- Synced `__init__.py` runtime `__version__` with the package version
+
+## [0.5.0] - 2026-06-22
+
+### Added
+
+- New `nz_health` accessor (`NZHealthAccessor`) for New Zealand health statistics from Stats NZ and Health NZ | Te Whatu Ora (mortality, life tables, hospital events, immunisation coverage)
+- Shared `PDFParser` utility reused across PDF-based accessors
+- Example notebook for the InfoDengue accessor (`18_InfoDengue_Brazilian_Arbovirus_Surveillance.ipynb`)
+- Example notebook for the NZ Health accessor (`25_New_Zealand_Health_Data.ipynb`)
+
+### Changed
+
+- Moved `pdfplumber` to core dependencies
+- Refactored 4 accessors to use the shared `PDFParser`
+- Updated README to reflect 24 data sources and the implemented NZ Health accessor
+- Expanded mkdocs navigation to include all example notebooks
+
+### Fixed
+
+- Eurostat country/year filtering, invalid indicator codes, and notebook visualization
+- Colombia INS bulletin URLs
+- RespiCast data source and fetching mechanism
+
 ## [0.3.1] - 2026-04-20
 
 ### Fixed

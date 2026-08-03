@@ -1,6 +1,6 @@
 # Data Sources
 
-Epidatasets provides access to **21 epidemiological data sources** from around the world.
+Epidatasets provides access to **29 epidemiological data sources** from around the world.
 
 ## How Sources Work
 
@@ -30,6 +30,7 @@ who = get_source("who")
 | PAHO | `paho` | Americas | None |
 | Our World in Data | `owid` | Global | None |
 | ECDC Open Data | `ecdc` | Europe | None |
+| ECDC Atlas | `ecdc_atlas` | Europe | None |
 | Eurostat | `eurostat` | Europe | `eurostat` |
 | RKI Germany | `rki` | Germany | None |
 | UKHSA | `ukhsa` | UK | None |
@@ -47,3 +48,10 @@ who = get_source("who")
 | Pathoplexus | `pathoplexus` | Global | `xmltodict` |
 | Copernicus CDS | `copernicus_cds` | Global | `cdsapi`, `xarray` |
 | InfoDengue | `infodengue` | Brazil | None |
+| Singapore MOH | `singapore_moh` | Singapore | None |
+| Singapore NEA | `singapore_nea` | Singapore | `geopandas` |
+| Malaysia MOH | `malaysia_moh` | Malaysia | None |
+| Thailand DDC | `thailand_ddc` | Thailand | None |
+| Indonesia MOH | `indonesia_moh` | Indonesia | None |
+| disease.sh | `disease_sh` | Global | None |
+| DEMAS (Dados Abertos do SUS) | `demas` | Brazil | None |

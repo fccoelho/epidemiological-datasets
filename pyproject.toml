@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "epidatasets"
-version = "0.3.1"
+version = "0.7.0"
 description = "Python library for accessing epidemiological datasets worldwide"
 readme = "README.md"
 license = {text = "MIT"}
@@ -19,6 +19,9 @@ keywords = [
     "health-data",
     "pysus",
     "datasus",
+    "disease.sh",
+    "demas",
+    "sus",
     "who",
     "world-bank",
     "ecdc",
@@ -47,6 +50,8 @@ dependencies = [
     "pandas-stubs~=2.3.3",
     "matplotlib>=3.10.9",
     "seaborn>=0.13.2",
+    "pypdf>=6.12.1",
+    "pdfplumber>=0.11.9",
 ]
 
 [project.optional-dependencies]
@@ -130,21 +135,30 @@ china_cdc = "epidatasets.sources.china_cdc:ChinaCDCAccessor"
 colombia_ins = "epidatasets.sources.colombia_ins:ColombiaINSAccessor"
 copernicus_cds = "epidatasets.sources.copernicus_cds:CopernicusCDSAccessor"
 datasus = "epidatasets.sources.datasus_pysus:DataSUSAccessor"
+demas = "epidatasets.sources.demas:DemasAccessor"
+disease_sh = "epidatasets.sources.disease_sh:DiseaseShAccessor"
 ecdc = "epidatasets.sources.ecdc_opendata:ECDCOpenDataAccessor"
+ecdc_atlas = "epidatasets.sources.ecdc_atlas:ECDCAtlasAccessor"
 epipulse = "epidatasets.sources.epipulse:EpiPulseAccessor"
 eurostat = "epidatasets.sources.eurostat:EurostatAccessor"
 global_health = "epidatasets.sources.global_health:GlobalHealthAccessor"
 healthdata_gov = "epidatasets.sources.healthdata_gov:HealthDataGovAccessor"
 india_idsp = "epidatasets.sources.india_idsp:IndiaIDSPAccessor"
 infodengue = "epidatasets.sources.infodengue_api:InfoDengueAPI"
+indonesia_moh = "epidatasets.sources.indonesia_moh:IndonesiaMOHAccessor"
+malaysia_moh = "epidatasets.sources.malaysia_moh:MalaysiaMOHAccessor"
 malaria_atlas = "epidatasets.sources.malaria_atlas:MalariaAtlasAccessor"
+nz_health = "epidatasets.sources.nz_health:NZHealthAccessor"
 owid = "epidatasets.sources.owid:OWIDAccessor"
 oman_moh = "epidatasets.sources.oman_moh:OmanMOHAccessor"
 paho = "epidatasets.sources.paho:PAHOAccessor"
 pakistan_nih = "epidatasets.sources.pakistan_nih:PakistanNIHAccessor"
 pathoplexus = "epidatasets.sources.pathoplexus:PathoplexusAccessor"
+singapore_moh = "epidatasets.sources.singapore_moh:SingaporeMOHAccessor"
+singapore_nea = "epidatasets.sources.singapore_nea:SingaporeNEAAccessor"
 respicast = "epidatasets.sources.respicast:RespiCastAccessor"
 rki = "epidatasets.sources.rki_germany:RKIGermanyAccessor"
+thailand_ddc = "epidatasets.sources.thailand_ddc:ThailandDDCAccessor"
 ukhsa = "epidatasets.sources.ukhsa:UKHSAAccessor"
 who = "epidatasets.sources.who_ghoclient:WHOAccessor"
 
@@ -163,7 +177,9 @@ Changelog = "https://github.com/fccoelho/epidemiological-datasets/blob/main/CHAN
 compile-bytecode = true
 reinstall = false
 resolution = "highest"
-dev-dependencies = [
+
+[dependency-groups]
+dev = [
     "fpdf2>=2.8.7",
 ]
 

@@ -24,9 +24,12 @@ License: MIT
 """
 
 import logging
+import os
+import re
 import time
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import ClassVar, List, Optional
 from urllib.parse import urlencode
 
@@ -34,6 +37,7 @@ import pandas as pd
 import requests
 
 from epidatasets._base import BaseAccessor
+from epidatasets.utils.pdf import PDFParser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -79,6 +83,18 @@ class ColombiaINSAccessor(BaseAccessor):
 
     BASE_URL = "https://www.ins.gov.co"
     DATA_URL = "https://www.ins.gov.co/Direcciones/Vigilancia/Paginas/Datos-abiertos.aspx"
+    BOLETIN_PAGE_URL = (
+        "https://www.ins.gov.co/buscador-eventos/Paginas/"
+        "Vista-Boletin-Epidemilogico.aspx"
+    )
+    BOLETIN_SP_API = (
+        "https://www.ins.gov.co/buscador-eventos/_api/web/lists/"
+        "getbytitle('Bolet%C3%ADn%20Epidemiol%C3%B3gico')/items"
+    )
+    BOLETIN_FILE_URL = (
+        "https://www.ins.gov.co/buscador-eventos/"
+        "BoletinEpidemiologico/{year}_Boletin_epidemiologico_semana_{week:02d}.pdf"
+    )
 
     # Alternative data sources
     SIVIGILA_URL = "https://www.sivigila.gov.co"
@@ -178,19 +194,24 @@ class ColombiaINSAccessor(BaseAccessor):
     }
 
     def __init__(self, cache_dir: Optional[str] = None):
-        """
-        Initialize Colombia INS accessor.
-
-        Args:
-            cache_dir: Directory to cache downloaded data (optional)
-        """
+        if cache_dir is None:
+            cache_dir = os.path.join(
+                os.path.expanduser("~"), ".cache", "epidatasets", "colombia_ins"
+            )
         self.cache_dir = cache_dir
+        os.makedirs(self.cache_dir, exist_ok=True)
         self._session = requests.Session()
         self._session.headers.update({
             "User-Agent": "INS-Colombia-Data-Accessor/1.0 (Research Purpose)",
             "Accept": "application/json, text/csv, application/vnd.ms-excel",
         })
         self._cache = {}
+        self._pdf = PDFParser(
+            cache_dir=Path(self.cache_dir),
+            cache_ttl_days=30,
+            user_agent="INS-Colombia-Data-Accessor/1.0 (Research Purpose)",
+            timeout=120,
+        )
 
     def list_departments(self) -> pd.DataFrame:
         """
@@ -453,76 +474,179 @@ class ColombiaINSAccessor(BaseAccessor):
         )
         return pd.DataFrame(data)
 
+    def _build_bulletin_url(self, year: int, week: int) -> str:
+        return self.BOLETIN_FILE_URL.format(year=year, week=week)
+
+    def list_available_bulletins(
+        self,
+        year: Optional[int] = None,
+        top: int = 100,
+    ) -> pd.DataFrame:
+        """
+        List available bulletins by querying the INS SharePoint API.
+
+        Args:
+            year: Filter by year. If None, returns most recent bulletins.
+            top: Maximum number of results to return.
+
+        Returns:
+            DataFrame with columns: year, week, filename, bulletin_url,
+            created_date.
+        """
+        logger.info("Querying INS SharePoint API for available bulletins")
+        headers = {
+            "Accept": "application/json;odata=verbose",
+        }
+        params = {
+            "$select": "Id,FileRef,FileLeafRef,Created",
+            "$top": str(top),
+            "$orderby": "Created desc",
+        }
+
+        try:
+            r = self._session.get(
+                self.BOLETIN_SP_API,
+                headers=headers,
+                params=params,
+                timeout=60,
+            )
+            r.raise_for_status()
+        except Exception as e:
+            logger.error(f"Failed to query SharePoint API: {e}")
+            return pd.DataFrame()
+
+        results = r.json().get("d", {}).get("results", [])
+        if not results:
+            logger.warning("No bulletins found via SharePoint API")
+            return pd.DataFrame()
+
+        bulletins = []
+        for item in results:
+            filename = item.get("FileLeafRef", "")
+            fileref = item.get("FileRef", "")
+            created = item.get("Created", "")
+
+            match = re.match(
+                r"(\d{4})_Boletin_epidemiologico_semana_(\d+)",
+                filename,
+            )
+            if not match:
+                continue
+
+            byear = int(match.group(1))
+            bweek = int(match.group(2))
+
+            if year is not None and byear != year:
+                continue
+
+            bulletin_url = self.BASE_URL + fileref
+            bulletins.append({
+                "year": byear,
+                "week": bweek,
+                "filename": filename,
+                "bulletin_url": bulletin_url,
+                "created_date": created,
+            })
+
+        df = pd.DataFrame(bulletins)
+        if not df.empty:
+            df = df.sort_values(["year", "week"], ascending=[False, False]).reset_index(drop=True)
+        logger.info(f"Found {len(df)} available bulletins")
+        return df
+
     def get_weekly_bulletins(
         self,
         year: int,
         week: Optional[int] = None,
     ) -> pd.DataFrame:
         """
-        Get INS weekly epidemiological bulletins (Boletines Epidemiológicos Semanales).
+        Get INS weekly epidemiological bulletins (Boletines Epidemiologicos Semanales).
 
-        The INS publishes weekly bulletins with epidemiological surveillance data
-        for notifiable diseases.
+        Queries the INS SharePoint document library to discover available
+        bulletin PDFs. Falls back to generating expected URLs if the API
+        is unavailable.
 
         Args:
-            year: Year of the bulletin (e.g., 2023)
-            week: Specific epidemiological week (1-53). If None, returns all weeks.
+            year: Year of the bulletin (e.g., 2024).
+            week: Specific epidemiological week (1-53). If None, returns all
+                  available weeks for the given year.
 
-        Returns
-        -------
-            DataFrame with bulletin data including:
-            - year: Year
-            - week: Epidemiological week
-            - bulletin_url: URL to the bulletin
-            - publication_date: Publication date
-            - diseases_covered: List of diseases covered in the bulletin
-
-        Example:
-            >>> ins = ColombiaINSAccessor()
-            >>> # Get all bulletins for 2023
-            >>> bulletins_2023 = ins.get_weekly_bulletins(year=2023)
-            >>>
-            >>> # Get specific week
-            >>> week_10 = ins.get_weekly_bulletins(year=2023, week=10)
-
-        Note:
-            INS bulletins are typically published as PDF documents.
-            This method provides metadata and URLs for accessing them.
+        Returns:
+            DataFrame with columns: year, week, bulletin_url, filename,
+            created_date, status.
         """
-        logger.info(f"Fetching weekly bulletins for year {year}, week {week if week else 'all'}")
-
-        # Validate year
-        current_year = datetime.now().year
-        if year < 2000 or year > current_year:
-            logger.warning(f"Year {year} may not have available data")
-
-        # Build bulletin metadata
-        bulletins = []
-
-        if week:
-            weeks = [week]
-        else:
-            weeks = list(range(1, 54))  # Epidemiological weeks 1-53
-
-        for w in weeks:
-            bulletin = {
-                "year": year,
-                "week": w,
-                "bulletin_url": f"{self.BASE_URL}/Direcciones/Vigilancia/Boletines/{year}/semana_{w}.pdf",
-                "publication_date": None,  # Would be parsed from bulletin metadata
-                "diseases_covered": list(self.DISEASE_CODES.values())[:10],  # Top 10 diseases
-                "data_source": "INS Colombia",
-                "note": "Bulletins are PDF documents. Data extraction requires PDF parsing.",
-            }
-            bulletins.append(bulletin)
-
-        logger.warning(
-            "Weekly bulletins are published as PDF documents. "
-            "For structured data, use get_notifiable_diseases() method or "
-            "access datos.gov.co API directly."
+        logger.info(
+            f"Fetching weekly bulletins for year {year}, "
+            f"week {week if week else 'all'}"
         )
 
+        available = self.list_available_bulletins(year=year)
+        if not available.empty:
+            if week is not None:
+                available = available[available["week"] == week].copy()
+            available["status"] = "available"
+            return available.reset_index(drop=True)
+
+        logger.info("SharePoint API returned no results; generating URLs")
+        weeks = [week] if week else list(range(1, 54))
+        bulletins = []
+        for w in weeks:
+            bulletins.append({
+                "year": year,
+                "week": w,
+                "filename": (
+                    f"{year}_Boletin_epidemiologico_semana_{w:02d}.pdf"
+                ),
+                "bulletin_url": self._build_bulletin_url(year, w),
+                "created_date": None,
+                "status": "generated",
+            })
         return pd.DataFrame(bulletins)
+
+    def download_bulletin(
+        self,
+        url: str,
+        filename: Optional[str] = None,
+    ) -> Path:
+        """Download a bulletin PDF and cache it locally."""
+        return self._pdf.download(url, filename=filename)
+
+    def parse_bulletin_pdf(
+        self,
+        pdf_path: str | Path,
+        extract_text: bool = True,
+        extract_tables: bool = True,
+    ) -> dict:
+        """
+        Parse an INS bulletin PDF, extracting text and/or tables.
+
+        Args:
+            pdf_path: Local path to the PDF file.
+            extract_text: Whether to extract full text.
+            extract_tables: Whether to extract tables.
+
+        Returns:
+            Dictionary with 'text', 'tables', and 'metadata' keys.
+        """
+        pdf_path = Path(pdf_path)
+        result = {
+            "pdf_path": str(pdf_path),
+            "text": None,
+            "tables": None,
+            "metadata": None,
+        }
+
+        if extract_text:
+            result["text"] = self._pdf.extract_text(pdf_path)
+
+        if extract_tables:
+            extracted = self._pdf.extract_tables(pdf_path)
+            result["tables"] = extracted
+            result["table_count"] = len(extracted)
+
+        result["metadata"] = self._pdf.extract_metadata(pdf_path)
+
+        return result
 
     def get_dengue_data(
         self,

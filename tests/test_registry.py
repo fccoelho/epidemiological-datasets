@@ -13,7 +13,7 @@ class TestListSources:
 
     def test_known_sources_present(self):
         sources = list_sources()
-        for name in ["who", "paho", "owid", "africa_cdc", "eurostat"]:
+        for name in ["who", "paho", "owid", "africa_cdc", "eurostat", "nz_health"]:
             assert name in sources, f"{name} not in registry"
 
     def test_source_metadata_keys(self):

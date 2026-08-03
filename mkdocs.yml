@@ -54,6 +54,7 @@ nav:
       - PAHO: sources/paho.md
       - Africa CDC: sources/africa_cdc.md
       - ECDC: sources/ecdc.md
+      - ECDC Atlas: sources/ecdc_atlas.md
       - Eurostat: sources/eurostat.md
       - OWID: sources/owid.md
       - RKI Germany: sources/rki.md
@@ -71,6 +72,13 @@ nav:
       - Pathoplexus: sources/pathoplexus.md
       - Copernicus CDS: sources/copernicus_cds.md
       - InfoDengue: sources/infodengue.md
+      - Singapore MOH: sources/singapore_moh.md
+      - Singapore NEA: sources/singapore_nea.md
+      - Malaysia MOH: sources/malaysia_moh.md
+      - Thailand DDC: sources/thailand_ddc.md
+      - Indonesia MOH: sources/indonesia_moh.md
+      - disease.sh: sources/disease_sh.md
+      - DEMAS (Dados Abertos do SUS): sources/demas.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md
@@ -96,10 +104,22 @@ nav:
       - China CDC Weekly Surveillance: examples/15_China_CDC_Weekly_Surveillance.ipynb
       - India IDSP Surveillance: examples/16_India_IDSP_Surveillance_Data.ipynb
       - EMRO Health Indicators: examples/17_EMRO_Health_Indicators_Analysis.ipynb
+      - InfoDengue Brazilian Arbovirus Surveillance: examples/18_InfoDengue_Brazilian_Arbovirus_Surveillance.ipynb
       - Pathoplexus Genomic Data: examples/19_Pathoplexus_Genomic_Data.ipynb
       - InfoDengue + Pathoplexus Integration: examples/20_Dengue_Integracao_InfoDengue_Pathoplexus.ipynb
       - Copernicus CDS: examples/21_Copernicus_CDS_Examples.ipynb
       - Malaria Atlas: examples/22_Malaria_Atlas_Examples.ipynb
+      - Pakistan NIH Surveillance: examples/23_Pakistan_NIH_Surveillance.ipynb
+      - Oman MOH Health Data: examples/24_Oman_MOH_Health_Data.ipynb
+      - New Zealand Health Data: examples/25_New_Zealand_Health_Data.ipynb
+      - Singapore MOH Infectious Disease: examples/26_Singapore_MOH_Infectious_Disease.ipynb
+      - Singapore NEA Dengue Data: examples/27_Singapore_NEA_Dengue_Data.ipynb
+      - Malaysia MOH Health Data: examples/28_Malaysia_MOH_Health_Data.ipynb
+      - Thailand DDC Surveillance: examples/29_Thailand_DDC_Surveillance.ipynb
+      - Indonesia MOH Surveillance: examples/30_Indonesia_MOH_Surveillance.ipynb
+      - ECDC Atlas: examples/31_ECDC_Atlas_Surveillance.ipynb
+      - disease.sh COVID-19 & Influenza: examples/32_disease_sh_COVID19_Influenza.ipynb
+      - DEMAS Dados Abertos do SUS: examples/33_DEMAS_Dados_Abertos_SUS.ipynb
       - CDC Open Data (Quick): examples/cdc_opendata_example.ipynb
       - ECDC Open Data (Quick): examples/ecdc_opendata_example.ipynb
       - EMRO Analysis (PT): examples/emro_health_analysis.ipynb

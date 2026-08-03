@@ -14,7 +14,7 @@ Example
 >>> who.list_countries()
 """
 
-__version__ = "0.2.0"
+__version__ = "0.7.0"
 __author__ = "Flávio Codeço Coelho"
 __email__ = "fccoelho@gmail.com"
 

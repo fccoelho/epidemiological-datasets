@@ -4,7 +4,7 @@ import epidatasets
 
 
 def test_version():
-    assert epidatasets.__version__ == "0.2.0"
+    assert epidatasets.__version__ == "0.4.0"
 
 
 def test_author():

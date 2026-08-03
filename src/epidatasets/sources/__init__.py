@@ -18,14 +18,20 @@ if TYPE_CHECKING:
     from epidatasets.sources.colombia_ins import ColombiaINSAccessor
     from epidatasets.sources.copernicus_cds import CopernicusCDSAccessor
     from epidatasets.sources.datasus_pysus import DataSUSAccessor
+    from epidatasets.sources.demas import DemasAccessor
+    from epidatasets.sources.disease_sh import DiseaseShAccessor
     from epidatasets.sources.ecdc_opendata import ECDCOpenDataAccessor
+    from epidatasets.sources.ecdc_atlas import ECDCAtlasAccessor
     from epidatasets.sources.epipulse import EpiPulseAccessor
     from epidatasets.sources.eurostat import EurostatAccessor
     from epidatasets.sources.global_health import GlobalHealthAccessor
     from epidatasets.sources.healthdata_gov import HealthDataGovAccessor
     from epidatasets.sources.india_idsp import IndiaIDSPAccessor
+    from epidatasets.sources.indonesia_moh import IndonesiaMOHAccessor
     from epidatasets.sources.infodengue_api import InfoDengueAPI
+    from epidatasets.sources.malaysia_moh import MalaysiaMOHAccessor
     from epidatasets.sources.malaria_atlas import MalariaAtlasAccessor
+    from epidatasets.sources.nz_health import NZHealthAccessor
     from epidatasets.sources.oman_moh import OmanMOHAccessor
     from epidatasets.sources.owid import OWIDAccessor
     from epidatasets.sources.paho import PAHOAccessor
@@ -33,6 +39,9 @@ if TYPE_CHECKING:
     from epidatasets.sources.pathoplexus import PathoplexusAccessor
     from epidatasets.sources.respicast import RespiCastAccessor
     from epidatasets.sources.rki_germany import RKIGermanyAccessor
+    from epidatasets.sources.singapore_moh import SingaporeMOHAccessor
+    from epidatasets.sources.singapore_nea import SingaporeNEAAccessor
+    from epidatasets.sources.thailand_ddc import ThailandDDCAccessor
     from epidatasets.sources.ukhsa import UKHSAAccessor
     from epidatasets.sources.who_ghoclient import WHOAccessor
 
@@ -45,14 +54,20 @@ __all__ = [
     "ColombiaINSAccessor",
     "CopernicusCDSAccessor",
     "DataSUSAccessor",
+    "DemasAccessor",
+    "DiseaseShAccessor",
     "ECDCOpenDataAccessor",
+    "ECDCAtlasAccessor",
     "EpiPulseAccessor",
     "EurostatAccessor",
     "GlobalHealthAccessor",
     "HealthDataGovAccessor",
     "IndiaIDSPAccessor",
+    "IndonesiaMOHAccessor",
     "InfoDengueAPI",
+    "MalaysiaMOHAccessor",
     "MalariaAtlasAccessor",
+    "NZHealthAccessor",
     "OmanMOHAccessor",
     "OWIDAccessor",
     "PAHOAccessor",
@@ -60,6 +75,9 @@ __all__ = [
     "PathoplexusAccessor",
     "RespiCastAccessor",
     "RKIGermanyAccessor",
+    "SingaporeMOHAccessor",
+    "SingaporeNEAAccessor",
+    "ThailandDDCAccessor",
     "UKHSAAccessor",
     "WHOAccessor",
 ]
