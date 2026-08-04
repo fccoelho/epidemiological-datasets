@@ -1711,3 +1711,624 @@ class TestDemas:
         df = accessor.get_dataset("/arboviroses/dengue", year=2024, use_cache=False)
         assert isinstance(df, pd.DataFrame)
         assert not df.empty
+
+
+# Sample GMPD main CSV for mocked tests (columns match the real schema).
+_GMPD_MAIN_CSV = (
+    "Group,HostReportedName,HostCorrectedName,HostOrder,HostFamily,HostEnvironment,"
+    "ParasiteReportedName,ParasiteCorrectedName,HasBinomialName,ParType,ParPhylum,"
+    "ParClass,Citation,LocationName,Longitude,Latitude,PopulationType,SamplingBasis,"
+    "SampleNotes,Prevalence,HostsSampled,HostSex,HostAge,Intensity,IntensityMeasure,"
+    "NativeRange,NumSamples,SamplingType\n"
+    "carnivores,Acinonyx jubatus,Acinonyx jubatus,Carnivora,Felidae,terrestrial,"
+    "Feline coronavirus,Alphacoronavirus Alphacoronavirus 1,yes,Virus,RNA virus,ss+,"
+    "Kennedy et al. 2003,Namibia and South Africa,18.49,-22.96,WN,Animals,NA,0.581,"
+    "43,NA,NA,,NA,Yes,43,Serology\n"
+    "carnivores,Acinonyx jubatus,Acinonyx jubatus,Carnivora,Felidae,terrestrial,"
+    "Feline coronavirus,Alphacoronavirus Alphacoronavirus 1,yes,Virus,RNA virus,ss+,"
+    "Kennedy et al. 2003,Namibia and South Africa,18.49,-22.96,WN,Animals,NA,0.163,"
+    "43,NA,NA,,NA,Yes,43,PCR\n"
+    "primates,Pan troglodytes,Pan troglodytes,Primates,Hominidae,terrestrial,"
+    "Plasmodium falciparum,Plasmodium falciparum,yes,Protozoa,Apicomplexa,Aconoidasica,"
+    "Liu et al. 2010,Cameroon,11.50,3.87,WN,Animals,NA,0.25,120,F,Adult,NA,NA,Yes,"
+    "120,Blood smear\n"
+    "primates,Gorilla gorilla,Gorilla gorilla,Primates,Hominidae,terrestrial,"
+    "Strongyloides fulleborni,Strongyloides fulleborni,yes,Helminth,Nematoda,"
+    "Chromadorea,Hasegawa et al. 2010,NA,NA,NA,WN,Faecal,NA,0.75,40,M,Adult,3.2,epg,"
+    "Yes,40,Faecal\n"
+    "ungulates,Bos taurus,Bos taurus,Artiodactyla,Bovidae,terrestrial,"
+    "Bacillus anthracis,Bacillus anthracis,yes,Bacteria,Firmicutes,Bacilli,"
+    "Hugh-Jones et al. 2008,NA,NA,NA,WN,Animals,NA,NA,NA,NA,NA,,No,NA,NA,Culture\n"
+)
+
+
+class TestGMPD:
+    """Tests for the Global Mammal Parasite Database (GMPD) accessor.
+
+    Network-free tests mock the GMPD main CSV via the ``responses`` library.
+    Live tests are gated behind ``@requires_external_api``.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.gmpd import GMPDAccessor
+
+        return GMPDAccessor(cache_dir=str(tmp_path / "gmpd"))
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "gmpd"
+        assert "Global Mammal Parasite Database" in accessor.source_description
+        assert accessor.source_url == "https://parasites.nunn-lab.org/"
+        assert accessor.cache_dir.exists()
+
+    def test_host_groups_constant(self, accessor):
+        assert "primates" in accessor.HOST_GROUPS
+        assert "carnivores" in accessor.HOST_GROUPS
+        assert "ungulates" in accessor.HOST_GROUPS
+
+    def test_list_host_groups(self, accessor):
+        groups = accessor.list_host_groups()
+        assert isinstance(groups, pd.DataFrame)
+        assert len(groups) == 3
+        assert set(groups["group"]) == {"Primates", "Carnivores", "Ungulates"}
+
+    def test_list_datasets(self, accessor):
+        datasets = accessor.list_datasets()
+        assert isinstance(datasets, pd.DataFrame)
+        assert "GMPD_main" in datasets["dataset"].values
+        main = datasets[datasets["dataset"] == "GMPD_main"].iloc[0]
+        assert bool(main["available"]) is True
+        assert main["method"] == "get_records"
+
+    def test_column_map_keys(self, accessor):
+        # Every canonical column maps to a snake_case name
+        for raw in ("Group", "HostCorrectedName", "ParType", "Citation", "Longitude"):
+            assert raw in accessor.COLUMN_MAP
+
+    @responses.activate
+    def test_list_countries(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        countries = accessor.list_countries(use_cache=False)
+        assert isinstance(countries, pd.DataFrame)
+        assert {"country_code", "country_name", "record_count"}.issubset(
+            countries.columns
+        )
+        # "NA" location is excluded; two unique localities remain
+        assert len(countries) == 2
+        assert "Namibia and South Africa" in countries["country_name"].values
+        assert countries.iloc[0]["record_count"] == 2  # most frequent
+
+    @responses.activate
+    def test_get_records_all(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 5
+        # Columns are normalized to snake_case
+        assert "host_corrected_name" in df.columns
+        assert "parasite_type" in df.columns
+        assert "group" in df.columns
+        # group is title-cased
+        assert set(df["group"]) <= {"Primates", "Carnivores", "Ungulates"}
+        # numeric coercion
+        assert df["hosts_sampled"].dtype.kind in {"i", "u", "f"}
+        assert df["longitude"].dtype.kind in {"i", "u", "f"}
+
+    @responses.activate
+    def test_get_records_filter_group(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(group="Primates", use_cache=False)
+        assert (df["group"] == "Primates").all()
+        assert len(df) == 2
+        # case-insensitive filtering
+        df2 = accessor.get_records(group="primates", use_cache=False)
+        assert (df2["group"] == "Primates").all()
+
+    @responses.activate
+    def test_get_records_filter_parasite_type(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(parasite_type="Virus", use_cache=False)
+        assert len(df) == 2
+        assert (df["parasite_type"] == "Virus").all()
+
+    @responses.activate
+    def test_get_records_has_coordinates(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        geo = accessor.get_records(has_coordinates=True, use_cache=False)
+        assert geo["longitude"].notna().all()
+        assert len(geo) == 3
+        no_geo = accessor.get_records(has_coordinates=False, use_cache=False)
+        assert no_geo["longitude"].isna().all()
+
+    @responses.activate
+    def test_get_records_filter_host_and_location(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        df = accessor.get_records(host="Pan troglodytes", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["host_corrected_name"] == "Pan troglodytes"
+
+        loc = accessor.get_records(location="Cameroon", use_cache=False)
+        assert len(loc) == 1
+        assert loc.iloc[0]["location_name"] == "Cameroon"
+
+    @responses.activate
+    def test_list_hosts(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        hosts = accessor.list_hosts(use_cache=False)
+        assert isinstance(hosts, pd.DataFrame)
+        assert "host" in hosts.columns
+        assert "record_count" in hosts.columns
+        assert "Acinonyx jubatus" in hosts["host"].values
+        # Acinonyx jubatus has 2 records -> should rank first
+        assert hosts.iloc[0]["host"] == "Acinonyx jubatus"
+        assert hosts.iloc[0]["record_count"] == 2
+
+    @responses.activate
+    def test_list_parasites(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        parasites = accessor.list_parasites(parasite_type="Virus", use_cache=False)
+        assert isinstance(parasites, pd.DataFrame)
+        assert "parasite" in parasites.columns
+        assert len(parasites) == 1
+        assert parasites.iloc[0]["record_count"] == 2
+
+    @responses.activate
+    def test_list_parasite_types(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        types = accessor.list_parasite_types(use_cache=False)
+        assert isinstance(types, pd.DataFrame)
+        assert "parasite_type" in types.columns
+        assert "record_count" in types.columns
+        # Virus has 2 records and is the most frequent
+        assert types.iloc[0]["parasite_type"] == "Virus"
+        assert types.iloc[0]["record_count"] == 2
+
+    @responses.activate
+    def test_get_interactions(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        interactions = accessor.get_interactions(use_cache=False)
+        assert isinstance(interactions, pd.DataFrame)
+        assert {"host_corrected_name", "parasite_corrected_name", "record_count"}.issubset(
+            interactions.columns
+        )
+        # Acinonyx jubatus <-> Alphacoronavirus is supported by 2 records
+        ace = interactions[
+            interactions["host_corrected_name"] == "Acinonyx jubatus"
+        ]
+        assert len(ace) == 1
+        assert ace.iloc[0]["record_count"] == 2
+        assert "citations" in interactions.columns
+
+    @responses.activate
+    def test_get_summary_statistics(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        summary = accessor.get_summary_statistics(use_cache=False)
+        assert isinstance(summary, pd.DataFrame)
+        assert len(summary) == 1
+        row = summary.iloc[0]
+        assert row["total_records"] == 5
+        assert row["unique_hosts"] == 4
+        assert row["unique_citations"] == 4
+        assert row["georeferenced_records"] == 3
+        assert row["host_groups"] == 3
+
+    @responses.activate
+    def test_search_records(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        # Match parasite name substring
+        df = accessor.search_records("Plasmodium", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["parasite_corrected_name"] == "Plasmodium falciparum"
+        # Match host name substring (case-insensitive)
+        df2 = accessor.search_records("gorilla", use_cache=False)
+        assert len(df2) == 1
+        assert df2.iloc[0]["host_corrected_name"] == "Gorilla gorilla"
+
+    @responses.activate
+    def test_cache_write_and_read(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/globalbioticinteractions/"
+            "global-mammal-parasite-database/master/GMPD_main.csv",
+            body=_GMPD_MAIN_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        # First call downloads and writes the cache
+        accessor.get_records(use_cache=True)
+        cache_file = accessor.cache_dir / "GMPD_main.csv"
+        assert cache_file.exists()
+        # Only one network call happened
+        assert len(responses.calls) == 1
+
+        # Second call should be served from cache (no new network call)
+        accessor.get_records(use_cache=True)
+        assert len(responses.calls) == 1
+
+    def test_clear_cache(self, tmp_path):
+        from epidatasets.sources.gmpd import GMPDAccessor
+
+        acc = GMPDAccessor(cache_dir=str(tmp_path / "gmpd2"))
+        cache_file = acc.cache_dir / "GMPD_main.csv"
+        cache_file.write_text("dummy")
+        assert cache_file.exists()
+        acc.clear_cache()
+        assert not cache_file.exists()
+
+    @requires_external_api
+    def test_get_records_live(self, accessor):
+        df = accessor.get_records(group="Primates", parasite_type="Virus", use_cache=True)
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert (df["group"] == "Primates").all()
+
+    @requires_external_api
+    def test_get_summary_statistics_live(self, accessor):
+        summary = accessor.get_summary_statistics(use_cache=True)
+        assert isinstance(summary, pd.DataFrame)
+        assert summary.iloc[0]["total_records"] > 1000
+
+
+# ---------------------------------------------------------------------------
+# GISAID Tests
+# ---------------------------------------------------------------------------
+
+GISAID_TEST_CREDS = {"username": "test_user", "password": "test_pass"}
+
+
+class TestGISAID:
+    """Tests for GISAID accessor.
+
+    Tests use explicit credentials to avoid triggering the credential
+    discovery flow which would raise ValueError without env vars/config.
+    Browser automation tests (query, download) are gated behind
+    @requires_external_api since they need Playwright + real credentials.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid"),
+        )
+        yield acc
+        acc.close()
+
+    @pytest.fixture
+    def accessor_epiflu(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiFlu",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_flu"),
+        )
+        yield acc
+        acc.close()
+
+    def test_initialization(self, accessor):
+        assert accessor.source_name == "gisaid"
+        assert accessor.database == "EpiCoV"
+        assert accessor.cache_dir.exists()
+        assert "GISAID" in accessor.source_description
+
+    def test_initialization_epiflu(self, accessor_epiflu):
+        assert accessor_epiflu.database == "EpiFlu"
+
+    def test_initialization_epipox(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiPox",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_pox"),
+        )
+        try:
+            assert acc.database == "EpiPox"
+        finally:
+            acc.close()
+
+    def test_initialization_epirsv(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiRSV",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_rsv"),
+        )
+        try:
+            assert acc.database == "EpiRSV"
+        finally:
+            acc.close()
+
+    def test_initialization_epiarbo(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiArbo",
+            username="test_user",
+            password="test_pass",
+            cache_dir=str(tmp_path / "gisaid_arbo"),
+        )
+        try:
+            assert acc.database == "EpiArbo"
+        finally:
+            acc.close()
+
+    def test_invalid_database(self, tmp_path):
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        with pytest.raises(ValueError, match="not supported"):
+            GISAIDAccessor(
+                database="InvalidDB",
+                username="test_user",
+                password="test_pass",
+                cache_dir=str(tmp_path / "gisaid_invalid"),
+            )
+
+    def test_list_databases(self, accessor):
+        dbs = accessor.list_databases()
+        assert isinstance(dbs, pd.DataFrame)
+        assert len(dbs) == 5
+        assert "EpiCoV" in dbs["database"].values
+        assert "EpiFlu" in dbs["database"].values
+        assert "EpiPox" in dbs["database"].values
+        assert "EpiRSV" in dbs["database"].values
+        assert "EpiArbo" in dbs["database"].values
+        assert "description" in dbs.columns
+        assert "pathogens" in dbs.columns
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) > 190
+        assert "country_code" in countries.columns
+        assert "country_name" in countries.columns
+        assert "region" in countries.columns
+        assert "BRA" in countries["country_code"].values
+        assert "USA" in countries["country_code"].values
+
+    def test_get_regions(self, accessor):
+        regions = accessor.get_regions()
+        assert isinstance(regions, list)
+        assert len(regions) == 6
+        assert "South America" in regions
+        assert "Europe" in regions
+        assert "Asia" in regions
+        assert "Africa" in regions
+        assert "North America" in regions
+        assert "Oceania" in regions
+
+    def test_get_countries_by_region_valid(self, accessor):
+        df = accessor.get_countries_by_region("South America")
+        assert isinstance(df, pd.DataFrame)
+        assert "BRA" in df["country_code"].values
+        assert "Brazil" in df["country_name"].values
+
+    def test_get_countries_by_region_invalid(self, accessor):
+        with pytest.raises(ValueError, match="not found"):
+            accessor.get_countries_by_region("Atlantis")
+
+    def test_credential_loading_from_env(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("GISAID_USERNAME", "env_user")
+        monkeypatch.setenv("GISAID_PASSWORD", "env_pass")
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV", cache_dir=str(tmp_path / "gisaid_env")
+        )
+        try:
+            assert acc.username == "env_user"
+            assert acc.password == "env_pass"
+        finally:
+            acc.close()
+
+    def test_credential_loading_from_config(self, tmp_path):
+        config_dir = tmp_path / "epi_data"
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / "gisaid.json"
+        config_file.write_text(
+            '{"username": "config_user", "password": "config_pass"}'
+        )
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV",
+            config_path=str(config_file),
+            cache_dir=str(tmp_path / "gisaid_cfg"),
+        )
+        try:
+            assert acc.username == "config_user"
+            assert acc.password == "config_pass"
+        finally:
+            acc.close()
+
+    def test_missing_credentials_non_interactive(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("GISAID_USERNAME", raising=False)
+        monkeypatch.delenv("GISAID_PASSWORD", raising=False)
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        with pytest.raises((ValueError, OSError)):
+            GISAIDAccessor(
+                database="EpiCoV",
+                cache_dir=str(tmp_path / "gisaid_noauth"),
+            )
+
+    def test_constructor_credentials_override(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("GISAID_USERNAME", "env_user")
+        monkeypatch.setenv("GISAID_PASSWORD", "env_pass")
+        from epidatasets.sources.gisaid import GISAIDAccessor
+        acc = GISAIDAccessor(
+            database="EpiCoV",
+            username="explicit_user",
+            password="explicit_pass",
+            cache_dir=str(tmp_path / "gisaid_override"),
+        )
+        try:
+            assert acc.username == "explicit_user"
+            assert acc.password == "explicit_pass"
+        finally:
+            acc.close()
+
+    def test_info(self, accessor):
+        info_str = accessor.info()
+        assert "EpiCoV" in info_str
+        assert "GISAID" in info_str
+        assert "5,000" in info_str
+
+    def test_info_for_different_database(self, accessor_epiflu):
+        info_str = accessor_epiflu.info()
+        assert "EpiFlu" in info_str
+        assert "Influenza" in info_str
+
+    def test_countries_dataframe_structure(self, accessor):
+        df = accessor.list_countries()
+        assert df["country_code"].str.len().between(2, 3).all()
+        assert df["country_name"].notna().all()
+        assert df["region"].notna().all()
+        regions = df["region"].unique()
+        assert len(regions) == 6
+
+    def test_worker_thread_runs_in_separate_thread(self, accessor):
+        import threading
+
+        main_tid = threading.get_ident()
+
+        def _get_tid():
+            return threading.get_ident()
+
+        worker_tid = accessor._worker(_get_tid)
+        assert worker_tid != main_tid, (
+            "Worker must run in a separate thread from main"
+        )
+
+    def test_worker_thread_returns_result(self, accessor):
+        result = accessor._worker(lambda x, y: x + y, 10, 32)
+        assert result == 42
+
+    def test_worker_thread_propagates_exceptions(self, accessor):
+        with pytest.raises(ValueError, match="test error"):
+            accessor._worker(lambda: (_ for _ in ()).throw(ValueError("test error")))
+
+    def test_jupyter_asyncio_compatibility(self, accessor):
+        """Simulate Jupyter's asyncio event loop and verify the worker
+        thread still functions correctly."""
+        import asyncio
+
+        async def _with_running_loop():
+            main_tid = id(asyncio.get_running_loop())
+
+            def _check():
+                # Verify we can get a result from the worker while
+                # an asyncio loop is running on the main thread
+                return "ok"
+
+            result = accessor._worker(_check)
+            return result, main_tid
+
+        loop = asyncio.new_event_loop()
+        try:
+            result, _ = loop.run_until_complete(_with_running_loop())
+            assert result == "ok"
+        finally:
+            loop.close()
+
+    @requires_external_api
+    def test_query_live(self):
+        import os
+
+        from epidatasets.sources.gisaid import GISAIDAccessor
+
+        username = os.getenv("GISAID_USERNAME")
+        password = os.getenv("GISAID_PASSWORD")
+        if not username or not password:
+            pytest.skip("GISAID credentials not set")
+        acc = GISAIDAccessor(database="EpiCoV", username=username, password=password)
+        try:
+            df = acc.query(location="Brazil", nrows=10)
+            assert isinstance(df, pd.DataFrame)
+        finally:
+            acc.close()

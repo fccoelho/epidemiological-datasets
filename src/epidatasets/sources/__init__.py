@@ -20,17 +20,18 @@ if TYPE_CHECKING:
     from epidatasets.sources.datasus_pysus import DataSUSAccessor
     from epidatasets.sources.demas import DemasAccessor
     from epidatasets.sources.disease_sh import DiseaseShAccessor
-    from epidatasets.sources.ecdc_opendata import ECDCOpenDataAccessor
     from epidatasets.sources.ecdc_atlas import ECDCAtlasAccessor
+    from epidatasets.sources.ecdc_opendata import ECDCOpenDataAccessor
     from epidatasets.sources.epipulse import EpiPulseAccessor
     from epidatasets.sources.eurostat import EurostatAccessor
+    from epidatasets.sources.gisaid import GISAIDAccessor
     from epidatasets.sources.global_health import GlobalHealthAccessor
     from epidatasets.sources.healthdata_gov import HealthDataGovAccessor
     from epidatasets.sources.india_idsp import IndiaIDSPAccessor
     from epidatasets.sources.indonesia_moh import IndonesiaMOHAccessor
     from epidatasets.sources.infodengue_api import InfoDengueAPI
-    from epidatasets.sources.malaysia_moh import MalaysiaMOHAccessor
     from epidatasets.sources.malaria_atlas import MalariaAtlasAccessor
+    from epidatasets.sources.malaysia_moh import MalaysiaMOHAccessor
     from epidatasets.sources.nz_health import NZHealthAccessor
     from epidatasets.sources.oman_moh import OmanMOHAccessor
     from epidatasets.sources.owid import OWIDAccessor
@@ -60,6 +61,7 @@ __all__ = [
     "ECDCAtlasAccessor",
     "EpiPulseAccessor",
     "EurostatAccessor",
+    "GISAIDAccessor",
     "GlobalHealthAccessor",
     "HealthDataGovAccessor",
     "IndiaIDSPAccessor",
