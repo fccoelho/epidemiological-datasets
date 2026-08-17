@@ -81,6 +81,7 @@ nav:
       - Indonesia MOH: sources/indonesia_moh.md
       - disease.sh: sources/disease_sh.md
       - DEMAS (Dados Abertos do SUS): sources/demas.md
+      - OpenDataSUS (SUS open-data catalog): sources/opendatasus.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md

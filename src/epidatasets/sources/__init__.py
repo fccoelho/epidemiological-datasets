@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.malaysia_moh import MalaysiaMOHAccessor
     from epidatasets.sources.nz_health import NZHealthAccessor
     from epidatasets.sources.oman_moh import OmanMOHAccessor
+    from epidatasets.sources.opendatasus import OpenDataSUSAccessor
     from epidatasets.sources.owid import OWIDAccessor
     from epidatasets.sources.paho import PAHOAccessor
     from epidatasets.sources.pakistan_nih import PakistanNIHAccessor
@@ -71,6 +72,7 @@ __all__ = [
     "MalariaAtlasAccessor",
     "NZHealthAccessor",
     "OmanMOHAccessor",
+    "OpenDataSUSAccessor",
     "OWIDAccessor",
     "PAHOAccessor",
     "PakistanNIHAccessor",

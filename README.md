@@ -516,6 +516,7 @@ owid_covid = owid.get_covid_data(
 | `healthdata_gov` | `HealthDataGovAccessor` | — | US HealthData.gov |
 | `india_idsp` | `IndiaIDSPAccessor` | — | India IDSP disease surveillance |
 | `infodengue` | `InfoDengueAPI` | — | InfoDengue dengue surveillance (Brazil) |
+| `opendatasus` | `OpenDataSUSAccessor` | — | OpenDataSUS catalog (dadosabertos.saude.gov.br): list datasets, metadata & downloads |
 | `malaria_atlas` | `MalariaAtlasAccessor` | — | Malaria Atlas Project data |
 | `nz_health` | `NZHealthAccessor` | — | New Zealand health statistics (Stats NZ & Health NZ) |
 | `oman_moh` | `OmanMOHAccessor` | — | Oman Ministry of Health annual reports |

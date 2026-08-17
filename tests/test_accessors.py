@@ -4,6 +4,7 @@ These tests validate that each accessor can be instantiated and return
 valid data structures. Tests are designed to be fast and non-breaking.
 """
 
+import json
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -2280,3 +2281,382 @@ class TestGISAID:
             assert isinstance(df, pd.DataFrame)
         finally:
             acc.close()
+
+
+class TestOpenDataSUS:
+    """Tests for the OpenDataSUS catalog accessor.
+
+    Network-free tests mock the portal's Next.js data endpoints via
+    ``responses``.  Live tests are gated behind ``@requires_external_api``.
+    """
+
+    BUILD_ID = "testbuild123"
+    BASE = "https://dadosabertos.saude.gov.br"
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.opendatasus import OpenDataSUSAccessor
+
+        return OpenDataSUSAccessor(cache_dir=str(tmp_path / "opendatasus"))
+
+    @staticmethod
+    def _mock_homepage():
+        next_data = json.dumps({"buildId": TestOpenDataSUS.BUILD_ID})
+        html = (
+            '<script id="__NEXT_DATA__" type="application/json">'
+            f"{next_data}</script>"
+        )
+        responses.add(
+            responses.GET,
+            "https://dadosabertos.saude.gov.br/",
+            body=html,
+            status=200,
+        )
+
+    @staticmethod
+    def _catalog_page(packages, total=2):
+        return {
+            "pageProps": {
+                "currentFilters": {
+                    "q": None,
+                    "groups": None,
+                    "tags": None,
+                    "res_format": None,
+                },
+                "availableFilters": {
+                    "groups": [
+                        {"display_name": "Arboviroses", "name": "arboviroses"}
+                    ],
+                    "tags": [{"display_name": "covid-19", "name": "covid-19"}],
+                },
+                "numberOfPackages": total,
+                "packages": packages,
+                "page": 1,
+                "rows": 20,
+            }
+        }
+
+    _PKG1 = {
+        "name": "bps",
+        "title": "Banco de Preços em Saúde - BPS",
+        "notes": "Registry of purchases of medicines and devices.",
+        "formats": ["CSV", "API"],
+        "groups": [
+            {"display_name": "Economia da Saúde", "name": "economia-da-saude"}
+        ],
+        "tags": [{"display_name": "Preços", "name": "Preços"}],
+    }
+    _PKG2 = {
+        "name": "arboviroses-dengue",
+        "title": "Dengue",
+        "notes": "Dengue notification data.",
+        "formats": ["CSV"],
+        "groups": [{"display_name": "Arboviroses", "name": "arboviroses"}],
+        "tags": [{"display_name": "dengue", "name": "dengue"}],
+    }
+
+    _BPS_DETAIL = {
+        "pageProps": {
+            "name": "bps",
+            "title": "Banco de Preços em Saúde - BPS",
+            "notes": "Registry of purchases.",
+            "organization": {
+                "name": "ministerio-da-saude",
+                "title": "Ministério da Saúde",
+            },
+            "license_title": "",
+            "metadata_created": "2024-12-05T17:58:59.632645",
+            "metadata_modified": "2026-08-12T08:53:18.286478",
+            "num_resources": 3,
+            "num_tags": 1,
+            "extras": [{"key": "update_frequency", "value": "monthly"}],
+            "tags": [{"name": "Preços"}],
+            "groups": [{"name": "economia-da-saude"}],
+            "resources": [
+                {
+                    "id": "res-api",
+                    "name": "API documentation",
+                    "format": "API",
+                    "url": "https://apidadosabertos.saude.gov.br/v1/#/BPS",
+                    "position": 0,
+                    "size": None,
+                },
+                {
+                    "id": "res-csv",
+                    "name": "BPS CSV 2024",
+                    "format": "CSV",
+                    "url": "https://s3.example.com/BPS/csv/2024_csv.zip",
+                    "position": 1,
+                    "size": 12345,
+                },
+                {
+                    "id": "res-pdf",
+                    "name": "BPS Metadados",
+                    "format": "PDF",
+                    "url": "https://s3.example.com/BPS/Metadados.pdf",
+                    "position": 2,
+                    "size": 100,
+                },
+            ],
+        }
+    }
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "opendatasus"
+        assert "OpenDataSUS" in accessor.source_description
+        assert accessor.source_url == "https://dadosabertos.saude.gov.br/"
+        assert accessor.cache_dir.exists()
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert countries.iloc[0]["country_code"] == "BR"
+        assert countries.iloc[0]["country_name"] == "Brazil"
+
+    @responses.activate
+    def test_get_build_id(self, accessor):
+        self._mock_homepage()
+        assert accessor._get_build_id(use_cache=False) == self.BUILD_ID
+
+    @responses.activate
+    def test_list_datasets(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1, self._PKG2], total=2),
+            status=200,
+        )
+        df = accessor.list_datasets(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        assert set(df.columns) == {
+            "name",
+            "title",
+            "notes",
+            "formats",
+            "groups",
+            "tags",
+        }
+        assert "bps" in df["name"].values
+        assert "CSV" in df.loc[df["name"] == "bps", "formats"].iloc[0]
+
+    @responses.activate
+    def test_list_datasets_group_filter(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json"
+            "?page=1&groups=arboviroses",
+            json=self._catalog_page([self._PKG2], total=1),
+            status=200,
+        )
+        df = accessor.list_datasets(group="arboviroses", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["name"] == "arboviroses-dengue"
+
+    @responses.activate
+    def test_list_groups_and_tags(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1], total=1),
+            status=200,
+        )
+        groups = accessor.list_groups(use_cache=False)
+        tags = accessor.list_tags(use_cache=False)
+        assert "arboviroses" in groups["name"].values
+        assert "covid-19" in tags["name"].values
+
+    @responses.activate
+    def test_list_datasets_all_pagination(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1], total=21),
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=2",
+            json={
+                "pageProps": {
+                    "currentFilters": {},
+                    "availableFilters": {"groups": [], "tags": []},
+                    "numberOfPackages": 21,
+                    "packages": [self._PKG2],
+                    "page": 2,
+                    "rows": 20,
+                }
+            },
+            status=200,
+        )
+        df = accessor.list_datasets_all(use_cache=False)
+        assert len(df) == 2
+        assert list(df["name"]) == ["bps", "arboviroses-dengue"]
+
+    @responses.activate
+    def test_list_datasets_all_max_pages(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1], total=40),
+            status=200,
+        )
+        df = accessor.list_datasets_all(max_pages=1, use_cache=False)
+        assert len(df) == 1  # capped after page 1
+
+    @responses.activate
+    def test_get_dataset_and_metadata(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        pkg = accessor.get_dataset("bps", use_cache=False)
+        assert pkg["name"] == "bps"
+        assert len(pkg["resources"]) == 3
+
+        meta = accessor.get_dataset_metadata("bps", use_cache=False)
+        assert isinstance(meta, pd.DataFrame)
+        assert set(meta.columns) == {"field", "value"}
+        fields = set(meta["field"])
+        assert "title" in fields
+        assert "metadata_modified" in fields
+        assert "extra:update_frequency" in fields
+
+    @responses.activate
+    def test_get_dataset_not_found(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/nope.json?slug=nope",
+            json={"pageProps": {"statusCode": 500}},
+            status=200,
+        )
+        with pytest.raises(KeyError):
+            accessor.get_dataset("nope", use_cache=False)
+
+    @responses.activate
+    def test_get_resources(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        res = accessor.get_resources("bps", use_cache=False)
+        assert isinstance(res, pd.DataFrame)
+        assert len(res) == 3
+        assert set(res.columns) >= {
+            "resource_id",
+            "name",
+            "format",
+            "url",
+            "size",
+            "position",
+        }
+        assert "res-csv" in res["resource_id"].values
+
+    @responses.activate
+    def test_download_resource(self, accessor, tmp_path):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://s3.example.com/BPS/csv/2024_csv.zip",
+            body=b"fake-zip-bytes",
+            status=200,
+        )
+        path = accessor.download_resource(
+            "bps",
+            name="BPS CSV 2024",
+            dest_dir=str(tmp_path / "dl"),
+            use_cache=False,
+        )
+        assert isinstance(path, Path)
+        assert path.exists()
+        assert path.read_bytes() == b"fake-zip-bytes"
+        assert path.name == "BPS CSV 2024.csv"  # format appended
+
+    @responses.activate
+    def test_download_resource_api_rejected(self, accessor, tmp_path):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        with pytest.raises(ValueError):
+            accessor.download_resource(
+                "bps",
+                name="API documentation",
+                dest_dir=str(tmp_path / "dl"),
+                use_cache=False,
+            )
+
+    def test_download_resource_needs_selector(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.download_resource("bps", use_cache=False)
+        with pytest.raises(ValueError):
+            accessor.download_resource(
+                "bps", resource_id="res-csv", name="BPS CSV 2024", use_cache=False
+            )
+
+    @responses.activate
+    def test_download_dataset(self, accessor, tmp_path):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://s3.example.com/BPS/csv/2024_csv.zip",
+            body=b"fake-zip-bytes",
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://s3.example.com/BPS/Metadados.pdf",
+            body=b"%PDF-fake",
+            status=200,
+        )
+        paths = accessor.download_dataset(
+            "bps", dest_dir=str(tmp_path / "dl"), use_cache=False
+        )
+        assert len(paths) == 2  # API resource skipped
+        assert all(p.exists() for p in paths)
+
+        paths_csv = accessor.download_dataset(
+            "bps", dest_dir=str(tmp_path / "dl2"), fmt="CSV", use_cache=False
+        )
+        assert len(paths_csv) == 1
+        assert paths_csv[0].name.endswith(".csv")
+
+    @requires_external_api
+    def test_live_list_datasets(self, accessor):
+        df = accessor.list_datasets(q="covid", use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 0
+
+    @requires_external_api
+    def test_live_get_dataset_metadata(self, accessor):
+        meta = accessor.get_dataset_metadata("bps", use_cache=False)
+        assert isinstance(meta, pd.DataFrame)
+        assert len(meta) > 0
