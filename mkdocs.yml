@@ -130,5 +130,6 @@ nav:
       - EMRO Analysis (PT): examples/37_emro_health_analysis.ipynb
       - EpiPulse: examples/38_epipulse_example.ipynb
       - RespiCast: examples/40_respicast_example.ipynb
+      - OpenDataSUS Catalog: examples/42_OpenDataSUS_Catalog.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md
