@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **35 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **36 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -298,7 +298,7 @@ epidemiological-datasets/
 | [IDSP India](https://idsp.nic.in/) | Indian disease surveillance | Weekly | Open* | `epidatasets.sources.india_idsp` |
 | [Oman MOH](https://moh.gov.om/en/statistics/annual-health-reports/) | Omani annual health reports (morbidity, mortality, indicators) | Annual | Open | `epidatasets.sources.oman_moh` |
 | [Pakistan NIH](https://phb.nih.org.pk/) | Pakistan IDSR weekly surveillance bulletins | Weekly | Open | `epidatasets.sources.pakistan_nih` |
-| [NIID Japan](https://www.niid.go.jp/niid/en/) | Japanese infectious disease data | Weekly | Open | Planned |
+| [Japan IDWR (JIHS)](https://id-info.jihs.go.jp/en/surveillance/idwr/) | Prefecture-level weekly surveillance of notifiable & sentinel diseases (2023+) | Weekly | Open | `epidatasets.sources.japan_idwr` |
 | [Korea CDC](https://www.kdca.go.kr/) | Korean disease control data | Weekly | Open | Planned |
 
 ### Oceania 🇦🇺🇳🇿
@@ -550,6 +550,7 @@ except ValueError as e:
 | `healthdata_gov` | `HealthDataGovAccessor` | — | US HealthData.gov |
 | `india_idsp` | `IndiaIDSPAccessor` | — | India IDSP disease surveillance |
 | `infodengue` | `InfoDengueAPI` | — | InfoDengue dengue surveillance (Brazil) |
+| `japan_idwr` | `JapanIDWRAccessor` | — | Japan IDWR prefecture-level weekly surveillance (2023+) |
 | `opendatasus` | `OpenDataSUSAccessor` | — | OpenDataSUS catalog (dadosabertos.saude.gov.br): list datasets, metadata & downloads |
 | `malaria_atlas` | `MalariaAtlasAccessor` | — | Malaria Atlas Project data |
 | `nz_health` | `NZHealthAccessor` | — | New Zealand health statistics (Stats NZ & Health NZ) |
@@ -567,7 +568,7 @@ except ValueError as e:
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 35 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 36 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 
@@ -640,7 +641,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 - **Data sources:** 33 registered (via plugin registry)
 - **Countries covered:** 100+
 - **Optional extras:** 10 (`who`, `brazil`, `eurostat`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
-- **Example notebooks:** 42
+- **Example notebooks:** 43
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 
 ## 📚 Citation

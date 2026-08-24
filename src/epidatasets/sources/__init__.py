@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.india_idsp import IndiaIDSPAccessor
     from epidatasets.sources.indonesia_moh import IndonesiaMOHAccessor
     from epidatasets.sources.infodengue_api import InfoDengueAPI
+    from epidatasets.sources.japan_idwr import JapanIDWRAccessor
     from epidatasets.sources.malaria_atlas import MalariaAtlasAccessor
     from epidatasets.sources.malaysia_moh import MalaysiaMOHAccessor
     from epidatasets.sources.nz_health import NZHealthAccessor
@@ -68,6 +69,7 @@ __all__ = [
     "IndiaIDSPAccessor",
     "IndonesiaMOHAccessor",
     "InfoDengueAPI",
+    "JapanIDWRAccessor",
     "MalaysiaMOHAccessor",
     "MalariaAtlasAccessor",
     "NZHealthAccessor",

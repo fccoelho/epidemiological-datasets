@@ -1472,6 +1472,263 @@ class TestDiseaseSh:
 
 
 # Minimal swagger fixture for DEMAS discovery tests
+class TestJapanIDWR:
+    """Tests for the Japan IDWR accessor.
+
+    Network-free tests use the ``responses`` library with fixture CSVs
+    trimmed from real IDWR weekly reports.  Live tests are gated behind
+    ``@requires_external_api``.
+    """
+
+    BASE = "https://id-info.jihs.go.jp/en/surveillance/idwr/rapid"
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.japan_idwr import JapanIDWRAccessor
+
+        return JapanIDWRAccessor(cache_dir=str(tmp_path / "japan_idwr"))
+
+    @staticmethod
+    def _fixture(name: str) -> str:
+        path = Path(__file__).parent / "fixtures" / "idwr" / name
+        return path.read_text(encoding="utf-8")
+
+    def test_initialization(self, accessor):
+        assert accessor.source_name == "japan_idwr"
+        assert "IDWR" in accessor.source_description
+        assert accessor.cache_dir.exists()
+        assert len(accessor.PREFECTURES) == 47
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert countries.iloc[0]["country_code"] == "JP"
+        assert countries.iloc[0]["country_name"] == "Japan"
+
+    @responses.activate
+    def test_get_available_years(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/index.html",
+            body='<a href="./2015/index.html">2015</a>'
+            '<a href="./2023/index.html">2023</a>'
+            '<a href="./2026/index.html">2026</a>',
+            status=200,
+        )
+        years = accessor.get_available_years(use_cache=False)
+        assert years == [2023, 2026]
+
+    @responses.activate
+    def test_get_available_weeks(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/index.html",
+            body='<a href="./01/index.html">01</a>'
+            '<a href="./32/index.html">32</a>'
+            '<a href="./css/index.html">css</a>',
+            status=200,
+        )
+        weeks = accessor.get_available_weeks(2026, use_cache=False)
+        assert weeks == [1, 32]
+
+    @responses.activate
+    def test_get_latest_week(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/index.html",
+            body='<a href="./2023/index.html"></a><a href="./2026/index.html"></a>',
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/index.html",
+            body='<a href="./31/index.html"></a><a href="./32/index.html"></a>',
+            status=200,
+        )
+        assert accessor.get_latest_week(use_cache=False) == (2026, 32)
+
+    def test_year_before_coverage_raises_value_error(self, accessor):
+        with pytest.raises(ValueError, match="before portal coverage"):
+            accessor.get_week(2019, 10)
+
+    def test_invalid_week_raises_value_error(self, accessor):
+        with pytest.raises(ValueError, match="between 1 and 53"):
+            accessor.get_week(2026, 54)
+
+    @responses.activate
+    def test_missing_week_raises_data_error(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2023/53/zensu53.csv",
+            body="Not Found",
+            status=404,
+        )
+        from epidatasets.sources.japan_idwr import JapanIDWRDataError
+
+        with pytest.raises(JapanIDWRDataError, match="No IDWR report for 2023 week 53"):
+            accessor.get_week(2023, 53, use_cache=False)
+
+    @responses.activate
+    def test_get_week_parses_all_tables(self, accessor):
+        for table in ("zensu", "teiten", "teitenari", "teitenrui"):
+            responses.add(
+                responses.GET,
+                f"{self.BASE}/2026/32/{table}32.csv",
+                body=self._fixture(f"{table}32.csv"),
+                status=200,
+            )
+        report = accessor.get_week(2026, 32, use_cache=False)
+
+        assert report.year == 2026 and report.week == 32
+        assert report.as_of == pd.Timestamp("2026-08-12")
+
+        nd = report.notifiable_diseases
+        assert list(nd.columns) == [
+            "prefecture", "disease", "current_week", "cumulative",
+        ]
+        assert set(nd["prefecture"]) == {
+            "Hokkaido", "Aomori", "Chiba", "Kyoto", "Kagoshima",
+        }
+        assert nd["disease"].nunique() == 3
+        tb = nd[nd["disease"] == "Tuberculosis"]
+        assert tb["current_week"].sum() > 0
+
+        sd = report.sentinel_diseases
+        assert list(sd.columns) == [
+            "prefecture", "disease", "current_week", "per_sentinel",
+        ]
+        assert sd["disease"].nunique() == 3
+
+        delayed = report.sentinel_diseases_delayed
+        assert delayed["disease"].unique().tolist() == [
+            "Acute respiratory infection"
+        ]
+
+        cum = report.sentinel_diseases_cumulative
+        assert list(cum.columns) == [
+            "prefecture", "disease", "cumulative_cases",
+            "cumulative_per_sentinel",
+        ]
+
+        totals = report.national_totals["notifiable"]["Tuberculosis"]
+        assert totals["current_week"] == 249
+        assert totals["cumulative"] == 8902
+
+    @responses.activate
+    def test_dash_values_become_nan(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/32/teiten32.csv",
+            body=self._fixture("teiten32.csv"),
+            status=200,
+        )
+        df = accessor.get_sentinel_diseases(2026, 32, use_cache=False)
+        ahc = df[df["disease"] == "Acute hemorrhagic conjunctivitis"]
+        assert ahc["per_sentinel"].isna().sum() >= 1
+        assert ahc["current_week"].isna().sum() >= 1
+        mumps = df[df["disease"] == "Mumps"]
+        assert mumps["current_week"].notna().all()
+
+    def test_invalid_sentinel_table_raises(self, accessor):
+        with pytest.raises(ValueError, match="Invalid table"):
+            accessor.get_sentinel_diseases(2026, 32, table="bogus")
+
+    def test_resolve_disease_aliases(self, accessor):
+        assert accessor.resolve_disease("flu").startswith("Influenza")
+        assert accessor.resolve_disease("HFMD") == "Hand, foot and mouth disease"
+        assert accessor.resolve_disease("Measles") == "Measles"
+        assert accessor.resolve_disease("whooping cough") == "Pertussis"
+        with pytest.raises(ValueError, match="Unknown disease"):
+            accessor.resolve_disease("unicorn pox")
+
+    def test_resolve_disease_from_dataframe(self, accessor):
+        df = pd.DataFrame({"disease": ["Scrub typhus(Tsutsugamushi disease)"]})
+        resolved = accessor.resolve_disease("Scrub typhus", df)
+        assert resolved.startswith("Scrub typhus")
+
+    def test_prefecture_resolution(self, accessor):
+        with pytest.raises(ValueError, match="Unknown prefecture"):
+            accessor.get_by_prefecture("Shangri-La", 2026, 32)
+
+    @responses.activate
+    def test_get_by_prefecture(self, accessor):
+        for table in ("zensu", "teiten", "teitenari", "teitenrui"):
+            responses.add(
+                responses.GET,
+                f"{self.BASE}/2026/32/{table}32.csv",
+                body=self._fixture(f"{table}32.csv"),
+                status=200,
+            )
+        report = accessor.get_by_prefecture("kyoto", 2026, 32, use_cache=False)
+        assert set(report.notifiable_diseases["prefecture"]) == {"Kyoto"}
+        assert len(report.notifiable_diseases) == 3
+
+    @responses.activate
+    def test_get_disease_series(self, accessor):
+        body = self._fixture("zensu32.csv")
+        for week in (31, 32):
+            responses.add(
+                responses.GET,
+                f"{self.BASE}/2026/{week}/zensu{week}.csv",
+                body=body.replace("32nd week, 2026", f"{week}th week, 2026"),
+                status=200,
+            )
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/index.html",
+            body='<a href="./31/index.html"></a><a href="./32/index.html"></a>',
+            status=200,
+        )
+        ts = accessor.get_disease_series(
+            "tb", start_year=2026, start_week=31, end_year=2026, end_week=32,
+            use_cache=False,
+        )
+        assert set(ts["week"]) == {31, 32}
+        assert set(ts.columns) == {
+            "year", "week", "prefecture", "disease", "current_week",
+            "cumulative",
+        }
+        assert (ts["disease"] == "Tuberculosis").all()
+
+    def test_get_disease_series_invalid_table(self, accessor):
+        with pytest.raises(ValueError, match="table must be"):
+            accessor.get_disease_series(
+                "measles", start_year=2026, table="bogus"
+            )
+
+    @responses.activate
+    def test_cache_prevents_refetch(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/32/teiten32.csv",
+            body=self._fixture("teiten32.csv"),
+            status=200,
+        )
+        accessor.get_sentinel_diseases(2026, 32, use_cache=True)
+        accessor.get_sentinel_diseases(2026, 32, use_cache=True)
+        assert len(responses.calls) == 1
+
+    def test_decode_falls_back_to_cp932(self):
+        from epidatasets.sources.japan_idwr import JapanIDWRAccessor
+
+        decoded = JapanIDWRAccessor._decode("麻疹".encode("cp932"))
+        assert decoded == "麻疹"
+
+    @requires_external_api
+    def test_latest_week_live(self, accessor):
+        year, week = accessor.get_latest_week()
+        assert year >= 2023
+        assert 1 <= week <= 53
+
+    @requires_external_api
+    def test_get_week_live(self, accessor):
+        year, week = accessor.get_latest_week()
+        report = accessor.get_week(year, week, use_cache=False)
+        nd = report.notifiable_diseases
+        assert nd["prefecture"].nunique() == 47
+        assert nd["disease"].nunique() > 50
+        assert report.sentinel_diseases["disease"].nunique() >= 19
+
+
 _DEMAS_SWAGGER = {
     "swagger": "2.0",
     "info": {"title": "DEMAS - API de Dados Abertos"},
