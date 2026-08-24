@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **33 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **35 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -242,6 +242,7 @@ epidemiological-datasets/
 | Dataset | Description | Update Frequency | Access Level | Module |
 |---------|-------------|------------------|--------------|--------|
 | [WHO Global Health Observatory](https://www.who.int/data/gho) | Health indicators by country | Annual | Open | `epidatasets.sources.who_ghoclient` |
+| [disease.sh](https://disease.sh/) | Global COVID-19 & influenza statistics (real-time, historical, vaccines) | Real-time | Open | `epidatasets.sources.disease_sh` |
 | [Our World in Data - Health](https://ourworldindata.org/health) | COVID-19, vaccination, excess mortality | Daily/Weekly | Open | `epidatasets.sources.owid` |
 | [Global Health Data Exchange (GHDx)](http://ghdx.healthdata.org/) | Catalog of health datasets | Varies | Varies | Catalog only |
 | [HDX (Humanitarian Data Exchange)](https://data.humdata.org/) | Health in crisis contexts | Real-time | Open | Planned |
@@ -498,6 +499,38 @@ owid_covid = owid.get_covid_data(
 )
 ```
 
+### Example 9: disease.sh Global COVID-19 & Influenza
+
+```python
+from epidatasets.sources.disease_sh import DiseaseShAccessor, DiseaseShAPIError
+
+ds = DiseaseShAccessor()  # optional: cache_ttl_hours=24 for influenza
+
+# Global COVID-19 totals
+totals = ds.get_global_totals()
+
+# Per-country current data (name, ISO-2 or ISO-3)
+brazil = ds.get_country_data("BRA")
+
+# Historical time series with date filtering
+hist = ds.get_historical(
+    country=["USA", "BRA"],
+    lastdays=90,
+    start_date="2023-01-01",
+    end_date="2023-03-01",
+)
+
+# Vaccine coverage and US CDC influenza surveillance
+vax = ds.get_vaccine_coverage(country="USA", lastdays=60)
+ili = ds.get_influenza_ilinet()
+
+# Clear errors: invalid country -> ValueError, API failures -> DiseaseShAPIError
+try:
+    ds.get_country_data("Atlantis")
+except ValueError as e:
+    print(e)
+```
+
 ## 📊 Available Sources
 
 | Source Name | Class | Extra | Description |
@@ -508,6 +541,7 @@ owid_covid = owid.get_covid_data(
 | `colombia_ins` | `ColombiaINSAccessor` | — | Colombia INS/SIVIGILA surveillance |
 | `copernicus_cds` | `CopernicusCDSAccessor` | `[climate]` | Copernicus Climate Data Store |
 | `datasus` | `DataSUSAccessor` | `[brazil]` | Brazilian DATASUS/SINAN (via PySUS) |
+| `disease_sh` | `DiseaseShAccessor` | — | disease.sh global COVID-19 & influenza statistics |
 | `ecdc` | `ECDCOpenDataAccessor` | — | ECDC infectious disease data |
 | `epipulse` | `EpiPulseAccessor` | — | ECDC EpiPulse surveillance portal |
 | `eurostat` | `EurostatAccessor` | `[eurostat]` | EU health statistics |
@@ -533,7 +567,7 @@ owid_covid = owid.get_covid_data(
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 33 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 35 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 
@@ -606,7 +640,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 - **Data sources:** 33 registered (via plugin registry)
 - **Countries covered:** 100+
 - **Optional extras:** 10 (`who`, `brazil`, `eurostat`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
-- **Example notebooks:** 28+
+- **Example notebooks:** 42
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 
 ## 📚 Citation

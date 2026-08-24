@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import requests
 import responses
 
 
@@ -1275,6 +1276,186 @@ class TestDiseaseSh:
         assert df.iloc[0]["totalA"] == 38
         assert df.iloc[0]["totalTests"] == 49177
         assert df.iloc[0]["year"] == 2021
+
+    @responses.activate
+    def test_get_country_data_invalid_country_raises_value_error(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/Atlantis",
+            json={"message": "Country not found or doesn't have any historical data"},
+            status=404,
+        )
+        with pytest.raises(ValueError, match="Unknown country.*Atlantis"):
+            accessor.get_country_data("Atlantis")
+
+    @responses.activate
+    def test_get_historical_invalid_country_raises_value_error(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/Atlantis",
+            json={"message": "Country not found or doesn't have any historical data"},
+            status=404,
+        )
+        with pytest.raises(ValueError, match="Unknown country"):
+            accessor.get_historical(country="Atlantis")
+
+    @responses.activate
+    def test_404_is_not_retried(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/Atlantis",
+            json={"message": "Country not found"},
+            status=404,
+        )
+        with pytest.raises(ValueError):
+            accessor.get_country_data("Atlantis")
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_network_error_wrapped_in_api_error(self, accessor, monkeypatch):
+        from epidatasets.sources.disease_sh import DiseaseShAPIError
+
+        monkeypatch.setattr(
+            "epidatasets.sources.disease_sh.time.sleep", lambda s: None
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            body=requests.exceptions.ConnectionError("connection refused"),
+        )
+        with pytest.raises(DiseaseShAPIError) as excinfo:
+            accessor.get_global_totals(use_cache=False)
+        assert excinfo.value.attempts == 3
+        assert excinfo.value.url == "https://disease.sh/v3/covid-19/all"
+        assert excinfo.value.status_code is None
+        assert len(responses.calls) == 3
+
+    @responses.activate
+    def test_server_error_wrapped_in_api_error(self, accessor, monkeypatch):
+        from epidatasets.sources.disease_sh import DiseaseShAPIError
+
+        monkeypatch.setattr(
+            "epidatasets.sources.disease_sh.time.sleep", lambda s: None
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/states",
+            json={"message": "Internal server error"},
+            status=500,
+        )
+        with pytest.raises(DiseaseShAPIError) as excinfo:
+            accessor.get_states(use_cache=False)
+        assert excinfo.value.status_code == 500
+        assert excinfo.value.attempts == 3
+
+    @responses.activate
+    def test_retry_then_success(self, accessor, monkeypatch):
+        monkeypatch.setattr(
+            "epidatasets.sources.disease_sh.time.sleep", lambda s: None
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"message": "Bad gateway"},
+            status=502,
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"cases": 704753890, "deaths": 7010681},
+            status=200,
+        )
+        df = accessor.get_global_totals(use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["cases"] == 704753890
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_cache_write_read_and_bypass(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"cases": 704753890, "deaths": 7010681},
+            status=200,
+        )
+        # First call fetches and caches
+        accessor.get_global_totals()
+        assert len(responses.calls) == 1
+        # Second call is served from cache (no extra HTTP call)
+        df = accessor.get_global_totals()
+        assert len(responses.calls) == 1
+        assert df.iloc[0]["cases"] == 704753890
+        # use_cache=False forces a fresh HTTP call
+        accessor.get_global_totals(use_cache=False)
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_cache_ttl_expiry(self, accessor):
+        import os
+        import time as time_mod
+
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"cases": 704753890},
+            status=200,
+        )
+        accessor.get_global_totals()
+        assert len(responses.calls) == 1
+        # Backdate the cache file beyond the TTL (default 1 hour)
+        cache_file = accessor.cache_dir / "v3_covid-19_all.json"
+        stale = time_mod.time() - 2 * 3600
+        os.utime(cache_file, (stale, stale))
+        accessor.get_global_totals()
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_get_country_data_list(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/Brazil,USA",
+            json=[
+                {
+                    "country": "Brazil",
+                    "countryInfo": {"iso2": "BR", "iso3": "BRA"},
+                    "cases": 37700000,
+                },
+                {
+                    "country": "USA",
+                    "countryInfo": {"iso2": "US", "iso3": "USA"},
+                    "cases": 103000000,
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_country_data(["Brazil", "USA"])
+        assert len(df) == 2
+        assert set(df["country"]) == {"Brazil", "USA"}
+
+    @responses.activate
+    def test_get_influenza_public_health_lab(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/influenza/CDC/USPHL",
+            json={
+                "updated": 1783934242481,
+                "source": "www.cdc.gov/flu",
+                "data": [
+                    {
+                        "week": "2021 - 40/52",
+                        "totalA": 40,
+                        "totalB": 12,
+                        "totalTested": 300,
+                    },
+                ],
+            },
+            status=200,
+        )
+        df = accessor.get_influenza_public_health_lab(use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["totalA"] == 40
+        assert df.iloc[0]["year"] == 2021
+        assert df.iloc[0]["week_num"] == 40
 
     @requires_external_api
     def test_list_countries_live(self, accessor):
