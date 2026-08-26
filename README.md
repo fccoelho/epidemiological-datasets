@@ -1,3 +1,5 @@
+
+
 # 🌍 Epidatasets
 
 <p align="center">
@@ -638,7 +640,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## 📊 Statistics
 
-- **Data sources:** 33 registered (via plugin registry)
+- **Data sources:** 36 registered (via plugin registry)
 - **Countries covered:** 100+
 - **Optional extras:** 10 (`who`, `brazil`, `eurostat`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
 - **Example notebooks:** 43
