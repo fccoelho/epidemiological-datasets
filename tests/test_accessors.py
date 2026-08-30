@@ -6,7 +6,6 @@ valid data structures. Tests are designed to be fast and non-breaking.
 
 import json
 import os
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -105,6 +104,67 @@ class TestChinaCDC:
         assert accessor is not None
         assert accessor.source_name == "china_cdc"
 
+    def test_crossref_search_parses_records(self):
+        """Regression: article discovery must use CrossRef, not the
+        JavaScript-rendered volume page (which yields 0 issues)."""
+        from unittest.mock import MagicMock
+
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        payload = {
+            "message": {
+                "items": [
+                    {
+                        "DOI": "10.46234/ccdcw2023.061",
+                        "title": ["Reported Cases and Deaths of National "
+                                  "Notifiable Infectious Diseases — China, "
+                                  "February 2023"],
+                        "container-title": ["China CDC Weekly"],
+                        "issued": {"date-parts": [[2023, 6, 1]]},
+                    },
+                ]
+            }
+        }
+        accessor = ChinaCDCAccessor()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = payload
+        mock_resp.raise_for_status.return_value = None
+
+        original_get = accessor._session.get
+        accessor._session.get = MagicMock(return_value=mock_resp)
+        try:
+            df = accessor.search_articles("notifiable", year=2023)
+        finally:
+            accessor._session.get = original_get
+
+        assert list(df["doi"]) == ["10.46234/ccdcw2023.061"]
+        assert df["year"].iloc[0] == 2023
+        assert df["pdf_url"].iloc[0].endswith("10.46234/ccdcw2023.061.pdf")
+
+    def test_crossref_query_targets_journal_issn(self):
+        from unittest.mock import MagicMock
+
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"message": {"items": []}}
+        mock_resp.raise_for_status.return_value = None
+
+        original_get = accessor._session.get
+        mock_get = MagicMock(return_value=mock_resp)
+        accessor._session.get = mock_get
+        try:
+            accessor.get_weekly_reports(2023)
+        finally:
+            accessor._session.get = original_get
+
+        url = mock_get.call_args.args[0]
+        assert accessor.ISSN == "2097-3101"
+        assert f"/journals/{accessor.ISSN}/works" in url
+
     def test_list_notifiable_diseases(self):
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
         accessor = ChinaCDCAccessor()
@@ -119,6 +179,7 @@ class TestChinaCDC:
 
     def test_parse_pdf_to_disease_table(self):
         from pathlib import Path
+
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
 
         pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
@@ -135,6 +196,7 @@ class TestChinaCDC:
 
     def test_parse_pdf_tables(self):
         from pathlib import Path
+
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
 
         pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
@@ -146,6 +208,7 @@ class TestChinaCDC:
 
     def test_parse_pdf_text_lines(self):
         from pathlib import Path
+
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
 
         pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
@@ -895,7 +958,7 @@ class TestECDCAtlas:
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
-        assert epidatasets.__version__()
+        assert epidatasets.__version__  # __version__ is a plain string
 
     def test_base_accessor_import(self):
         from epidatasets._base import BaseAccessor

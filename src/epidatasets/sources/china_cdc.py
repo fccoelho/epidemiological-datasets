@@ -35,7 +35,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Tuple
+from typing import ClassVar
 
 import pandas as pd
 import requests
@@ -138,6 +138,15 @@ class ChinaCDCAccessor(BaseAccessor):
     source_url: ClassVar[str] = "http://weekly.chinacdc.cn"
 
     BASE_URL = "http://weekly.chinacdc.cn"
+
+    #: CrossRef API endpoint indexing China CDC Weekly (open, no auth).
+    CROSSREF_URL = "https://api.crossref.org"
+    ISSN = "2097-3101"
+
+    #: Verified open-access PDF URL pattern (DOI-based).
+    PDF_URL_TEMPLATE = (
+        "https://weekly.chinacdc.cn/en/article/pdf/preview/{doi}.pdf"
+    )
     CNIC_URL = "http://www.chinacdc.cn/cnic"
 
     # Notifiable infectious diseases in China (38 categories)
@@ -218,7 +227,7 @@ class ChinaCDCAccessor(BaseAccessor):
         "XJ": {"name": "Xinjiang", "cn": "新疆维吾尔自治区"},
     }
 
-    def __init__(self, cache_dir: Optional[str] = None):
+    def __init__(self, cache_dir: str | None = None):
         if cache_dir is None:
             cache_dir = os.path.join(
                 os.path.expanduser("~"), ".cache", "epidatasets", "china_cdc"
@@ -285,10 +294,78 @@ class ChinaCDCAccessor(BaseAccessor):
     # Volume / issue discovery
     # ------------------------------------------------------------------
 
+    def _crossref_search(
+        self,
+        query: str | None = None,
+        year: int | None = None,
+        rows: int = 30,
+    ) -> pd.DataFrame:
+        """
+        Query the CrossRef API for China CDC Weekly articles.
+
+        The journal site renders issue listings client-side, so CrossRef is
+        the reliable open route for article discovery (ISSN 2097-3101).
+
+        Args:
+            query: Free-text bibliographic query. ``None`` lists recent
+                articles.
+            year: Optional publication year filter.
+            rows: Maximum number of results.
+
+        Returns:
+            DataFrame with ``doi``, ``title``, ``journal``, ``year``,
+            ``url``, and ``pdf_url`` columns.
+        """
+        params: dict = {
+            "rows": str(min(max(1, rows), 1000)),
+            "select": "DOI,title,container-title,issued",
+        }
+        filters = []
+        if year is not None:
+            filters.append(f"from-pub-date:{year}-01-01")
+            filters.append(f"until-pub-date:{year}-12-31")
+        if filters:
+            params["filter"] = ",".join(filters)
+        if query:
+            params["query.bibliographic"] = query
+
+        resp = self._session.get(
+            f"{self.CROSSREF_URL}/journals/{self.ISSN}/works",
+            params=params,
+            timeout=self._request_timeout,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("message", {}).get("items", [])
+
+        records: list[dict] = []
+        for item in items:
+            doi = item.get("DOI", "")
+            issued = item.get("issued", {}).get("date-parts", [[None]])
+            pub_year = issued[0][0] if issued and issued[0] else None
+            records.append(
+                {
+                    "doi": doi,
+                    "title": (item.get("title") or [""])[0],
+                    "journal": (item.get("container-title") or [""])[0],
+                    "year": pub_year,
+                    "url": f"https://doi.org/{doi}",
+                    "pdf_url": self.PDF_URL_TEMPLATE.format(doi=doi),
+                }
+            )
+        logger.info(f"CrossRef returned {len(records)} articles")
+        return pd.DataFrame(records)
+
     def get_volume_issues(self, year: int) -> pd.DataFrame:
         """
         Scrape the list of issues for a given *year* from the China CDC Weekly
         volume page.
+
+        .. deprecated::
+            The journal site renders issue listings client-side via
+            JavaScript, so this scraper usually finds 0 issues. Article
+            discovery is now CrossRef-backed: see :meth:`search_articles`,
+            :meth:`get_weekly_reports`, and
+            :meth:`find_notifiable_disease_reports`.
 
         Returns a DataFrame with columns ``issue_no``, ``date``, ``title``,
         ``pdf_url``, ``articles`` (list of dicts with title/doi/url).
@@ -380,68 +457,49 @@ class ChinaCDCAccessor(BaseAccessor):
         Find all *Notifiable Infectious Diseases Reports* published in *year*.
 
         These are the monthly tables of reported cases and deaths.
+        Articles are discovered via CrossRef; PDF URLs use the verified
+        DOI-based pattern.
         Returns a DataFrame with ``month``, ``doi``, ``url``, ``pdf_url``.
         """
-        issues_df = self.get_volume_issues(year)
+        articles = self._crossref_search(
+            query="Reported Cases and Deaths of National Notifiable "
+            "Infectious Diseases",
+            year=year,
+            rows=60,
+        )
         reports = []
-        for _, row in issues_df.iterrows():
-            for art in row.get("articles", []):
-                title = art.get("title", "")
-                if "Notifiable Infectious Diseases" in title or (
-                    "Reported Cases" in title
-                    and "National Notifiable" in title
-                ):
-                    month_match = re.search(
-                        r"(January|February|March|April|May|June|July|"
-                        r"August|September|October|November|December)",
-                        title,
-                    )
-                    month_name = (
-                        month_match.group(1) if month_match else None
-                    )
-                    month_num = None
-                    if month_name:
-                        try:
-                            dt = datetime.strptime(month_name, "%B")
-                            month_num = dt.month
-                        except ValueError:
-                            pass
+        for _, art in articles.iterrows():
+            title = str(art.get("title") or "")
+            if "Notifiable Infectious Diseases" not in title and not (
+                "Reported Cases" in title and "National Notifiable" in title
+            ):
+                continue
+            month_match = re.search(
+                r"(January|February|March|April|May|June|July|"
+                r"August|September|October|November|December)",
+                title,
+            )
+            month_name = month_match.group(1) if month_match else None
+            month_num = None
+            if month_name:
+                try:
+                    dt = datetime.strptime(month_name, "%B")
+                    month_num = dt.month
+                except ValueError:
+                    pass
 
-                    art_url = art.get("url", "")
-                    pdf_url = None
-                    if art_url:
-                        article_page = self._session.get(
-                            art_url, timeout=self._request_timeout
-                        )
-                        if article_page.ok:
-                            ap_soup = BeautifulSoup(
-                                article_page.content, "html.parser"
-                            )
-                            for a in ap_soup.find_all("a", href=True):
-                                href = a["href"].strip()
-                                if ".pdf" in href and (
-                                    "report" in href.lower()
-                                    or href.endswith(".pdf")
-                                ):
-                                    if href.startswith("//"):
-                                        href = "http:" + href
-                                    elif not href.startswith("http"):
-                                        href = self.BASE_URL + href
-                                    pdf_url = href
-                                    break
-
-                    reports.append(
-                        {
-                            "year": year,
-                            "month": month_num,
-                            "month_name": month_name,
-                            "issue_no": row["issue_no"],
-                            "title": title,
-                            "doi": art.get("doi"),
-                            "url": art_url,
-                            "pdf_url": pdf_url,
-                        }
-                    )
+            reports.append(
+                {
+                    "year": year,
+                    "month": month_num,
+                    "month_name": month_name,
+                    "title": title,
+                    "doi": art.get("doi"),
+                    "url": art.get("url"),
+                    "pdf_url": art.get("pdf_url"),
+                }
+            )
+        reports.sort(key=lambda r: (r["month"] is None, r["month"]))
         logger.info(
             f"Found {len(reports)} notifiable disease reports for {year}"
         )
@@ -454,7 +512,7 @@ class ChinaCDCAccessor(BaseAccessor):
     def download_pdf(
         self,
         url: str,
-        filename: Optional[str] = None,
+        filename: str | None = None,
     ) -> Path:
         if filename is None:
             filename = url.rsplit("/", 1)[-1]
@@ -469,8 +527,8 @@ class ChinaCDCAccessor(BaseAccessor):
     @staticmethod
     def parse_pdf_tables(
         pdf_path: str | Path,
-        pages: Optional[List[int]] = None,
-    ) -> List[pd.DataFrame]:
+        pages: list[int] | None = None,
+    ) -> list[pd.DataFrame]:
         pdf_path = Path(pdf_path)
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
@@ -480,7 +538,7 @@ class ChinaCDCAccessor(BaseAccessor):
         if not extracted:
             return []
 
-        tables: List[pd.DataFrame] = []
+        tables: list[pd.DataFrame] = []
         for t in extracted:
             df = t.data.dropna(how="all")
             tables.append(df)
@@ -509,13 +567,13 @@ class ChinaCDCAccessor(BaseAccessor):
         return pd.DataFrame()
 
     @staticmethod
-    def _parse_pdf_text_lines(pdf_path: Path) -> List[dict]:
+    def _parse_pdf_text_lines(pdf_path: Path) -> list[dict]:
         parser = PDFParser()
         all_text = parser.extract_text(pdf_path)
         if not all_text:
             return []
 
-        rows: List[dict] = []
+        rows: list[dict] = []
         header_seen = False
         for line in all_text.split("\n"):
             line = line.strip()
@@ -601,7 +659,7 @@ class ChinaCDCAccessor(BaseAccessor):
 
     def parse_article_html_tables(
         self, url: str
-    ) -> List[pd.DataFrame]:
+    ) -> list[pd.DataFrame]:
         """
         Parse all tables from a China CDC Weekly article HTML page.
 
@@ -698,32 +756,29 @@ class ChinaCDCAccessor(BaseAccessor):
     def get_weekly_reports(
         self,
         year: int,
-        week: Optional[int] = None,
+        week: int | None = None,
     ) -> pd.DataFrame:
         """
-        Get metadata for China CDC Weekly surveillance reports by scraping
-        the volume page.
+        Get metadata for China CDC Weekly articles published in *year*
+        (discovered via CrossRef).
 
         Args:
             year: Publication year (e.g. 2024).
-            week: Issue number (1-52). If *None*, returns all issues.
+            week: Unused (kept for backwards compatibility); the journal
+                publishes articles continuously, not strictly per week.
 
         Returns:
-            DataFrame with report metadata including article lists.
+            DataFrame with ``doi``, ``title``, ``journal``, ``year``,
+            ``url``, and ``pdf_url`` columns.
         """
-        logger.info(f"Fetching weekly reports for year {year}, week={week}")
-        issues_df = self.get_volume_issues(year)
-
-        if week is not None:
-            issues_df = issues_df[issues_df["issue_no"] == week]
-
-        return issues_df
+        logger.info(f"Fetching weekly reports for year {year}")
+        return self._crossref_search(year=year, rows=60)
 
     def get_notifiable_diseases(
         self,
         year: int,
-        month: Optional[int] = None,
-        source: str = "html",
+        month: int | None = None,
+        source: str = "pdf",
     ) -> pd.DataFrame:
         """
         Fetch notifiable infectious disease case/death data for a given year
@@ -732,8 +787,9 @@ class ChinaCDCAccessor(BaseAccessor):
         Args:
             year: Year (e.g. 2024).
             month: Month 1-12. If *None*, fetches all available months.
-            source: ``"html"`` to parse HTML tables (faster, recommended)
-                    or ``"pdf"`` to download and parse PDFs.
+            source: ``"pdf"`` to download and parse PDFs (recommended; the
+                    article HTML renders tables client-side so ``"html"``
+                    usually finds no tables).
 
         Returns:
             DataFrame with columns ``year``, ``month``, ``disease_code``,
@@ -747,7 +803,7 @@ class ChinaCDCAccessor(BaseAccessor):
         if month is not None:
             reports = reports[reports["month"] == month]
 
-        all_data: List[pd.DataFrame] = []
+        all_data: list[pd.DataFrame] = []
 
         for _, rpt in reports.iterrows():
             rpt_month = rpt["month"]
@@ -802,9 +858,9 @@ class ChinaCDCAccessor(BaseAccessor):
 
     def get_influenza_surveillance(
         self,
-        weeks: Optional[List[int]] = None,
-        year: Optional[int] = None,
-        provinces: Optional[List[str]] = None,
+        weeks: list[int] | None = None,
+        year: int | None = None,
+        provinces: list[str] | None = None,
     ) -> pd.DataFrame:
         year = year or datetime.now().year
         weeks = weeks or list(range(1, 53))
@@ -853,7 +909,7 @@ class ChinaCDCAccessor(BaseAccessor):
 
     def get_covid_updates(
         self,
-        date_range: Optional[Tuple[str, str]] = None,
+        date_range: tuple[str, str] | None = None,
     ) -> pd.DataFrame:
         logger.info("Fetching COVID-19 updates")
         data = []
@@ -876,8 +932,8 @@ class ChinaCDCAccessor(BaseAccessor):
 
     def get_vaccination_coverage(
         self,
-        vaccines: List[str],
-        year: Optional[int] = None,
+        vaccines: list[str],
+        year: int | None = None,
     ) -> pd.DataFrame:
         year = year or datetime.now().year
         logger.info(f"Fetching vaccination coverage for {vaccines}, year={year}")
@@ -899,49 +955,39 @@ class ChinaCDCAccessor(BaseAccessor):
     def search_articles(
         self,
         query: str,
-        year: Optional[int] = None,
+        year: int | None = None,
     ) -> pd.DataFrame:
         """
-        Search for articles in China CDC Weekly by scanning the volume page
-        for titles matching *query*.
+        Search for China CDC Weekly articles via the CrossRef API.
+
+        Args:
+            query: Free-text query matched against titles/bibliographic data.
+            year: Optional publication year filter (default: current year).
+
+        Returns:
+            DataFrame with ``title``, ``doi``, ``url``, ``pdf_url``,
+            ``journal``, and ``year`` columns.
         """
-        logger.info(f"Searching for '{query}' in China CDC Weekly")
+        logger.info(f"Searching for '{query}' in China CDC Weekly (CrossRef)")
 
         target_year = year or datetime.now().year
-        issues = self.get_volume_issues(target_year)
+        results = self._crossref_search(query=query, year=target_year)
 
-        results = []
-        query_lower = query.lower()
-        for _, row in issues.iterrows():
-            for art in row.get("articles", []):
-                title = art.get("title", "")
-                if query_lower in title.lower():
-                    results.append(
-                        {
-                            "title": title,
-                            "doi": art.get("doi"),
-                            "url": art.get("url"),
-                            "year": target_year,
-                            "issue_no": row["issue_no"],
-                        }
-                    )
-
-        if results:
-            logger.info(f"Found {len(results)} matching articles")
-            return pd.DataFrame(results)
-
-        logger.warning(f"No articles found matching '{query}'")
-        return pd.DataFrame(
-            [
-                {
-                    "title": None,
-                    "doi": None,
-                    "url": None,
-                    "year": target_year,
-                    "note": f"No articles found matching '{query}'",
-                }
-            ]
-        )
+        if results.empty:
+            logger.warning(f"No articles found matching '{query}'")
+            return pd.DataFrame(
+                [
+                    {
+                        "title": None,
+                        "doi": None,
+                        "url": None,
+                        "pdf_url": None,
+                        "year": target_year,
+                        "note": f"No articles found matching '{query}'",
+                    }
+                ]
+            )
+        return results
 
     def parse_weekly_report(
         self,
@@ -964,7 +1010,7 @@ class ChinaCDCAccessor(BaseAccessor):
             return pd.DataFrame()
 
         row = match.iloc[0]
-        all_tables: List[pd.DataFrame] = []
+        all_tables: list[pd.DataFrame] = []
 
         for art in row.get("articles", []):
             art_url = art.get("url", "")
