@@ -79,8 +79,10 @@ nav:
       - Malaysia MOH: sources/malaysia_moh.md
       - Thailand DDC: sources/thailand_ddc.md
       - Indonesia MOH: sources/indonesia_moh.md
+      - Japan IDWR: sources/japan_idwr.md
       - disease.sh: sources/disease_sh.md
       - DEMAS (Dados Abertos do SUS): sources/demas.md
+      - OpenDataSUS (SUS open-data catalog): sources/opendatasus.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md
@@ -129,5 +131,7 @@ nav:
       - EMRO Analysis (PT): examples/37_emro_health_analysis.ipynb
       - EpiPulse: examples/38_epipulse_example.ipynb
       - RespiCast: examples/40_respicast_example.ipynb
+      - OpenDataSUS Catalog: examples/42_OpenDataSUS_Catalog.ipynb
+      - Japan IDWR Surveillance: examples/43_Japan_IDWR_Surveillance.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md

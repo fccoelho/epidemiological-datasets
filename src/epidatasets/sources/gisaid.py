@@ -898,12 +898,32 @@ class GISAIDAccessor(BaseAccessor):
         return self._prompt_credentials()
 
     @staticmethod
+    def _is_jupyter() -> bool:
+        """Detect whether we are running inside a Jupyter/IPython kernel."""
+        try:
+            from IPython import get_ipython
+
+            shell = get_ipython()
+            if shell is None:
+                return False
+            return type(shell).__name__ == "ZMQInteractiveShell"
+        except (ImportError, NameError):
+            return False
+
+    @staticmethod
     def _prompt_credentials() -> tuple[str, str]:
         """Interactively prompt the user for GISAID credentials.
 
-        Uses :mod:`getpass` so the password is not echoed.  Falls back
-        to a :class:`ValueError` if stdin is not available (e.g. in
-        non-interactive test environments).
+        In Jupyter/IPython environments :func:`getpass.getpass` is
+        unreliable because it reads from ``/dev/tty`` which is not
+        connected to the notebook frontend, causing garbled or empty
+        input.  In those environments the password is read via
+        :func:`input` instead (with a warning that it will be visible in
+        the cell output).  For secure, non-echoed entry use a config
+        file or environment variables.
+
+        Falls back to a :class:`ValueError` if stdin is not available
+        (e.g. in non-interactive test environments).
         """
         import getpass
         import sys
@@ -917,17 +937,30 @@ class GISAIDAccessor(BaseAccessor):
                 "  3. Config file at ~/.config/epi_data/gisaid.json"
             )
 
-        print(
-            "\n" + "=" * 60 + "\n"
-            "GISAID credentials not found.\n"
-            "Register for free at: https://gisaid.org/register/\n"
-            + "=" * 60
-        )
+        in_jupyter = GISAIDAccessor._is_jupyter()
+        banner_lines = [
+            "",
+            "=" * 60,
+            "No GISAID credentials found in environment or config file.",
+        ]
+        if in_jupyter:
+            banner_lines.append(
+                "Running in Jupyter — the password will be visible in the\n"
+                "cell output. For secure entry, use env vars or a config\n"
+                "file (see docstring)."
+            )
+        banner_lines.append("Register for free at: https://gisaid.org/register/")
+        banner_lines.append("=" * 60)
+        print("\n".join(banner_lines))
+
         try:
             username = input("GISAID username (email): ").strip()
             if not username:
                 raise ValueError("GISAID username is required.")
-            password = getpass.getpass("GISAID password: ")
+            if in_jupyter:
+                password = input("GISAID password: ")
+            else:
+                password = getpass.getpass("GISAID password: ")
             if not password:
                 raise ValueError("GISAID password is required.")
         except (EOFError, OSError) as e:
