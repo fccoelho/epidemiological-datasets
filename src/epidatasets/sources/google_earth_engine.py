@@ -96,7 +96,7 @@ class GoogleEarthEngineAccessor(BaseAccessor):
 
     source_name: ClassVar[str] = "google_earth_engine"
     source_description: ClassVar[str] = (
-        "Google Earth Engine satellite imagery (Landsat, Sentinel-2, MODIS) "
+        "Google Earth Engine satellite imagery (Landsat 8 imagery) "
         "and derived vegetation/built-up indices for epidemiological modeling"
     )
     source_url: ClassVar[str] = "https://earthengine.google.com/"
@@ -104,8 +104,6 @@ class GoogleEarthEngineAccessor(BaseAccessor):
     # Image collections used by this accessor
     COLLECTIONS = {
         "landsat8_sr": "LANDSAT/LC08/C02/T1_L2",
-        "sentinel2_sr": "COPERNICUS/S2_SR_HARMONIZED",
-        "modis_vi": "MODIS/061/MOD13Q1",
         "countries": "USDOS/LSIB_SIMPLE/2017",
     }
 
@@ -194,7 +192,12 @@ class GoogleEarthEngineAccessor(BaseAccessor):
                 f"({start_date} to {end_date}) with cloud cover < {self.cloud_cover_max}%. "
                 f"Try widening the date range or raising cloud_cover_max."
             )
-        return collection.median()  # type: ignore[no-any-return]
+        composite = collection.median()
+        optical_bands = list(self.LANDSAT8_BANDS.values())
+        # Collection 2 Level-2 SR is scaled: apply the official DN -> reflectance
+        # conversion before any index math (offset does not cancel in ND ratios).
+        # https://www.usgs.gov/landsat-missions/landsat-collection-2-surface-reflectance
+        return composite.select(optical_bands).multiply(0.0000275).add(-0.2)  # type: ignore[no-any-return]
 
     def _reduce_mean(
         self, image: ee.Image, band_name: str, aoi: ee.Geometry, scale: int

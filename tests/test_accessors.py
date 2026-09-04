@@ -895,6 +895,7 @@ class TestGoogleEarthEngine:
         from epidatasets.sources.google_earth_engine import GoogleEarthEngineAccessor
         return GoogleEarthEngineAccessor(project=os.getenv("EE_PROJECT"))
 
+    @requires_external_api
     def test_initialization(self, accessor):
         assert accessor is not None
         assert accessor.source_name == "google_earth_engine"
