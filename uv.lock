@@ -1081,6 +1081,7 @@ all = [
     { name = "ghoclient" },
     { name = "lxml" },
     { name = "matplotlib" },
+    { name = "nest-asyncio" },
     { name = "pdfplumber" },
     { name = "playwright" },
     { name = "plotly" },
@@ -1131,6 +1132,7 @@ geo = [
 ]
 gisaid = [
     { name = "beautifulsoup4" },
+    { name = "nest-asyncio" },
     { name = "playwright" },
 ]
 notebooks = [
@@ -1193,6 +1195,7 @@ requires-dist = [
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.2.0" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.22.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.5.0" },
+    { name = "nest-asyncio", marker = "extra == 'gisaid'", specifier = ">=1.5.0" },
     { name = "numpy", specifier = ">=1.23.0" },
     { name = "pandas", specifier = ">=1.5.0" },
     { name = "pandas-stubs", specifier = "~=2.3.3" },

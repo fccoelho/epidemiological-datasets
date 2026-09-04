@@ -4,12 +4,13 @@ These tests validate that each accessor can be instantiated and return
 valid data structures. Tests are designed to be fast and non-breaking.
 """
 
+import json
 import os
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 import pytest
+import requests
 import responses
 
 
@@ -103,6 +104,67 @@ class TestChinaCDC:
         assert accessor is not None
         assert accessor.source_name == "china_cdc"
 
+    def test_crossref_search_parses_records(self):
+        """Regression: article discovery must use CrossRef, not the
+        JavaScript-rendered volume page (which yields 0 issues)."""
+        from unittest.mock import MagicMock
+
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        payload = {
+            "message": {
+                "items": [
+                    {
+                        "DOI": "10.46234/ccdcw2023.061",
+                        "title": ["Reported Cases and Deaths of National "
+                                  "Notifiable Infectious Diseases — China, "
+                                  "February 2023"],
+                        "container-title": ["China CDC Weekly"],
+                        "issued": {"date-parts": [[2023, 6, 1]]},
+                    },
+                ]
+            }
+        }
+        accessor = ChinaCDCAccessor()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = payload
+        mock_resp.raise_for_status.return_value = None
+
+        original_get = accessor._session.get
+        accessor._session.get = MagicMock(return_value=mock_resp)
+        try:
+            df = accessor.search_articles("notifiable", year=2023)
+        finally:
+            accessor._session.get = original_get
+
+        assert list(df["doi"]) == ["10.46234/ccdcw2023.061"]
+        assert df["year"].iloc[0] == 2023
+        assert df["pdf_url"].iloc[0].endswith("10.46234/ccdcw2023.061.pdf")
+
+    def test_crossref_query_targets_journal_issn(self):
+        from unittest.mock import MagicMock
+
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"message": {"items": []}}
+        mock_resp.raise_for_status.return_value = None
+
+        original_get = accessor._session.get
+        mock_get = MagicMock(return_value=mock_resp)
+        accessor._session.get = mock_get
+        try:
+            accessor.get_weekly_reports(2023)
+        finally:
+            accessor._session.get = original_get
+
+        url = mock_get.call_args.args[0]
+        assert accessor.ISSN == "2097-3101"
+        assert f"/journals/{accessor.ISSN}/works" in url
+
     def test_list_notifiable_diseases(self):
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
         accessor = ChinaCDCAccessor()
@@ -117,6 +179,7 @@ class TestChinaCDC:
 
     def test_parse_pdf_to_disease_table(self):
         from pathlib import Path
+
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
 
         pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
@@ -133,6 +196,7 @@ class TestChinaCDC:
 
     def test_parse_pdf_tables(self):
         from pathlib import Path
+
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
 
         pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
@@ -144,6 +208,7 @@ class TestChinaCDC:
 
     def test_parse_pdf_text_lines(self):
         from pathlib import Path
+
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
 
         pdf_path = Path.home() / ".cache" / "epidatasets" / "china_cdc" / "report2024-9.pdf"
@@ -946,7 +1011,7 @@ class TestGoogleEarthEngine:
 class TestSmoke:
     def test_package_import(self):
         import epidatasets
-        assert epidatasets.__version__()
+        assert epidatasets.__version__  # __version__ is a plain string
 
     def test_base_accessor_import(self):
         from epidatasets._base import BaseAccessor
@@ -1328,6 +1393,186 @@ class TestDiseaseSh:
         assert df.iloc[0]["totalTests"] == 49177
         assert df.iloc[0]["year"] == 2021
 
+    @responses.activate
+    def test_get_country_data_invalid_country_raises_value_error(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/Atlantis",
+            json={"message": "Country not found or doesn't have any historical data"},
+            status=404,
+        )
+        with pytest.raises(ValueError, match="Unknown country.*Atlantis"):
+            accessor.get_country_data("Atlantis")
+
+    @responses.activate
+    def test_get_historical_invalid_country_raises_value_error(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/historical/Atlantis",
+            json={"message": "Country not found or doesn't have any historical data"},
+            status=404,
+        )
+        with pytest.raises(ValueError, match="Unknown country"):
+            accessor.get_historical(country="Atlantis")
+
+    @responses.activate
+    def test_404_is_not_retried(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/Atlantis",
+            json={"message": "Country not found"},
+            status=404,
+        )
+        with pytest.raises(ValueError):
+            accessor.get_country_data("Atlantis")
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_network_error_wrapped_in_api_error(self, accessor, monkeypatch):
+        from epidatasets.sources.disease_sh import DiseaseShAPIError
+
+        monkeypatch.setattr(
+            "epidatasets.sources.disease_sh.time.sleep", lambda s: None
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            body=requests.exceptions.ConnectionError("connection refused"),
+        )
+        with pytest.raises(DiseaseShAPIError) as excinfo:
+            accessor.get_global_totals(use_cache=False)
+        assert excinfo.value.attempts == 3
+        assert excinfo.value.url == "https://disease.sh/v3/covid-19/all"
+        assert excinfo.value.status_code is None
+        assert len(responses.calls) == 3
+
+    @responses.activate
+    def test_server_error_wrapped_in_api_error(self, accessor, monkeypatch):
+        from epidatasets.sources.disease_sh import DiseaseShAPIError
+
+        monkeypatch.setattr(
+            "epidatasets.sources.disease_sh.time.sleep", lambda s: None
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/states",
+            json={"message": "Internal server error"},
+            status=500,
+        )
+        with pytest.raises(DiseaseShAPIError) as excinfo:
+            accessor.get_states(use_cache=False)
+        assert excinfo.value.status_code == 500
+        assert excinfo.value.attempts == 3
+
+    @responses.activate
+    def test_retry_then_success(self, accessor, monkeypatch):
+        monkeypatch.setattr(
+            "epidatasets.sources.disease_sh.time.sleep", lambda s: None
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"message": "Bad gateway"},
+            status=502,
+        )
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"cases": 704753890, "deaths": 7010681},
+            status=200,
+        )
+        df = accessor.get_global_totals(use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["cases"] == 704753890
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_cache_write_read_and_bypass(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"cases": 704753890, "deaths": 7010681},
+            status=200,
+        )
+        # First call fetches and caches
+        accessor.get_global_totals()
+        assert len(responses.calls) == 1
+        # Second call is served from cache (no extra HTTP call)
+        df = accessor.get_global_totals()
+        assert len(responses.calls) == 1
+        assert df.iloc[0]["cases"] == 704753890
+        # use_cache=False forces a fresh HTTP call
+        accessor.get_global_totals(use_cache=False)
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_cache_ttl_expiry(self, accessor):
+        import os
+        import time as time_mod
+
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/all",
+            json={"cases": 704753890},
+            status=200,
+        )
+        accessor.get_global_totals()
+        assert len(responses.calls) == 1
+        # Backdate the cache file beyond the TTL (default 1 hour)
+        cache_file = accessor.cache_dir / "v3_covid-19_all.json"
+        stale = time_mod.time() - 2 * 3600
+        os.utime(cache_file, (stale, stale))
+        accessor.get_global_totals()
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_get_country_data_list(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/covid-19/countries/Brazil,USA",
+            json=[
+                {
+                    "country": "Brazil",
+                    "countryInfo": {"iso2": "BR", "iso3": "BRA"},
+                    "cases": 37700000,
+                },
+                {
+                    "country": "USA",
+                    "countryInfo": {"iso2": "US", "iso3": "USA"},
+                    "cases": 103000000,
+                },
+            ],
+            status=200,
+        )
+        df = accessor.get_country_data(["Brazil", "USA"])
+        assert len(df) == 2
+        assert set(df["country"]) == {"Brazil", "USA"}
+
+    @responses.activate
+    def test_get_influenza_public_health_lab(self, accessor):
+        responses.add(
+            responses.GET,
+            "https://disease.sh/v3/influenza/CDC/USPHL",
+            json={
+                "updated": 1783934242481,
+                "source": "www.cdc.gov/flu",
+                "data": [
+                    {
+                        "week": "2021 - 40/52",
+                        "totalA": 40,
+                        "totalB": 12,
+                        "totalTested": 300,
+                    },
+                ],
+            },
+            status=200,
+        )
+        df = accessor.get_influenza_public_health_lab(use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["totalA"] == 40
+        assert df.iloc[0]["year"] == 2021
+        assert df.iloc[0]["week_num"] == 40
+
     @requires_external_api
     def test_list_countries_live(self, accessor):
         countries = accessor.list_countries()
@@ -1343,6 +1588,263 @@ class TestDiseaseSh:
 
 
 # Minimal swagger fixture for DEMAS discovery tests
+class TestJapanIDWR:
+    """Tests for the Japan IDWR accessor.
+
+    Network-free tests use the ``responses`` library with fixture CSVs
+    trimmed from real IDWR weekly reports.  Live tests are gated behind
+    ``@requires_external_api``.
+    """
+
+    BASE = "https://id-info.jihs.go.jp/en/surveillance/idwr/rapid"
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.japan_idwr import JapanIDWRAccessor
+
+        return JapanIDWRAccessor(cache_dir=str(tmp_path / "japan_idwr"))
+
+    @staticmethod
+    def _fixture(name: str) -> str:
+        path = Path(__file__).parent / "fixtures" / "idwr" / name
+        return path.read_text(encoding="utf-8")
+
+    def test_initialization(self, accessor):
+        assert accessor.source_name == "japan_idwr"
+        assert "IDWR" in accessor.source_description
+        assert accessor.cache_dir.exists()
+        assert len(accessor.PREFECTURES) == 47
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert countries.iloc[0]["country_code"] == "JP"
+        assert countries.iloc[0]["country_name"] == "Japan"
+
+    @responses.activate
+    def test_get_available_years(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/index.html",
+            body='<a href="./2015/index.html">2015</a>'
+            '<a href="./2023/index.html">2023</a>'
+            '<a href="./2026/index.html">2026</a>',
+            status=200,
+        )
+        years = accessor.get_available_years(use_cache=False)
+        assert years == [2023, 2026]
+
+    @responses.activate
+    def test_get_available_weeks(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/index.html",
+            body='<a href="./01/index.html">01</a>'
+            '<a href="./32/index.html">32</a>'
+            '<a href="./css/index.html">css</a>',
+            status=200,
+        )
+        weeks = accessor.get_available_weeks(2026, use_cache=False)
+        assert weeks == [1, 32]
+
+    @responses.activate
+    def test_get_latest_week(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/index.html",
+            body='<a href="./2023/index.html"></a><a href="./2026/index.html"></a>',
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/index.html",
+            body='<a href="./31/index.html"></a><a href="./32/index.html"></a>',
+            status=200,
+        )
+        assert accessor.get_latest_week(use_cache=False) == (2026, 32)
+
+    def test_year_before_coverage_raises_value_error(self, accessor):
+        with pytest.raises(ValueError, match="before portal coverage"):
+            accessor.get_week(2019, 10)
+
+    def test_invalid_week_raises_value_error(self, accessor):
+        with pytest.raises(ValueError, match="between 1 and 53"):
+            accessor.get_week(2026, 54)
+
+    @responses.activate
+    def test_missing_week_raises_data_error(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2023/53/zensu53.csv",
+            body="Not Found",
+            status=404,
+        )
+        from epidatasets.sources.japan_idwr import JapanIDWRDataError
+
+        with pytest.raises(JapanIDWRDataError, match="No IDWR report for 2023 week 53"):
+            accessor.get_week(2023, 53, use_cache=False)
+
+    @responses.activate
+    def test_get_week_parses_all_tables(self, accessor):
+        for table in ("zensu", "teiten", "teitenari", "teitenrui"):
+            responses.add(
+                responses.GET,
+                f"{self.BASE}/2026/32/{table}32.csv",
+                body=self._fixture(f"{table}32.csv"),
+                status=200,
+            )
+        report = accessor.get_week(2026, 32, use_cache=False)
+
+        assert report.year == 2026 and report.week == 32
+        assert report.as_of == pd.Timestamp("2026-08-12")
+
+        nd = report.notifiable_diseases
+        assert list(nd.columns) == [
+            "prefecture", "disease", "current_week", "cumulative",
+        ]
+        assert set(nd["prefecture"]) == {
+            "Hokkaido", "Aomori", "Chiba", "Kyoto", "Kagoshima",
+        }
+        assert nd["disease"].nunique() == 3
+        tb = nd[nd["disease"] == "Tuberculosis"]
+        assert tb["current_week"].sum() > 0
+
+        sd = report.sentinel_diseases
+        assert list(sd.columns) == [
+            "prefecture", "disease", "current_week", "per_sentinel",
+        ]
+        assert sd["disease"].nunique() == 3
+
+        delayed = report.sentinel_diseases_delayed
+        assert delayed["disease"].unique().tolist() == [
+            "Acute respiratory infection"
+        ]
+
+        cum = report.sentinel_diseases_cumulative
+        assert list(cum.columns) == [
+            "prefecture", "disease", "cumulative_cases",
+            "cumulative_per_sentinel",
+        ]
+
+        totals = report.national_totals["notifiable"]["Tuberculosis"]
+        assert totals["current_week"] == 249
+        assert totals["cumulative"] == 8902
+
+    @responses.activate
+    def test_dash_values_become_nan(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/32/teiten32.csv",
+            body=self._fixture("teiten32.csv"),
+            status=200,
+        )
+        df = accessor.get_sentinel_diseases(2026, 32, use_cache=False)
+        ahc = df[df["disease"] == "Acute hemorrhagic conjunctivitis"]
+        assert ahc["per_sentinel"].isna().sum() >= 1
+        assert ahc["current_week"].isna().sum() >= 1
+        mumps = df[df["disease"] == "Mumps"]
+        assert mumps["current_week"].notna().all()
+
+    def test_invalid_sentinel_table_raises(self, accessor):
+        with pytest.raises(ValueError, match="Invalid table"):
+            accessor.get_sentinel_diseases(2026, 32, table="bogus")
+
+    def test_resolve_disease_aliases(self, accessor):
+        assert accessor.resolve_disease("flu").startswith("Influenza")
+        assert accessor.resolve_disease("HFMD") == "Hand, foot and mouth disease"
+        assert accessor.resolve_disease("Measles") == "Measles"
+        assert accessor.resolve_disease("whooping cough") == "Pertussis"
+        with pytest.raises(ValueError, match="Unknown disease"):
+            accessor.resolve_disease("unicorn pox")
+
+    def test_resolve_disease_from_dataframe(self, accessor):
+        df = pd.DataFrame({"disease": ["Scrub typhus(Tsutsugamushi disease)"]})
+        resolved = accessor.resolve_disease("Scrub typhus", df)
+        assert resolved.startswith("Scrub typhus")
+
+    def test_prefecture_resolution(self, accessor):
+        with pytest.raises(ValueError, match="Unknown prefecture"):
+            accessor.get_by_prefecture("Shangri-La", 2026, 32)
+
+    @responses.activate
+    def test_get_by_prefecture(self, accessor):
+        for table in ("zensu", "teiten", "teitenari", "teitenrui"):
+            responses.add(
+                responses.GET,
+                f"{self.BASE}/2026/32/{table}32.csv",
+                body=self._fixture(f"{table}32.csv"),
+                status=200,
+            )
+        report = accessor.get_by_prefecture("kyoto", 2026, 32, use_cache=False)
+        assert set(report.notifiable_diseases["prefecture"]) == {"Kyoto"}
+        assert len(report.notifiable_diseases) == 3
+
+    @responses.activate
+    def test_get_disease_series(self, accessor):
+        body = self._fixture("zensu32.csv")
+        for week in (31, 32):
+            responses.add(
+                responses.GET,
+                f"{self.BASE}/2026/{week}/zensu{week}.csv",
+                body=body.replace("32nd week, 2026", f"{week}th week, 2026"),
+                status=200,
+            )
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/index.html",
+            body='<a href="./31/index.html"></a><a href="./32/index.html"></a>',
+            status=200,
+        )
+        ts = accessor.get_disease_series(
+            "tb", start_year=2026, start_week=31, end_year=2026, end_week=32,
+            use_cache=False,
+        )
+        assert set(ts["week"]) == {31, 32}
+        assert set(ts.columns) == {
+            "year", "week", "prefecture", "disease", "current_week",
+            "cumulative",
+        }
+        assert (ts["disease"] == "Tuberculosis").all()
+
+    def test_get_disease_series_invalid_table(self, accessor):
+        with pytest.raises(ValueError, match="table must be"):
+            accessor.get_disease_series(
+                "measles", start_year=2026, table="bogus"
+            )
+
+    @responses.activate
+    def test_cache_prevents_refetch(self, accessor):
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/2026/32/teiten32.csv",
+            body=self._fixture("teiten32.csv"),
+            status=200,
+        )
+        accessor.get_sentinel_diseases(2026, 32, use_cache=True)
+        accessor.get_sentinel_diseases(2026, 32, use_cache=True)
+        assert len(responses.calls) == 1
+
+    def test_decode_falls_back_to_cp932(self):
+        from epidatasets.sources.japan_idwr import JapanIDWRAccessor
+
+        decoded = JapanIDWRAccessor._decode("麻疹".encode("cp932"))
+        assert decoded == "麻疹"
+
+    @requires_external_api
+    def test_latest_week_live(self, accessor):
+        year, week = accessor.get_latest_week()
+        assert year >= 2023
+        assert 1 <= week <= 53
+
+    @requires_external_api
+    def test_get_week_live(self, accessor):
+        year, week = accessor.get_latest_week()
+        report = accessor.get_week(year, week, use_cache=False)
+        nd = report.notifiable_diseases
+        assert nd["prefecture"].nunique() == 47
+        assert nd["disease"].nunique() > 50
+        assert report.sentinel_diseases["disease"].nunique() >= 19
+
+
 _DEMAS_SWAGGER = {
     "swagger": "2.0",
     "info": {"title": "DEMAS - API de Dados Abertos"},
@@ -2333,3 +2835,382 @@ class TestGISAID:
             assert isinstance(df, pd.DataFrame)
         finally:
             acc.close()
+
+
+class TestOpenDataSUS:
+    """Tests for the OpenDataSUS catalog accessor.
+
+    Network-free tests mock the portal's Next.js data endpoints via
+    ``responses``.  Live tests are gated behind ``@requires_external_api``.
+    """
+
+    BUILD_ID = "testbuild123"
+    BASE = "https://dadosabertos.saude.gov.br"
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.opendatasus import OpenDataSUSAccessor
+
+        return OpenDataSUSAccessor(cache_dir=str(tmp_path / "opendatasus"))
+
+    @staticmethod
+    def _mock_homepage():
+        next_data = json.dumps({"buildId": TestOpenDataSUS.BUILD_ID})
+        html = (
+            '<script id="__NEXT_DATA__" type="application/json">'
+            f"{next_data}</script>"
+        )
+        responses.add(
+            responses.GET,
+            "https://dadosabertos.saude.gov.br/",
+            body=html,
+            status=200,
+        )
+
+    @staticmethod
+    def _catalog_page(packages, total=2):
+        return {
+            "pageProps": {
+                "currentFilters": {
+                    "q": None,
+                    "groups": None,
+                    "tags": None,
+                    "res_format": None,
+                },
+                "availableFilters": {
+                    "groups": [
+                        {"display_name": "Arboviroses", "name": "arboviroses"}
+                    ],
+                    "tags": [{"display_name": "covid-19", "name": "covid-19"}],
+                },
+                "numberOfPackages": total,
+                "packages": packages,
+                "page": 1,
+                "rows": 20,
+            }
+        }
+
+    _PKG1 = {
+        "name": "bps",
+        "title": "Banco de Preços em Saúde - BPS",
+        "notes": "Registry of purchases of medicines and devices.",
+        "formats": ["CSV", "API"],
+        "groups": [
+            {"display_name": "Economia da Saúde", "name": "economia-da-saude"}
+        ],
+        "tags": [{"display_name": "Preços", "name": "Preços"}],
+    }
+    _PKG2 = {
+        "name": "arboviroses-dengue",
+        "title": "Dengue",
+        "notes": "Dengue notification data.",
+        "formats": ["CSV"],
+        "groups": [{"display_name": "Arboviroses", "name": "arboviroses"}],
+        "tags": [{"display_name": "dengue", "name": "dengue"}],
+    }
+
+    _BPS_DETAIL = {
+        "pageProps": {
+            "name": "bps",
+            "title": "Banco de Preços em Saúde - BPS",
+            "notes": "Registry of purchases.",
+            "organization": {
+                "name": "ministerio-da-saude",
+                "title": "Ministério da Saúde",
+            },
+            "license_title": "",
+            "metadata_created": "2024-12-05T17:58:59.632645",
+            "metadata_modified": "2026-08-12T08:53:18.286478",
+            "num_resources": 3,
+            "num_tags": 1,
+            "extras": [{"key": "update_frequency", "value": "monthly"}],
+            "tags": [{"name": "Preços"}],
+            "groups": [{"name": "economia-da-saude"}],
+            "resources": [
+                {
+                    "id": "res-api",
+                    "name": "API documentation",
+                    "format": "API",
+                    "url": "https://apidadosabertos.saude.gov.br/v1/#/BPS",
+                    "position": 0,
+                    "size": None,
+                },
+                {
+                    "id": "res-csv",
+                    "name": "BPS CSV 2024",
+                    "format": "CSV",
+                    "url": "https://s3.example.com/BPS/csv/2024_csv.zip",
+                    "position": 1,
+                    "size": 12345,
+                },
+                {
+                    "id": "res-pdf",
+                    "name": "BPS Metadados",
+                    "format": "PDF",
+                    "url": "https://s3.example.com/BPS/Metadados.pdf",
+                    "position": 2,
+                    "size": 100,
+                },
+            ],
+        }
+    }
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "opendatasus"
+        assert "OpenDataSUS" in accessor.source_description
+        assert accessor.source_url == "https://dadosabertos.saude.gov.br/"
+        assert accessor.cache_dir.exists()
+
+    def test_list_countries(self, accessor):
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert countries.iloc[0]["country_code"] == "BR"
+        assert countries.iloc[0]["country_name"] == "Brazil"
+
+    @responses.activate
+    def test_get_build_id(self, accessor):
+        self._mock_homepage()
+        assert accessor._get_build_id(use_cache=False) == self.BUILD_ID
+
+    @responses.activate
+    def test_list_datasets(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1, self._PKG2], total=2),
+            status=200,
+        )
+        df = accessor.list_datasets(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        assert set(df.columns) == {
+            "name",
+            "title",
+            "notes",
+            "formats",
+            "groups",
+            "tags",
+        }
+        assert "bps" in df["name"].values
+        assert "CSV" in df.loc[df["name"] == "bps", "formats"].iloc[0]
+
+    @responses.activate
+    def test_list_datasets_group_filter(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json"
+            "?page=1&groups=arboviroses",
+            json=self._catalog_page([self._PKG2], total=1),
+            status=200,
+        )
+        df = accessor.list_datasets(group="arboviroses", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["name"] == "arboviroses-dengue"
+
+    @responses.activate
+    def test_list_groups_and_tags(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1], total=1),
+            status=200,
+        )
+        groups = accessor.list_groups(use_cache=False)
+        tags = accessor.list_tags(use_cache=False)
+        assert "arboviroses" in groups["name"].values
+        assert "covid-19" in tags["name"].values
+
+    @responses.activate
+    def test_list_datasets_all_pagination(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1], total=21),
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=2",
+            json={
+                "pageProps": {
+                    "currentFilters": {},
+                    "availableFilters": {"groups": [], "tags": []},
+                    "numberOfPackages": 21,
+                    "packages": [self._PKG2],
+                    "page": 2,
+                    "rows": 20,
+                }
+            },
+            status=200,
+        )
+        df = accessor.list_datasets_all(use_cache=False)
+        assert len(df) == 2
+        assert list(df["name"]) == ["bps", "arboviroses-dengue"]
+
+    @responses.activate
+    def test_list_datasets_all_max_pages(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset.json?page=1",
+            json=self._catalog_page([self._PKG1], total=40),
+            status=200,
+        )
+        df = accessor.list_datasets_all(max_pages=1, use_cache=False)
+        assert len(df) == 1  # capped after page 1
+
+    @responses.activate
+    def test_get_dataset_and_metadata(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        pkg = accessor.get_dataset("bps", use_cache=False)
+        assert pkg["name"] == "bps"
+        assert len(pkg["resources"]) == 3
+
+        meta = accessor.get_dataset_metadata("bps", use_cache=False)
+        assert isinstance(meta, pd.DataFrame)
+        assert set(meta.columns) == {"field", "value"}
+        fields = set(meta["field"])
+        assert "title" in fields
+        assert "metadata_modified" in fields
+        assert "extra:update_frequency" in fields
+
+    @responses.activate
+    def test_get_dataset_not_found(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/nope.json?slug=nope",
+            json={"pageProps": {"statusCode": 500}},
+            status=200,
+        )
+        with pytest.raises(KeyError):
+            accessor.get_dataset("nope", use_cache=False)
+
+    @responses.activate
+    def test_get_resources(self, accessor):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        res = accessor.get_resources("bps", use_cache=False)
+        assert isinstance(res, pd.DataFrame)
+        assert len(res) == 3
+        assert set(res.columns) >= {
+            "resource_id",
+            "name",
+            "format",
+            "url",
+            "size",
+            "position",
+        }
+        assert "res-csv" in res["resource_id"].values
+
+    @responses.activate
+    def test_download_resource(self, accessor, tmp_path):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://s3.example.com/BPS/csv/2024_csv.zip",
+            body=b"fake-zip-bytes",
+            status=200,
+        )
+        path = accessor.download_resource(
+            "bps",
+            name="BPS CSV 2024",
+            dest_dir=str(tmp_path / "dl"),
+            use_cache=False,
+        )
+        assert isinstance(path, Path)
+        assert path.exists()
+        assert path.read_bytes() == b"fake-zip-bytes"
+        assert path.name == "BPS CSV 2024.csv"  # format appended
+
+    @responses.activate
+    def test_download_resource_api_rejected(self, accessor, tmp_path):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        with pytest.raises(ValueError):
+            accessor.download_resource(
+                "bps",
+                name="API documentation",
+                dest_dir=str(tmp_path / "dl"),
+                use_cache=False,
+            )
+
+    def test_download_resource_needs_selector(self, accessor):
+        with pytest.raises(ValueError):
+            accessor.download_resource("bps", use_cache=False)
+        with pytest.raises(ValueError):
+            accessor.download_resource(
+                "bps", resource_id="res-csv", name="BPS CSV 2024", use_cache=False
+            )
+
+    @responses.activate
+    def test_download_dataset(self, accessor, tmp_path):
+        self._mock_homepage()
+        responses.add(
+            responses.GET,
+            f"{self.BASE}/_next/data/{self.BUILD_ID}/dataset/bps.json?slug=bps",
+            json=self._BPS_DETAIL,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://s3.example.com/BPS/csv/2024_csv.zip",
+            body=b"fake-zip-bytes",
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://s3.example.com/BPS/Metadados.pdf",
+            body=b"%PDF-fake",
+            status=200,
+        )
+        paths = accessor.download_dataset(
+            "bps", dest_dir=str(tmp_path / "dl"), use_cache=False
+        )
+        assert len(paths) == 2  # API resource skipped
+        assert all(p.exists() for p in paths)
+
+        paths_csv = accessor.download_dataset(
+            "bps", dest_dir=str(tmp_path / "dl2"), fmt="CSV", use_cache=False
+        )
+        assert len(paths_csv) == 1
+        assert paths_csv[0].name.endswith(".csv")
+
+    @requires_external_api
+    def test_live_list_datasets(self, accessor):
+        df = accessor.list_datasets(q="covid", use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 0
+
+    @requires_external_api
+    def test_live_get_dataset_metadata(self, accessor):
+        meta = accessor.get_dataset_metadata("bps", use_cache=False)
+        assert isinstance(meta, pd.DataFrame)
+        assert len(meta) > 0

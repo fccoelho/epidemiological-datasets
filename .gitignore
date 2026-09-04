@@ -43,6 +43,8 @@ env/
 *.feather
 *.h5
 *.hdf5
+# ...but keep small test fixtures under version control
+!tests/fixtures/**/*.csv
 
 # Cache directories
 .cache/

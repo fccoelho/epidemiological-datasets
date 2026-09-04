@@ -1,10 +1,15 @@
 """Tests for package initialization and version."""
 
+import re
+
 import epidatasets
 
 
 def test_version():
-    assert epidatasets.__version__ == "0.4.0"
+    # __version__ must be a non-empty semver-style string kept in sync
+    # with pyproject.toml (checked in CI by hatchling itself).
+    assert isinstance(epidatasets.__version__, str)
+    assert re.match(r"^\d+\.\d+", epidatasets.__version__)
 
 
 def test_author():

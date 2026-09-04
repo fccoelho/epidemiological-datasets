@@ -36,6 +36,49 @@ from epidatasets._base import BaseAccessor
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Influenza endpoints (US CDC sourced, weekly) — single source of truth
+INFLUENZA_INFO: dict[str, dict[str, str]] = {
+    "ilinet": {
+        "path": "/v3/influenza/CDC/ILINet",
+        "description": "US CDC ILINet ILI surveillance (by age group)",
+        "method": "get_influenza_ilinet",
+    },
+    "public_health_lab": {
+        "path": "/v3/influenza/CDC/USPHL",
+        "description": "US CDC Public Health Lab strain typing",
+        "method": "get_influenza_public_health_lab",
+    },
+    "clinical_lab": {
+        "path": "/v3/influenza/CDC/USCL",
+        "description": "US CDC Clinical Lab totals and % positive",
+        "method": "get_influenza_clinical_lab",
+    },
+}
+
+
+class DiseaseShAPIError(Exception):
+    """
+    Raised when a request to the disease.sh API fails after retries.
+
+    Attributes:
+        url: The requested URL.
+        status_code: HTTP status code, if a response was received
+            (None for connection-level failures).
+        attempts: Number of attempts made before giving up.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        url: str | None = None,
+        status_code: int | None = None,
+        attempts: int | None = None,
+    ):
+        super().__init__(message)
+        self.url = url
+        self.status_code = status_code
+        self.attempts = attempts
+
 
 class DiseaseShAccessor(BaseAccessor):
     """
@@ -82,11 +125,9 @@ class DiseaseShAccessor(BaseAccessor):
 
     BASE_URL: ClassVar[str] = "https://disease.sh"
 
-    # Influenza endpoints map (US CDC sourced, weekly)
+    # Influenza endpoint paths (derived from INFLUENZA_INFO)
     INFLUENZA_ENDPOINTS: ClassVar[dict[str, str]] = {
-        "ilinet": "/v3/influenza/CDC/ILINet",
-        "public_health_lab": "/v3/influenza/CDC/USPHL",
-        "clinical_lab": "/v3/influenza/CDC/USCL",
+        key: info["path"] for key, info in INFLUENZA_INFO.items()
     }
 
     DISEASES: ClassVar[dict[str, dict[str, Any]]] = {
@@ -170,6 +211,13 @@ class DiseaseShAccessor(BaseAccessor):
 
         Returns:
             Parsed JSON response (dict or list).
+
+        Raises:
+            DiseaseShAPIError: If the request fails after ``retries``
+                attempts, or the API returns a non-retryable client error
+                (e.g. 404).  The exception carries the ``url``,
+                ``status_code`` (when available) and ``attempts`` for
+                retry diagnostics.
         """
         url = f"{self.BASE_URL}{path}"
         cache_key = path.strip("/").replace("/", "_")
@@ -194,12 +242,64 @@ class DiseaseShAccessor(BaseAccessor):
                     self._write_cache(cache_path, data)
                 return data
             except requests.exceptions.RequestException as e:
+                status_code = getattr(e.response, "status_code", None)
+                # Do not retry client errors (except 429 Too Many Requests)
+                non_retryable = (
+                    status_code is not None
+                    and 400 <= status_code < 500
+                    and status_code != 429
+                )
+                if non_retryable or attempt >= retries - 1:
+                    logger.error(
+                        f"Failed to fetch {url} after {attempt + 1} attempt(s): {e}"
+                    )
+                    raise DiseaseShAPIError(
+                        f"Request to {url} failed: {e}",
+                        url=url,
+                        status_code=status_code,
+                        attempts=attempt + 1,
+                    ) from e
                 logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < retries - 1:
-                    time.sleep(2**attempt)
-                else:
-                    logger.error(f"Failed to fetch {url} after {retries} attempts")
-                    raise
+                time.sleep(2**attempt)
+
+        # Unreachable: the loop always returns or raises on the last attempt
+        raise DiseaseShAPIError(
+            f"Request to {url} failed", url=url, attempts=retries
+        )
+
+    def _get_country(
+        self,
+        path: str,
+        country: str | list[str],
+        use_cache: bool = True,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        """
+        Fetch a country-scoped endpoint, translating 404s into ValueError.
+
+        Args:
+            path: API path (e.g. ``/v3/covid-19/countries/Brazil``).
+            country: The country (or list of countries) requested — used
+                only to build the error message.
+            use_cache: Whether to use the on-disk cache.
+            params: Optional query parameters.
+
+        Returns:
+            Parsed JSON response.
+
+        Raises:
+            ValueError: If the API returns 404 for the given country.
+            DiseaseShAPIError: For other request failures.
+        """
+        try:
+            return self._get(path, params=params, use_cache=use_cache)
+        except DiseaseShAPIError as e:
+            if e.status_code == 404:
+                raise ValueError(
+                    f"Unknown country: {country!r}. Use a country name, "
+                    "ISO-2 or ISO-3 code (see list_countries())."
+                ) from e
+            raise
 
     # ------------------------------------------------------------------
     # Abstract method implementation
@@ -256,6 +356,12 @@ class DiseaseShAccessor(BaseAccessor):
     # ------------------------------------------------------------------
     # COVID-19: current totals
     # ------------------------------------------------------------------
+    def _normalize_updated(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Convert an epoch-milliseconds ``updated`` column to datetime, if present."""
+        if "updated" in df.columns:
+            df["updated"] = pd.to_datetime(df["updated"], unit="ms", errors="coerce")
+        return df
+
     def get_global_totals(self, use_cache: bool = True) -> pd.DataFrame:
         """
         Get global COVID-19 totals (cases, deaths, recovered, active, tests).
@@ -269,10 +375,7 @@ class DiseaseShAccessor(BaseAccessor):
             One-row DataFrame with global totals.
         """
         data = self._get("/v3/covid-19/all", use_cache=use_cache)
-        df = pd.DataFrame([data])
-        if "updated" in df.columns:
-            df["updated"] = pd.to_datetime(df["updated"], unit="ms", errors="coerce")
-        return df
+        return self._normalize_updated(pd.DataFrame([data]))
 
     def get_country_data(
         self,
@@ -298,9 +401,9 @@ class DiseaseShAccessor(BaseAccessor):
             )
         elif isinstance(country, list):
             codes = ",".join(str(c) for c in country)
-            data = self._get(f"/v3/covid-19/countries/{codes}", use_cache=use_cache)
+            data = self._get_country(f"/v3/covid-19/countries/{codes}", country, use_cache)
         else:
-            data = self._get(f"/v3/covid-19/countries/{country}", use_cache=use_cache)
+            data = self._get_country(f"/v3/covid-19/countries/{country}", country, use_cache)
             data = [data] if isinstance(data, dict) else data
 
         rows = []
@@ -329,10 +432,7 @@ class DiseaseShAccessor(BaseAccessor):
             }
             rows.append(row)
 
-        df = pd.DataFrame(rows)
-        if "updated" in df.columns:
-            df["updated"] = pd.to_datetime(df["updated"], unit="ms", errors="coerce")
-        return df
+        return self._normalize_updated(pd.DataFrame(rows))
 
     def get_states(self, use_cache: bool = True) -> pd.DataFrame:
         """
@@ -347,10 +447,7 @@ class DiseaseShAccessor(BaseAccessor):
             DataFrame with per-state COVID-19 statistics.
         """
         data = self._get("/v3/covid-19/states", use_cache=use_cache)
-        df = pd.DataFrame(data)
-        if "updated" in df.columns:
-            df["updated"] = pd.to_datetime(df["updated"], unit="ms", errors="coerce")
-        return df
+        return self._normalize_updated(pd.DataFrame(data))
 
     # ------------------------------------------------------------------
     # COVID-19: historical time series
@@ -400,12 +497,12 @@ class DiseaseShAccessor(BaseAccessor):
 
         if isinstance(country, list):
             codes = ",".join(str(c) for c in country)
-            data = self._get(
-                f"/v3/covid-19/historical/{codes}", params=params, use_cache=use_cache
+            data = self._get_country(
+                f"/v3/covid-19/historical/{codes}", country, use_cache, params=params
             )
         else:
-            data = self._get(
-                f"/v3/covid-19/historical/{country}", params=params, use_cache=use_cache
+            data = self._get_country(
+                f"/v3/covid-19/historical/{country}", country, use_cache, params=params
             )
             data = [data] if isinstance(data, dict) else data
 
@@ -422,6 +519,44 @@ class DiseaseShAccessor(BaseAccessor):
         except (ValueError, TypeError):
             return pd.to_datetime(date_str, errors="coerce")
 
+    def _timeline_rows(
+        self, base: dict[str, Any], timeline: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Build long-form ``metric``/``value`` rows from a timeline mapping."""
+        rows = []
+        for metric in ("cases", "deaths", "recovered"):
+            series = timeline.get(metric, {}) or {}
+            for date_str, value in series.items():
+                rows.append(
+                    {
+                        **base,
+                        "date": self._parse_disease_sh_date(date_str),
+                        "metric": metric,
+                        "value": value,
+                    }
+                )
+        return rows
+
+    def _pivot_timelines(
+        self,
+        rows: list[dict[str, Any]],
+        index_cols: list[str],
+        sort_cols: list[str],
+        empty_cols: list[str],
+        start_date: str | None,
+        end_date: str | None,
+    ) -> pd.DataFrame:
+        """Pivot long-form timeline rows into one row per index entry."""
+        if not rows:
+            return pd.DataFrame(columns=empty_cols)
+        df = pd.DataFrame(rows)
+        df = df.pivot_table(
+            index=index_cols, columns="metric", values="value", aggfunc="first"
+        ).reset_index()
+        df.columns.name = None
+        df = self._filter_dates(df, start_date, end_date)
+        return df.sort_values(sort_cols).reset_index(drop=True)
+
     def _flatten_global_timeline(
         self,
         data: dict[str, Any],
@@ -429,27 +564,15 @@ class DiseaseShAccessor(BaseAccessor):
         end_date: str | None = None,
     ) -> pd.DataFrame:
         """Flatten the global historical timeline into a long-form DataFrame."""
-        rows = []
-        for metric in ("cases", "deaths", "recovered"):
-            series = data.get(metric, {}) or {}
-            for date_str, value in series.items():
-                rows.append(
-                    {
-                        "country": "World",
-                        "date": self._parse_disease_sh_date(date_str),
-                        "metric": metric,
-                        "value": value,
-                    }
-                )
-        if not rows:
-            return pd.DataFrame(columns=["country", "date", "metric", "value"])
-        df = pd.DataFrame(rows)
-        df = df.pivot_table(
-            index=["country", "date"], columns="metric", values="value", aggfunc="first"
-        ).reset_index()
-        df.columns.name = None
-        df = self._filter_dates(df, start_date, end_date)
-        return df.sort_values("date").reset_index(drop=True)
+        rows = self._timeline_rows({"country": "World"}, data or {})
+        return self._pivot_timelines(
+            rows,
+            index_cols=["country", "date"],
+            sort_cols=["date"],
+            empty_cols=["country", "date", "metric", "value"],
+            start_date=start_date,
+            end_date=end_date,
+        )
 
     def _flatten_country_timeline(
         self,
@@ -465,33 +588,22 @@ class DiseaseShAccessor(BaseAccessor):
             province = entry.get("province")
             if isinstance(province, list):
                 province = ", ".join(str(p) for p in province) if province else None
-            timeline = entry.get("timeline", {}) or {}
-            for metric in ("cases", "deaths", "recovered"):
-                series = timeline.get(metric, {}) or {}
-                for date_str, value in series.items():
-                    rows.append(
-                        {
-                            "country": country_name,
-                            "province": province,
-                            "date": self._parse_disease_sh_date(date_str),
-                            "metric": metric,
-                            "value": value,
-                        }
-                    )
-        if not rows:
-            return pd.DataFrame(
-                columns=["country", "province", "date", "cases", "deaths", "recovered"]
+            rows.extend(
+                self._timeline_rows(
+                    {"country": country_name, "province": province},
+                    entry.get("timeline", {}) or {},
+                )
             )
-        df = pd.DataFrame(rows)
-        df = df.pivot_table(
-            index=["country", "province", "date"],
-            columns="metric",
-            values="value",
-            aggfunc="first",
-        ).reset_index()
-        df.columns.name = None
-        df = self._filter_dates(df, start_date, end_date)
-        return df.sort_values(["country", "date"]).reset_index(drop=True)
+        return self._pivot_timelines(
+            rows,
+            index_cols=["country", "province", "date"],
+            sort_cols=["country", "date"],
+            empty_cols=[
+                "country", "province", "date", "cases", "deaths", "recovered",
+            ],
+            start_date=start_date,
+            end_date=end_date,
+        )
 
     def _filter_dates(
         self,
@@ -590,10 +702,10 @@ class DiseaseShAccessor(BaseAccessor):
     # ------------------------------------------------------------------
     # Influenza (US CDC, weekly)
     # ------------------------------------------------------------------
-    def _get_influenza(self, endpoint_key: str) -> pd.DataFrame:
+    def _get_influenza(self, endpoint_key: str, use_cache: bool = True) -> pd.DataFrame:
         """Fetch and flatten an influenza CDC endpoint."""
         path = self.INFLUENZA_ENDPOINTS[endpoint_key]
-        data = self._get(path)
+        data = self._get(path, use_cache=use_cache)
         if not isinstance(data, dict):
             return pd.DataFrame()
         payload = data.get("data", []) or []
@@ -626,7 +738,7 @@ class DiseaseShAccessor(BaseAccessor):
         pd.DataFrame
             Weekly ILI surveillance with ``year`` and ``week_num`` columns.
         """
-        return self._get_influenza("ilinet")
+        return self._get_influenza("ilinet", use_cache=use_cache)
 
     def get_influenza_public_health_lab(self, use_cache: bool = True) -> pd.DataFrame:
         """
@@ -642,7 +754,7 @@ class DiseaseShAccessor(BaseAccessor):
         pd.DataFrame
             Weekly strain typing data with ``year`` and ``week_num`` columns.
         """
-        return self._get_influenza("public_health_lab")
+        return self._get_influenza("public_health_lab", use_cache=use_cache)
 
     def get_influenza_clinical_lab(self, use_cache: bool = True) -> pd.DataFrame:
         """
@@ -658,7 +770,7 @@ class DiseaseShAccessor(BaseAccessor):
         pd.DataFrame
             Weekly clinical lab data with ``year`` and ``week_num`` columns.
         """
-        return self._get_influenza("clinical_lab")
+        return self._get_influenza("clinical_lab", use_cache=use_cache)
 
     def get_influenza_summary(self) -> pd.DataFrame:
         """
@@ -669,25 +781,17 @@ class DiseaseShAccessor(BaseAccessor):
         pd.DataFrame
             DataFrame describing each influenza endpoint.
         """
-        rows = []
-        for key, path in self.INFLUENZA_ENDPOINTS.items():
-            rows.append(
+        return pd.DataFrame(
+            [
                 {
                     "endpoint_key": key,
-                    "url": f"{self.BASE_URL}{path}",
-                    "description": {
-                        "ilinet": "US CDC ILINet ILI surveillance (by age group)",
-                        "public_health_lab": "US CDC Public Health Lab strain typing",
-                        "clinical_lab": "US CDC Clinical Lab totals and % positive",
-                    }.get(key, ""),
-                    "method": {
-                        "ilinet": "get_influenza_ilinet",
-                        "public_health_lab": "get_influenza_public_health_lab",
-                        "clinical_lab": "get_influenza_clinical_lab",
-                    }.get(key, ""),
+                    "url": f"{self.BASE_URL}{info['path']}",
+                    "description": info["description"],
+                    "method": info["method"],
                 }
-            )
-        return pd.DataFrame(rows)
+                for key, info in INFLUENZA_INFO.items()
+            ]
+        )
 
 
 # ----------------------------------------------------------------------
