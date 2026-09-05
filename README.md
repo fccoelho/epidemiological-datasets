@@ -112,6 +112,9 @@ pip install epidatasets[eurostat]
 # Climate/environmental data (Copernicus CDS)
 pip install epidatasets[climate]
 
+# Google Earth Engine satellite imagery
+pip install epidatasets[earthengine]
+
 # Geospatial visualization
 pip install epidatasets[geo]
 
@@ -191,6 +194,7 @@ epidemiological-datasets/
 │   │   ├── epipulse.py
 │   │   ├── eurostat.py
 │   │   ├── global_health.py
+│   │   ├── google_earth_engine.py
 │   │   ├── healthdata_gov.py
 │   │   ├── india_idsp.py
 │   │   ├── infodengue_api.py
@@ -222,7 +226,7 @@ epidemiological-datasets/
 │       ├── index.md
 │       ├── installation.md
 │       ├── quickstart.md
-│       ├── sources/           # Per-source API docs (24 pages)
+│       ├── sources/           # Per-source API docs (25 pages)
 │       ├── api/               # API reference
 │       │   ├── base.md
 │       │   ├── registry.md
@@ -250,6 +254,7 @@ epidemiological-datasets/
 | [GMPD (Global Mammal Parasite Database)](https://parasites.nunn-lab.org/) | Wild mammal host-parasite associations (primates, carnivores, ungulates) | Irregular | Open | `epidatasets.sources.gmpd` |
 | [Malaria Atlas Project](https://malariaatlas.org/) | Malaria prevalence & vector data | Annual | Open | `epidatasets.sources.malaria_atlas` |
 | [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/) | Environmental & climate data | Varies | Open | `epidatasets.sources.copernicus_cds` |
+| [Google Earth Engine](https://earthengine.google.com/) | Satellite imagery (Landsat, Sentinel-2, MODIS) — vegetation, built-up, water indices | Varies (per-scene) | Free registration | `epidatasets.sources.google_earth_engine` |
 | [Pathoplexus](https://pathoplexus.org/) | Pathogen genomic data | Continuous | Open | `epidatasets.sources.pathoplexus` |
 | [InfoDengue](https://info.dengue.mat.br/) | Dengue surveillance (Brazil) | Weekly | Open | `epidatasets.sources.infodengue_api` |
 
@@ -637,10 +642,9 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 | **epimodels** | Mathematical epidemiology | [fccoelho/epimodels](https://github.com/fccoelho/epimodels) |
 
 ## 📊 Statistics
-
-- **Data sources:** 33 registered (via plugin registry)
+- **Data sources:** 34 registered (via plugin registry)
 - **Countries covered:** 100+
-- **Optional extras:** 10 (`who`, `brazil`, `eurostat`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
+- **Optional extras:** 11 (`who`, `brazil`, `eurostat`, `climate`, `earthengine`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
 - **Example notebooks:** 43
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 
