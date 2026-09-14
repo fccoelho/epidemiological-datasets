@@ -13,6 +13,8 @@ import pytest
 import requests
 import responses
 
+FIXTURES = Path(__file__).parent / "fixtures"
+
 
 def requires_external_api(func):
     """Mark test as external API and skip when disabled."""
@@ -248,19 +250,235 @@ class TestChinaCDC:
         assert len(_DISEASE_NAME_MAP) > 0
         assert "Influenza" in _DISEASE_NAME_MAP or "Plague" in _DISEASE_NAME_MAP
 
-    def test_get_influenza_surveillance_returns_dataframe(self):
+    def test_list_cnic_weekly_reports_parses_listing(self):
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
         accessor = ChinaCDCAccessor()
-        result = accessor.get_influenza_surveillance(weeks=[1, 2], year=2024)
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                accessor.CNIC_WEEKLY_REPORTS_URL,
+                body=(FIXTURES / "china_cdc" / "cnic_weekly_listing.html").read_text(),
+                content_type="text/html",
+            )
+            df = accessor.list_cnic_weekly_reports(year=2026, max_pages=1)
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert {"year", "week", "title", "report_date", "url"} <= set(df.columns)
+        assert (df["year"] == 2026).all()
+        assert df["week"].is_monotonic_increasing
+        assert df["url"].str.endswith(".htm").all()
+
+    def test_parse_cnic_weekly_pdf(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        pdf_path = FIXTURES / "china_cdc" / "China_flu_report_2537.pdf"
+        parsed = ChinaCDCAccessor.parse_cnic_weekly_pdf(pdf_path)
+
+        assert parsed["week"] == 37
+        assert parsed["year"] == 2025
+        assert parsed["period"] == "September 8 to 14, 2025"
+        assert parsed["ili_percent_south"] == 3.6
+        assert parsed["ili_percent_north"] == 2.8
+        assert parsed["ili_percent_last_week_south"] == 3.4
+        assert parsed["ili_percent_last_week_north"] == 2.7
+        assert parsed["specimens_tested_total"] == 13320
+        assert parsed["positive_total"] == 336
+        assert parsed["positivity_total"] == 2.5
+        assert parsed["ili_outbreaks"] == 7
+        assert parsed["by_type"]["A(H3N2)"]["total_count"] == 280
+        assert parsed["by_type"]["A(H3N2)"]["total_pct"] == 93.3
+        assert parsed["by_type"]["Victoria"]["north_count"] == 0
+        assert parsed["by_type"]["Influenza A"]["south_count"] == 293
+
+    def test_get_influenza_surveillance_returns_dataframe(self):
+        from unittest.mock import MagicMock
+
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+        pdf_path = FIXTURES / "china_cdc" / "China_flu_report_2537.pdf"
+
+        # the cached-PDF download is mocked; parsing runs on the fixture
+        accessor._pdf = MagicMock()
+        accessor._pdf.download.return_value = pdf_path
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                accessor.CNIC_WEEKLY_REPORTS_URL,
+                body=(FIXTURES / "china_cdc" / "cnic_weekly_listing.html").read_text(),
+                content_type="text/html",
+            )
+            rsps.add(
+                responses.GET,
+                f"{accessor.CNIC_WEEKLY_REPORTS_URL}index_1.htm",
+                body="not found",
+                status=404,
+            )
+            rsps.add(
+                responses.GET,
+                f"{accessor.CNIC_WEEKLY_REPORTS_URL}202609/t20260911_1840084.htm",
+                body=(FIXTURES / "china_cdc" / "cnic_landing.html").read_text(),
+                content_type="text/html",
+            )
+            result = accessor.get_influenza_surveillance(
+                weeks=[36], year=2026
+            )
+
         assert isinstance(result, pd.DataFrame)
-        assert len(result) == 2
-        assert "week" in result.columns
+        assert len(result) == 1
+        row = result.iloc[0]
+        assert row["week"] == 36
+        assert row["ili_percent_south"] == 3.6
+        assert row["ili_percent_north"] == 2.8
+        assert row["specimens_tested"] == 13320
+        assert isinstance(row["by_type"], dict) and row["by_type"]
+        assert row["note"] is None
+
+    def test_cn_name_to_code(self):
+        from epidatasets.sources.china_cdc import _CN_NAME_TO_CODE
+
+        assert _CN_NAME_TO_CODE["鼠疫"] == "Plague"
+        assert _CN_NAME_TO_CODE["乙型肝炎"] == "Viral_Hepatitis_B"
+        assert _CN_NAME_TO_CODE["水痘"] == "Chickenpox"
+        assert _CN_NAME_TO_CODE["人感染猪链球菌病"] == "Streptococcus_Suis"
+        assert _CN_NAME_TO_CODE["新型冠状病毒感染"] == "COVID_19"
+
+    def test_list_ndcpa_monthly_overviews(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                accessor.NDCPA_MIRROR_URL,
+                body=(FIXTURES / "china_cdc" / "ndcpa_monthly_listing.html").read_text(),
+                content_type="text/html",
+            )
+            df = accessor.list_monthly_overviews(year=2026, max_pages=1)
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert {"year", "month", "title", "published_date", "url"} <= set(df.columns)
+        assert (df["year"] == 2026).all()
+        assert df["month"].is_monotonic_increasing
+        assert df["url"].str.endswith(".html").all()
+
+    def _mock_ndcpa_listing(self, rsps, accessor):
+        # page 0 lists 2025-08..2026-07; with a year filter the scraper
+        # stops as soon as it reaches older entries (no pagination)
+        rsps.add(
+            responses.GET,
+            accessor.NDCPA_MIRROR_URL,
+            body=(FIXTURES / "china_cdc" / "ndcpa_monthly_listing.html").read_text(),
+            content_type="text/html",
+        )
+
+    def test_get_monthly_overview(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+
+        with responses.RequestsMock() as rsps:
+            self._mock_ndcpa_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                f"{accessor.NDCPA_MIRROR_URL}202608/t20260814_1838943.html",
+                body=(FIXTURES / "china_cdc" / "ndcpa_month_page.html").read_text(),
+                content_type="text/html",
+            )
+            df = accessor.get_monthly_overview(2026, 7)
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert {"year", "month", "disease_code", "disease_cn", "cases", "deaths", "category", "is_subitem"} <= set(df.columns)
+
+        covid = df[df["disease_code"] == "COVID_19"].iloc[0]
+        assert covid["cases"] == 521751
+        assert covid["deaths"] == 1
+        assert covid["category"] == "Class B"
+
+        hep_b = df[df["disease_code"] == "Viral_Hepatitis_B"].iloc[0]
+        assert hep_b["cases"] == 126727
+        assert bool(hep_b["is_subitem"])
+        assert hep_b["category"] == "Class B"
+
+        influenza = df[df["disease_code"] == "Influenza"].iloc[0]
+        assert influenza["cases"] == 969125
+        assert influenza["category"] == "Class C"
+
+        chickenpox = df[df["disease_code"] == "Chickenpox"].iloc[0]
+        assert chickenpox["cases"] == 46105
+        assert chickenpox["category"] == "Monitored (non-notifiable)"
+
+    def test_get_monthly_summary(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+
+        with responses.RequestsMock() as rsps:
+            self._mock_ndcpa_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                f"{accessor.NDCPA_MIRROR_URL}202608/t20260814_1838943.html",
+                body=(FIXTURES / "china_cdc" / "ndcpa_month_page.html").read_text(),
+                content_type="text/html",
+            )
+            summary = accessor.get_monthly_summary(2026, 7)
+
+        assert isinstance(summary, pd.DataFrame)
+        assert {"notifiable_total", "class_ab", "class_c", "monitored"} <= set(summary["scope"])
+
+        total = summary[summary["scope"] == "notifiable_total"].iloc[0]
+        assert total["cases"] == 2150320
+        assert total["deaths"] == 2107
+
+        class_ab = summary[summary["scope"] == "class_ab"].iloc[0]
+        assert class_ab["cases"] == 820877
+        # subtype rows must not appear in the top-disease ranking
+        assert "乙型肝炎" not in class_ab["top_diseases"]
+        assert "新型冠状病毒感染" in class_ab["top_diseases"]
 
     def test_get_covid_updates_returns_dataframe(self):
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
         accessor = ChinaCDCAccessor()
-        result = accessor.get_covid_updates()
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                accessor.NDCPA_COVID_MIRROR_URL,
+                body=(FIXTURES / "china_cdc" / "covid_monthly_listing.html").read_text(),
+                content_type="text/html",
+            )
+            rsps.add(
+                responses.GET,
+                f"{accessor.NDCPA_COVID_MIRROR_URL}index_1.html",
+                body="not found",
+                status=404,
+            )
+            rsps.add(
+                responses.GET,
+                f"{accessor.NDCPA_COVID_MIRROR_URL}202608/t20260813_1838941.html",
+                body=(FIXTURES / "china_cdc" / "covid_month_page.html").read_text(),
+                content_type="text/html",
+            )
+            result = accessor.get_covid_updates(
+                date_range=("2026-08-01", "2026-08-31")
+            )
+
         assert isinstance(result, pd.DataFrame)
+        assert len(result) == 1
+        row = result.iloc[0]
+        assert row["year"] == 2026
+        assert row["month"] == 7
+        assert row["new_cases"] == 522000
+        assert row["severe_cases"] == 487
+        assert row["new_deaths"] == 1
 
     def test_get_vaccination_coverage_returns_dataframe(self):
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
@@ -269,6 +487,144 @@ class TestChinaCDC:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 1
         assert result.iloc[0]["vaccine"] == "EPI"
+
+
+class TestHongKongCHP:
+    FLU_CSV_URL = "https://www.chp.gov.hk/files/misc/flux_data.csv"
+    COVID_CSV_URL = (
+        "https://www.chp.gov.hk/files/misc/"
+        "latest_situation_of_reported_cases_covid_19_eng.csv"
+    )
+
+    def _accessor(self, tmp_path):
+        from epidatasets.sources.hk_chp import HongKongCHPAccessor
+
+        return HongKongCHPAccessor(cache_dir=str(tmp_path))
+
+    def test_initialization(self):
+        from epidatasets.sources.hk_chp import HongKongCHPAccessor
+
+        accessor = HongKongCHPAccessor()
+        assert accessor is not None
+        assert accessor.source_name == "hk_chp"
+
+    def test_list_countries(self):
+        from epidatasets.sources.hk_chp import HongKongCHPAccessor
+
+        accessor = HongKongCHPAccessor()
+        countries = accessor.list_countries()
+        assert isinstance(countries, pd.DataFrame)
+        assert len(countries) == 1
+        assert countries.iloc[0]["country_code"] == "HK"
+        assert countries.iloc[0]["country_name"] == "Hong Kong SAR"
+
+    def _register_flu_csv(self, rsps):
+        rsps.add(
+            responses.GET,
+            self.FLU_CSV_URL,
+            body=(FIXTURES / "hk_chp" / "flux_data_sample.csv").read_text(),
+            content_type="text/csv",
+        )
+
+    def test_get_influenza_data(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_flu_csv(rsps)
+            df = accessor.get_influenza_data(year=2014, weeks=[1, 2])
+
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        first = df.iloc[0]
+        assert first["year"] == 2014
+        assert first["week"] == 1
+        assert first["week_start"] == pd.Timestamp("2013-12-29")
+        assert first["week_end"] == pd.Timestamp("2014-01-04")
+        assert first["influenza_positivity"] == pytest.approx(0.1238)
+        assert (
+            first["ili_rate_private_practitioner_per_1000"]
+            == pytest.approx(45.0)
+        )
+        assert first["admission_rate_all_ages_per_10000"] == pytest.approx(
+            0.234
+        )
+        assert first["severe_cases_65_plus"] == 1
+
+    def test_get_influenza_data_year_filter(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_flu_csv(rsps)
+            df = accessor.get_influenza_data(year=2014)
+        # fixture holds 15 weeks of 2014
+        assert len(df) == 15
+        assert (df["year"] == 2014).all()
+        assert df["week"].is_monotonic_increasing
+
+    def test_get_ili_rates(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_flu_csv(rsps)
+            df = accessor.get_ili_rates(year=2014, weeks=[1])
+        assert len(df) == 1
+        assert "ili_rate_private_practitioner_per_1000" in df.columns
+        assert "influenza_positivity" not in df.columns
+
+    def test_get_influenza_positivity(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_flu_csv(rsps)
+            df = accessor.get_influenza_positivity(year=2014, weeks=[1])
+        assert len(df) == 1
+        assert "influenza_positivity" in df.columns
+        assert "ili_rate_private_practitioner_per_1000" not in df.columns
+
+    def test_get_severe_cases(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_flu_csv(rsps)
+            df = accessor.get_severe_cases(year=2014, weeks=[2])
+        assert len(df) == 1
+        assert "severe_cases_65_plus" in df.columns
+
+    def test_get_influenza_data_uses_cache(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_flu_csv(rsps)
+            accessor.get_influenza_data()
+            # second call within TTL must be served from cache
+            accessor.get_influenza_data()
+            rsps.assert_call_count(self.FLU_CSV_URL, 1)
+
+    def _register_covid_csv(self, rsps):
+        rsps.add(
+            responses.GET,
+            self.COVID_CSV_URL,
+            body=(FIXTURES / "hk_chp" / "covid_situation_sample.csv").read_text(),
+            content_type="text/csv",
+        )
+
+    def test_get_covid_situation(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_covid_csv(rsps)
+            df = accessor.get_covid_situation()
+
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 5
+        assert df["date"].is_monotonic_increasing
+        assert df["date"].iloc[0] == pd.Timestamp("2020-01-08")
+        assert "confirmed_cases_cumulative" in df.columns
+        # data frozen upstream since 2023-03-19
+        assert df["note"].str.contains("2023-03-19").all()
+
+    def test_get_covid_situation_date_range(self, tmp_path):
+        accessor = self._accessor(tmp_path)
+        with responses.RequestsMock() as rsps:
+            self._register_covid_csv(rsps)
+            df = accessor.get_covid_situation(
+                date_range=("2020-01-09", "2020-01-11")
+            )
+        assert len(df) == 3
+        assert df["date"].iloc[0] == pd.Timestamp("2020-01-09")
 
 
 class TestIndiaIDSP:

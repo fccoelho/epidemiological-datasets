@@ -52,6 +52,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "pypdf>=6.12.1",
     "pdfplumber>=0.11.9",
+    "geopandas>=1.1.4",
 ]
 
 [project.optional-dependencies]
@@ -137,6 +138,7 @@ epidatasets = "epidatasets.cli:main"
 africa_cdc = "epidatasets.sources.africa_cdc:AfricaCDCAccessor"
 cdc_opendata = "epidatasets.sources.cdc_opendata:CDCOpenDataAccessor"
 china_cdc = "epidatasets.sources.china_cdc:ChinaCDCAccessor"
+hk_chp = "epidatasets.sources.hk_chp:HongKongCHPAccessor"
 colombia_ins = "epidatasets.sources.colombia_ins:ColombiaINSAccessor"
 copernicus_cds = "epidatasets.sources.copernicus_cds:CopernicusCDSAccessor"
 datasus = "epidatasets.sources.datasus_pysus:DataSUSAccessor"

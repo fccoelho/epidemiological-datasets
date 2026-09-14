@@ -59,6 +59,7 @@ nav:
       - OWID: sources/owid.md
       - RKI Germany: sources/rki.md
       - China CDC: sources/china_cdc.md
+      - Hong Kong CHP: sources/hk_chp.md
       - India IDSP: sources/india_idsp.md
       - UKHSA: sources/ukhsa.md
       - Colombia INS: sources/colombia_ins.md
@@ -133,5 +134,7 @@ nav:
       - RespiCast: examples/40_respicast_example.ipynb
       - OpenDataSUS Catalog: examples/42_OpenDataSUS_Catalog.ipynb
       - Japan IDWR Surveillance: examples/43_Japan_IDWR_Surveillance.ipynb
+      - Hong Kong CHP Surveillance: examples/44_Hong_Kong_CHP_Surveillance.ipynb
+      - China Comprehensive Surveillance: examples/45_China_Comprehensive_Surveillance.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md
