@@ -45,6 +45,8 @@ env/
 *.hdf5
 # ...but keep small test fixtures under version control
 !tests/fixtures/**/*.csv
+# ...and the newsfeeds embedded gazetteer (package data)
+!src/epidatasets/newsfeeds/*.csv
 
 # Cache directories
 .cache/

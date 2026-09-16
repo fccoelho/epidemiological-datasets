@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample Health News</title>
+    <link>https://example.org/news</link>
+    <description>Test feed</description>
+    <language>en</language>
+    <item>
+      <title>Dengue outbreak sweeps Sao Paulo, Brazil</title>
+      <link>https://example.org/news/dengue-brazil?utm_source=feed&amp;utm_campaign=x</link>
+      <guid isPermaLink="false">item-1</guid>
+      <pubDate>Mon, 07 Sep 2026 10:00:00 +0000</pubDate>
+      <description>&lt;p&gt;Health authorities reported &lt;b&gt;1,200 cases&lt;/b&gt; of dengue in Sao Paulo this week.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Dengue outbreak sweeps Sao Paulo, Brazil</title>
+      <link>https://mirror.example.net/news/dengue-brazil</link>
+      <guid isPermaLink="false">item-2</guid>
+      <pubDate>Mon, 07 Sep 2026 11:00:00 +0000</pubDate>
+      <description>Duplicate headline published by a mirror outlet.</description>
+    </item>
+    <item>
+      <title>Mpox cases confirmed in Kinshasa, DR Congo</title>
+      <link>https://example.org/news/mpox-drc</link>
+      <guid isPermaLink="false">item-3</guid>
+      <pubDate>Tue, 08 Sep 2026 08:30:00 +0000</pubDate>
+      <description>Twelve new mpox cases were confirmed in Kinshasa.</description>
+    </item>
+    <item>
+      <title>Research funding increased for pandemic preparedness</title>
+      <link>https://example.org/news/funding</link>
+      <guid isPermaLink="false">item-4</guid>
+      <pubDate>Tue, 08 Sep 2026 09:00:00 +0000</pubDate>
+      <description>Legislators approved new funding for preparedness programs.</description>
+    </item>
+  </channel>
+</rss>

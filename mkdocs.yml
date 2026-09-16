@@ -84,11 +84,13 @@ nav:
       - disease.sh: sources/disease_sh.md
       - DEMAS (Dados Abertos do SUS): sources/demas.md
       - OpenDataSUS (SUS open-data catalog): sources/opendatasus.md
+  - News Feeds: newsfeeds.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md
       - Registry: api/registry.md
       - Utilities: api/utils.md
+      - News Feeds: api/newsfeeds.md
       - CLI: api/cli.md
   - Examples:
       - PySUS Brazilian Health Data: examples/01_pysus_brazilian_health_data.ipynb
@@ -136,5 +138,6 @@ nav:
       - Japan IDWR Surveillance: examples/43_Japan_IDWR_Surveillance.ipynb
       - Hong Kong CHP Surveillance: examples/44_Hong_Kong_CHP_Surveillance.ipynb
       - China Comprehensive Surveillance: examples/45_China_Comprehensive_Surveillance.ipynb
+      - News Feeds Spatiotemporal: examples/46_News_Feeds_Spatiotemporal.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md

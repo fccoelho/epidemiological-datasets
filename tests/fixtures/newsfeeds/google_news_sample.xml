@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Google News</title>
+    <link>https://news.google.com</link>
+    <description>Google News topic feed</description>
+    <language>en</language>
+    <item>
+      <title>Yellow fever outbreak in Angola - CDC</title>
+      <link>https://news.google.com/rss/articles/CBMiMWh0dHBzOi8vZXhhbXBsZS5vcmcvYW5nb2xh?oc=5</link>
+      <pubDate>Wed, 09 Sep 2026 07:00:00 +0000</pubDate>
+      <description>&lt;a href="https://example.org/angola-yellow-fever"&gt;Angola yellow fever&lt;/a&gt;</description>
+      <source url="https://example.org">Example News</source>
+    </item>
+  </channel>
+</rss>

@@ -179,6 +179,7 @@ epidemiological-datasets/
 │   ├── _base.py               # BaseAccessor ABC
 │   ├── _registry.py           # Plugin registry (entry_points)
 │   ├── cli.py                 # CLI (typer)
+│   ├── newsfeeds/             # RSS/news-feed aggregator + spatiotemporal viz
 │   ├── sources/               # 32 data source accessors
 │   │   ├── __init__.py
 │   │   ├── africa_cdc.py
@@ -325,7 +326,37 @@ epidatasets info who
 epidatasets countries paho
 ```
 
+News-feed aggregator subcommands:
+
+```bash
+epidatasets news feeds                                  # list feeds
+epidatasets news fetch --days 30 -o items.csv           # fetch + tag
+epidatasets news fetch --query "dengue when:30d" -o dengue.csv
+epidatasets news plot items.csv --timeline -o timeline.png
+epidatasets news map items.csv -o news_map.html         # interactive HTML
+epidatasets news animate items.csv -o news_map.gif      # cumulative GIF
+```
+
 ## 💡 Usage Examples
+
+### Example 0: Public-health news feeds (early-warning signals)
+
+```python
+from epidatasets.newsfeeds import NewsAggregator
+
+agg = NewsAggregator()                       # feeds cached on disk (TTL 6h)
+items = agg.fetch(days=30)                   # WHO, PAHO, CDC, CIDRAP, ...
+locations = agg.geotag(items)                # country/city mentions -> iso3, lat, lon
+
+agg.plot_timeline(items, by="disease_tags", out="timeline.png")
+agg.plot_map(locations, out="news_map.html")
+agg.animate_map(locations, out="news_map.gif")
+```
+
+Requires `pip install "epidatasets[news,geo]"`. See the
+[news-feed aggregator docs](docs/newsfeeds.md) for the full feed
+inventory and licensing notes.
+
 
 ### Example 1: WHO Global Health Data
 

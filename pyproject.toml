@@ -103,8 +103,11 @@ gisaid = [
 pdf = [
     "pdfplumber>=0.10.0",
 ]
+news = [
+    "feedparser>=6.0.0",
+]
 all = [
-    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf,gisaid]",
+    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf,gisaid,news]",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -258,6 +261,9 @@ select = [
 ignore = [
     "E501",
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["epidatasets"]
