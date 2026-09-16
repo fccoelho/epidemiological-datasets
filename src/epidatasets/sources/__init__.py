@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.eurostat import EurostatAccessor
     from epidatasets.sources.gisaid import GISAIDAccessor
     from epidatasets.sources.global_health import GlobalHealthAccessor
+    from epidatasets.sources.google_earth_engine import GoogleEarthEngineAccessor
     from epidatasets.sources.healthdata_gov import HealthDataGovAccessor
     from epidatasets.sources.hk_chp import HongKongCHPAccessor
     from epidatasets.sources.india_idsp import IndiaIDSPAccessor
@@ -66,6 +67,7 @@ __all__ = [
     "EurostatAccessor",
     "GISAIDAccessor",
     "GlobalHealthAccessor",
+    "GoogleEarthEngineAccessor",
     "HealthDataGovAccessor",
     "HongKongCHPAccessor",
     "IndiaIDSPAccessor",
