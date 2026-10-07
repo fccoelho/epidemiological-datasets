@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **36 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **38 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -82,7 +82,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 33 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 38 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -197,6 +197,7 @@ epidemiological-datasets/
 │   │   ├── india_idsp.py
 │   │   ├── infodengue_api.py
 │   │   ├── malaria_atlas.py
+│   │   ├── nhs_prescribing.py
 │   │   ├── nz_health.py
 │   │   ├── oman_moh.py
 │   │   ├── owid.py
@@ -283,6 +284,7 @@ epidemiological-datasets/
 | [ECDC RespiCast](https://www.ecdc.europa.eu/en/publications-data/european-respiratory-diseases-forecasting-hub-respicast) | Respiratory disease forecasting hub | Weekly | Open | `epidatasets.sources.respicast` |
 | [Eurostat Health](https://ec.europa.eu/eurostat/web/health) | EU health statistics | Annual | Open | `epidatasets.sources.eurostat` |
 | [UK Health Security Agency](https://www.gov.uk/government/collections/health-protection-data) | UK health data | Weekly | Open | `epidatasets.sources.ukhsa` |
+| [NHS England Prescribing (OpenPrescribing + EPD)](https://openprescribing.net/api/) | NHS primary care prescribing: spending, antibiotic stewardship measures, practice-level EPD bulk data | Monthly | Open | `epidatasets.sources.nhs_prescribing` |
 | [Robert Koch Institute](https://www.rki.de/EN/Content/infections/epidemiology/data.html) | German surveillance data | Weekly | Open | `epidatasets.sources.rki_germany` |
 
 ### Africa 🌍
@@ -564,6 +566,38 @@ except ValueError as e:
     print(e)
 ```
 
+### Example 10: NHS England Prescribing (OpenPrescribing + EPD)
+
+```python
+from epidatasets.sources.nhs_prescribing import NHSPrescribingAccessor
+
+nhs = NHSPrescribingAccessor()  # filesystem cache, 7-day TTL (monthly releases)
+
+# National monthly spending on antibacterials (BNF 5.1)
+spending = nhs.get_spending(bnf_code="5.1")
+
+# Spending by CCG/SICBL for a single month
+ccg = nhs.get_spending_by_ccg(bnf_code="5.1", year_month="2024-01")
+
+# Practice-level spending within a CCG
+practice = nhs.get_spending_by_practice(bnf_code="5.1", ccg_code="15N", year_month="2024-01")
+
+# Prescribing quality measures (e.g. antibiotic stewardship)
+measures = nhs.get_measures(measure="ktt9_antibiotics", org_type="practice", org_code="L81001")
+
+# Practice locations for spatial analysis (lat/lon from GeoJSON)
+practices = nhs.get_practice_locations(ccg_code="15N")
+
+# NHSBSA English Prescribing Dataset (EPD) bulk CSVs — practice-level,
+# SNOMED-coded, ~600M rows/year. Chunked + BNF-filtered reading:
+chunks = nhs.get_epd_month(2024, 1, bnf_section="5.1", chunksize=500_000)
+for chunk in chunks:  # lazy evaluation for large files
+    ...
+
+# Monthly time-series for a single chemical (e.g. amoxicillin)
+ts = nhs.get_epd_timeseries("0501013B0", "2024-01", "2024-06")
+```
+
 ## 📊 Available Sources
 
 | Source Name | Class | Extra | Description |
@@ -587,6 +621,7 @@ except ValueError as e:
 | `japan_idwr` | `JapanIDWRAccessor` | — | Japan IDWR prefecture-level weekly surveillance (2023+) |
 | `opendatasus` | `OpenDataSUSAccessor` | — | OpenDataSUS catalog (dadosabertos.saude.gov.br): list datasets, metadata & downloads |
 | `malaria_atlas` | `MalariaAtlasAccessor` | — | Malaria Atlas Project data |
+| `nhs_prescribing` | `NHSPrescribingAccessor` | — | NHS England prescribing (OpenPrescribing API + NHSBSA EPD bulk CSVs) |
 | `nz_health` | `NZHealthAccessor` | — | New Zealand health statistics (Stats NZ & Health NZ) |
 | `oman_moh` | `OmanMOHAccessor` | — | Oman Ministry of Health annual reports |
 | `owid` | `OWIDAccessor` | — | Our World in Data (COVID-19, vaccination) |
@@ -602,7 +637,7 @@ except ValueError as e:
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 36 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 38 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 

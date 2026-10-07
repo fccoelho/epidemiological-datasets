@@ -84,6 +84,7 @@ nav:
       - disease.sh: sources/disease_sh.md
       - DEMAS (Dados Abertos do SUS): sources/demas.md
       - OpenDataSUS (SUS open-data catalog): sources/opendatasus.md
+      - NHS England Prescribing: sources/nhs_prescribing.md
   - News Feeds: newsfeeds.md
   - API Reference:
       - Overview: api/index.md
@@ -139,5 +140,6 @@ nav:
       - Hong Kong CHP Surveillance: examples/44_Hong_Kong_CHP_Surveillance.ipynb
       - China Comprehensive Surveillance: examples/45_China_Comprehensive_Surveillance.ipynb
       - News Feeds Spatiotemporal: examples/46_News_Feeds_Spatiotemporal.ipynb
+      - NHS England Prescribing: examples/47_NHS_Prescribing_England.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md
