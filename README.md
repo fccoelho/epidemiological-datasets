@@ -229,7 +229,7 @@ epidemiological-datasets/
 │       ├── index.md
 │       ├── installation.md
 │       ├── quickstart.md
-│       ├── sources/           # Per-source API docs (25 pages)
+│       ├── sources/           # Per-source API docs (36 pages)
 │       ├── api/               # API reference
 │       │   ├── base.md
 │       │   ├── registry.md
@@ -711,10 +711,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 | **epimodels** | Mathematical epidemiology | [fccoelho/epimodels](https://github.com/fccoelho/epimodels) |
 
 ## 📊 Statistics
-- **Data sources:** 34 registered (via plugin registry)
+- **Data sources:** 39 registered (via plugin registry)
 - **Countries covered:** 100+
-- **Optional extras:** 11 (`who`, `brazil`, `eurostat`, `climate`, `earthengine`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`)
-- **Example notebooks:** 43
+- **Optional extras:** 15 (`who`, `brazil`, `eurostat`, `earthengine`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`, `scraping`, `gisaid`, `pdf`, `news`)
+- **Example notebooks:** 47
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 
 ## 📚 Citation
