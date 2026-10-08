@@ -1,0 +1,21 @@
+{
+  "@odata.context": "http://www.who.int/api/news/$metadata#diseaseoutbreaknews",
+  "value": [
+    {
+      "Id": "11111111-1111-1111-1111-111111111111",
+      "PublicationDate": "2026-09-05T00:00:00Z",
+      "Title": "Cholera – situation in Haiti",
+      "Summary": "Cases of cholera reported in Port-au-Prince.",
+      "Overview": "<p>As of 5 September 2026, 340 suspected cholera cases including 12 deaths were reported in <b>Haiti</b>.</p>",
+      "ItemDefaultUrl": "/disease-outbreak-news/item/2026/09/05/cholera-haiti"
+    },
+    {
+      "Id": "22222222-2222-2222-2222-222222222222",
+      "PublicationDate": "2026-09-01T00:00:00Z",
+      "Title": "Avian influenza A(H5N1) – Cambodia",
+      "Summary": "A human case of avian influenza A(H5N1) was confirmed in Cambodia.",
+      "Overview": "",
+      "ItemDefaultUrl": "/disease-outbreak-news/item/2026/09/01/h5n1-cambodia"
+    }
+  ]
+}

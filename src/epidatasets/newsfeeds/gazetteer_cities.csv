@@ -1,0 +1,250 @@
+type,name,iso3,lat,lon,aliases
+city,Abidjan,CIV,5.35,-4.02,Abidjan
+city,Addis Ababa,ETH,9.02,38.75,Addis Ababa|Addis Abeba
+city,Adelaide,AUS,-34.93,138.60,Adelaide
+city,Ahmedabad,IND,23.02,72.57,Ahmedabad
+city,Alexandria,EGY,31.20,29.92,Alexandria
+city,Amman,JOR,31.95,35.93,Amman
+city,Amsterdam,NLD,52.37,4.90,Amsterdam
+city,Ankara,TUR,39.93,32.86,Ankara
+city,Antananarivo,MDG,-18.88,47.51,Antananarivo
+city,Asuncion,PRY,-25.28,-57.63,Asunción|Asuncion
+city,Athens,GRC,37.98,23.73,Athens|Athínai
+city,Atlanta,USA,33.75,-84.39,Atlanta
+city,Auckland,NZL,-36.85,174.76,Auckland
+city,Austin,USA,30.27,-97.74,Austin
+city,Baguio,PHL,16.41,120.60,Baguio
+city,Baku,AZE,40.41,49.87,Baku|Bakı
+city,Baltimore,USA,39.29,-76.61,Baltimore
+city,Bamako,MLI,12.64,-8.00,Bamako
+city,Bangkok,THA,13.76,100.50,Bangkok|Krung Thep
+city,Banjul,GMB,13.45,-16.57,Banjul
+city,Barcelona,ESP,41.39,2.17,Barcelona
+city,Beijing,CHN,39.90,116.41,Beijing|Peking
+city,Beirut,LBN,33.89,35.50,Beirut
+city,Belgrade,SRB,44.79,20.45,Belgrade|Beograd
+city,Belo Horizonte,BRA,-19.92,-43.94,Belo Horizonte
+city,Berlin,DEU,52.52,13.40,Berlin
+city,Bogota,COL,4.71,-74.07,Bogotá|Bogota
+city,Brasilia,BRA,-15.79,-47.88,Brasília|Brasilia
+city,Bratislava,SVK,48.15,17.11,Bratislava
+city,Brazzaville,COG,-4.27,15.28,Brazzaville
+city,Brisbane,AUS,-27.47,153.03,Brisbane
+city,Brussels,BEL,50.85,4.35,Brussels|Bruxelles|Brussel
+city,Bucharest,ROU,44.43,26.10,Bucharest|Bucuresti
+city,Budapest,HUN,47.50,19.04,Budapest
+city,Buenos Aires,ARG,-34.60,-58.38,Buenos Aires
+city,Cairo,EGY,30.04,31.24,Cairo|Al Qahirah
+city,Calcutta,IND,22.57,88.36,Kolkata|Calcutta
+city,Cali,COL,3.45,-76.53,Cali
+city,Cape Town,ZAF,-33.92,18.42,Cape Town
+city,Caracas,VEN,10.48,-66.90,Caracas
+city,Casablanca,MAR,33.57,-7.59,Casablanca
+city,Chengdu,CHN,30.57,104.07,Chengdu
+city,Chennai,IND,13.08,80.27,Chennai|Madras
+city,Chicago,USA,41.88,-87.63,Chicago
+city,Chittagong,BGD,22.36,91.78,Chittagong|Chattogram
+city,Colombo,LKA,6.93,79.86,Colombo
+city,Conakry,GIN,9.51,-13.71,Conakry
+city,Copenhagen,DNK,55.68,12.57,Copenhagen|København
+city,Cordoba,ARG,-31.42,-64.18,Córdoba|Cordoba
+city,Cotonou,BEN,6.37,2.39,Cotonou
+city,Cusco,PER,-13.53,-71.97,Cusco|Cuzco
+city,Dakar,SEN,14.72,-17.47,Dakar
+city,Dallas,USA,32.78,-96.80,Dallas
+city,Dar es Salaam,TZA,-6.79,39.21,Dar es Salaam
+city,Delhi,IND,28.61,77.21,Delhi|New Delhi
+city,Denpasar,IDN,-8.65,115.22,Denpasar|Bali
+city,Dhaka,BGD,23.81,90.41,Dhaka|Dacca
+city,Djibouti,DJI,11.59,43.15,Djibouti City
+city,Doha,QAT,25.29,51.53,Doha|Ad Dawhah
+city,Dongguan,CHN,23.02,113.70,Dongguan
+city,Douala,CMR,4.05,9.70,Douala
+city,Dubai,ARE,25.20,55.27,Dubai
+city,Dublin,IRL,53.35,-6.26,Dublin|Baile Atha Cliath
+city,Durban,ZAF,-29.86,31.03,Durban|eThekwini
+city,Edinburgh,GBR,55.95,-3.19,Edinburgh
+city,Entebbe,UGA,0.05,32.46,Entebbe
+city,Erbil,IRQ,36.19,44.01,Erbil|Arbil|Hewlêr
+city,Fortaleza,BRA,-3.73,-38.53,Fortaleza
+city,Frankfurt,DEU,50.11,8.68,Frankfurt|Frankfurt am Main
+city,Freetown,SLE,8.48,-13.23,Freetown
+city,Fukuoka,JPN,33.59,130.40,Fukuoka
+city,Georgetown,GUY,6.80,-58.16,Georgetown
+city,Giza,EGY,30.01,31.21,Giza|Al Jizah
+city,Guadalajara,MEX,20.67,-103.35,Guadalajara
+city,Guangzhou,CHN,23.13,113.26,Guangzhou|Canton
+city,Guayaquil,ECU,-2.19,-79.89,Guayaquil
+city,Guiyang,CHN,26.65,106.63,Guiyang
+city,Hamburg,DEU,53.55,9.99,Hamburg
+city,Hanoi,VNM,21.03,105.85,Hanoi|Ha Noi
+city,Harare,ZWE,-17.83,31.05,Harare
+city,Harbin,CHN,45.80,126.53,Harbin
+city,Havana,CUB,23.11,-82.37,Havana|La Habana
+city,Helsinki,FIN,60.17,24.94,Helsinki|Helsingfors
+city,Ho Chi Minh City,VNM,10.82,106.63,Ho Chi Minh City|Saigon
+city,Hong Kong,HKG,22.32,114.17,Hong Kong
+city,Honiara,SLB,-9.43,159.95,Honiara
+city,Houston,USA,29.76,-95.37,Houston
+city,Hyderabad,IND,17.39,78.49,Hyderabad
+city,Ibadan,NGA,7.38,3.95,Ibadan
+city,Islamabad,PAK,33.68,73.05,Islamabad
+city,Istanbul,TUR,41.01,28.98,Istanbul|Istambul|Constantinople
+city,Jakarta,IDN,-6.21,106.85,Jakarta|Batavia
+city,Jeddah,SAU,21.49,39.19,Jeddah|Jiddah
+city,Johannesburg,ZAF,-26.20,28.05,Johannesburg|Joburg
+city,Kabul,AFG,34.56,69.21,Kabul
+city,Kampala,UGA,0.35,32.58,Kampala
+city,Kano,NGA,12.00,8.52,Kano
+city,Kanpur,IND,26.45,80.33,Kanpur
+city,Karachi,PAK,24.86,67.01,Karachi
+city,Kathmandu,NPL,27.72,85.32,Kathmandu
+city,Kazan,RUS,55.80,49.11,Kazan
+city,Khartoum,SDN,15.50,32.56,Khartoum
+city,Kinshasa,COD,-4.44,15.27,Kinshasa
+city,Kolkata,IND,22.57,88.36,Kolkata
+city,Kuala Lumpur,MYS,3.14,101.69,Kuala Lumpur|KL
+city,Kyiv,UKR,50.45,30.52,Kyiv|Kiev
+city,Lagos,NGA,6.52,3.38,Lagos
+city,Lahore,PAK,31.55,74.34,Lahore
+city,Lanzhou,CHN,36.06,103.83,Lanzhou
+city,Lasa,CHN,29.65,91.14,Lhasa|Lasa
+city,La Paz,BOL,-16.50,-68.15,La Paz
+city,Leicester,GBR,52.64,-1.13,Leicester
+city,Lilongwe,MWI,-13.96,33.79,Lilongwe
+city,Lima,PER,-12.05,-77.04,Lima
+city,Lisbon,PRT,38.72,-9.14,Lisbon|Lisboa
+city,Liverpool,GBR,53.41,-2.98,Liverpool
+city,Lome,TGO,6.17,1.23,Lomé|Lome
+city,London,GBR,51.51,-0.13,London
+city,Los Angeles,USA,34.05,-118.24,Los Angeles|LA
+city,Luanda,AGO,-8.84,13.23,Luanda
+city,Lusaka,ZMB,-15.39,28.32,Lusaka
+city,Lyon,FRA,45.76,4.84,Lyon
+city,Macao,MAC,22.20,113.55,Macao|Macau
+city,Madrid,ESP,40.42,-3.70,Madrid
+city,Managua,NIC,12.11,-86.24,Managua
+city,Manaus,BRA,-3.12,-60.02,Manaus
+city,Manila,PHL,14.60,120.98,Manila|Maynila
+city,Maputo,MOZ,-25.97,32.57,Maputo
+city,Marrakesh,MAR,31.63,-8.01,Marrakesh|Marrakech
+city,Marseille,FRA,43.30,5.37,Marseille
+city,Medellin,COL,6.24,-75.58,Medellín|Medellin
+city,Melbourne,AUS,-37.81,144.96,Melbourne
+city,Mexico City,MEX,19.43,-99.13,Mexico City|Ciudad de Mexico
+city,Miami,USA,25.76,-80.19,Miami
+city,Milan,ITA,45.46,9.19,Milan|Milano
+city,Minsk,BLR,53.90,27.57,Minsk
+city,Medan,IDN,3.60,98.67,Medan
+city,Mogadishu,SOM,2.05,45.32,Mogadishu
+city,Mombasa,KEN,-4.04,39.67,Mombasa
+city,Monrovia,LBR,6.30,-10.80,Monrovia
+city,Monterrey,MEX,25.69,-100.32,Monterrey
+city,Montevideo,URY,-34.90,-56.16,Montevideo
+city,Montreal,CAN,45.50,-73.57,Montreal|Montréal
+city,Moscow,RUS,55.76,37.62,Moscow|Moskva
+city,Mumbai,IND,19.08,72.88,Mumbai|Bombay
+city,Munich,DEU,48.14,11.58,Munich|München
+city,Nagoya,JPN,35.18,136.91,Nagoya
+city,Nairobi,KEN,-1.29,36.82,Nairobi
+city,Nanjing,CHN,32.06,118.80,Nanjing|Nanking
+city,Naples,ITA,40.85,14.27,Naples|Napoli
+city,Ndjamena,TCD,12.11,15.04,N'Djamena|Ndjamena
+city,New Delhi,IND,28.61,77.21,New Delhi
+city,New Orleans,USA,29.95,-90.07,New Orleans
+city,New York,USA,40.71,-74.01,New York|NYC|New York City
+city,Niamey,NER,13.51,2.13,Niamey
+city,Nicosia,CYP,35.17,33.36,Nicosia|Lefkosia
+city,Nouakchott,MRT,18.08,-15.98,Nouakchott
+city,Novosibirsk,RUS,55.03,82.92,Novosibirsk
+city,Nuku'alofa,TON,-21.14,-175.20,Nuku'alofa
+city,Osaka,JPN,34.69,135.50,Osaka
+city,Oslo,NOR,59.91,10.75,Oslo
+city,Ottawa,CAN,45.42,-75.70,Ottawa
+city,Ouagadougou,BFA,12.37,-1.53,Ouagadougou
+city,Oxford,GBR,51.75,-1.26,Oxford
+city,Panama City,PAN,8.98,-79.52,Panama City|Ciudad de Panama
+city,Paramaribo,SUR,5.87,-55.17,Paramaribo
+city,Paris,FRA,48.86,2.35,Paris
+city,Perth,AUS,-31.95,115.86,Perth
+city,Philadelphia,USA,39.95,-75.17,Philadelphia
+city,Phnom Penh,KHM,11.56,104.92,Phnom Penh
+city,Port-au-Prince,HTI,18.54,-72.34,Port-au-Prince|Port au Prince
+city,Port Harcourt,NGA,4.82,7.03,Port Harcourt
+city,Port Moresby,PNG,-9.44,147.18,Port Moresby
+city,Port of Spain,TTO,10.65,-61.51,Port of Spain
+city,Portland,USA,45.52,-122.68,Portland
+city,Prague,CZE,50.08,14.44,Prague|Praha
+city,Pretoria,ZAF,-25.75,28.19,Pretoria
+city,Pune,IND,18.52,73.86,Pune|Poona
+city,Pyongyang,PRK,39.03,125.75,Pyongyang
+city,Qingdao,CHN,36.07,120.38,Qingdao|Tsingtao
+city,Quito,ECU,-0.18,-78.47,Quito
+city,Rabat,MAR,34.02,-6.84,Rabat
+city,Recife,BRA,-8.05,-34.88,Recife
+city,Riyadh,SAU,24.71,46.68,Riyadh|Ar Riyad
+city,Rome,ITA,41.90,12.50,Rome|Roma
+city,Rosario,ARG,-32.95,-60.64,Rosario
+city,Rostov-on-Don,RUS,47.24,39.72,Rostov-on-Don|Rostov
+city,Saint Petersburg,RUS,59.93,30.34,Saint Petersburg|St Petersburg|Sankt Peterburg
+city,Salt Lake City,USA,40.76,-111.89,Salt Lake City
+city,San Francisco,USA,37.77,-122.42,San Francisco|SF
+city,San Jose,CRI,9.93,-84.08,San José|San Jose
+city,San Juan,PRI,18.47,-66.11,San Juan
+city,San Salvador,SLV,13.69,-89.22,San Salvador
+city,Santiago,CHL,-33.45,-70.67,Santiago de Chile|Santiago
+city,Santo Domingo,DOM,18.49,-69.93,Santo Domingo
+city,Sao Paulo,BRA,-23.55,-46.63,São Paulo|Sao Paulo|SP
+city,Sapporo,JPN,43.06,141.35,Sapporo
+city,Sarajevo,BIH,43.86,18.41,Sarajevo
+city,Seattle,USA,47.61,-122.33,Seattle
+city,Seoul,KOR,37.57,126.98,Seoul|Séoul
+city,Shanghai,CHN,31.23,121.47,Shanghai
+city,Shenyang,CHN,41.81,123.43,Shenyang|Mukden
+city,Shenzhen,CHN,22.54,114.06,Shenzhen
+city,Singapore,SGP,1.35,103.82,Singapore|Singapura
+city,Sofia,BGR,42.70,23.32,Sofia|Sofija
+city,Stockholm,SWE,59.33,18.07,Stockholm
+city,Surabaya,IDN,-7.25,112.75,Surabaya
+city,Surat,IND,21.17,72.83,Surat
+city,Sydney,AUS,-33.87,151.21,Sydney
+city,Taipei,TWN,25.03,121.57,Taipei|Taibei
+city,Taiyuan,CHN,37.87,112.55,Taiyuan
+city,Tashkent,UZB,41.30,69.24,Tashkent|Toshkent
+city,Tbilisi,GEO,41.72,44.78,Tbilisi|Tiflis
+city,Tegucigalpa,HND,14.07,-87.19,Tegucigalpa
+city,Tehran,IRN,35.69,51.39,Tehran|Teheran
+city,Tel Aviv,ISR,32.09,34.78,Tel Aviv|Tel Aviv-Yafo
+city,Thimphu,BTN,27.47,89.64,Thimphu
+city,Tianjin,CHN,39.34,117.36,Tianjin|Tientsin
+city,Tijuana,MEX,32.51,-117.04,Tijuana
+city,Tirana,ALB,41.33,19.82,Tirana|Tiranë
+city,Tokyo,JPN,35.68,139.69,Tokyo|Tokio
+city,Toronto,CAN,43.65,-79.38,Toronto
+city,Toulouse,FRA,43.60,1.44,Toulouse
+city,Tripoli,LBY,32.89,13.19,Tripoli
+city,Tromso,NOR,69.65,18.96,Tromsø|Tromso
+city,Tunis,TUN,36.81,10.18,Tunis
+city,Turin,ITA,45.07,7.69,Turin|Torino
+city,Ulaanbaatar,MNG,47.89,106.91,Ulaanbaatar|Ulan Bator
+city,Vaduz,LIE,47.14,9.52,Vaduz
+city,Valencia,ESP,39.47,-0.38,Valencia
+city,Valparaiso,CHL,-33.05,-71.62,Valparaíso|Valparaiso
+city,Vancouver,CAN,49.28,-123.12,Vancouver
+city,Vientiane,LAO,17.97,102.60,Vientiane|Viangchan
+city,Vienna,AUT,48.21,16.37,Vienna|Wien
+city,Vila Nova de Gaia,PRT,41.13,-8.61,Vila Nova de Gaia
+city,Vilnius,LTU,54.69,25.28,Vilnius|Vilna
+city,Vitoria,BRA,-20.32,-40.34,Vitória|Vitoria
+city,Warsaw,POL,52.23,21.01,Warsaw|Warszawa
+city,Washington,USA,38.91,-77.04,Washington DC|Washington D.C.|Washington
+city,Wellington,NZL,-41.29,174.78,Wellington
+city,Wuhan,CHN,30.59,114.31,Wuhan
+city,Xiamen,CHN,24.48,118.09,Xiamen|Amoy
+city,Xi'an,CHN,34.34,108.94,Xi'an|Xian|Sian
+city,Yaounde,CMR,3.87,11.52,Yaoundé|Yaounde
+city,Yangon,MMR,16.87,96.20,Yangon|Rangoon
+city,Yaoundé,CMR,3.87,11.52,Yaoundé
+city,Yerevan,ARM,40.18,44.51,Yerevan|Erevan
+city,Zagreb,HRV,45.81,15.98,Zagreb
+city,Zurich,CHE,47.38,8.54,Zürich|Zurich

@@ -1,0 +1,178 @@
+type,name,iso3,lat,lon,aliases
+country,Fiji,FJI,-17.74,178.02,Republic of Fiji
+country,Tanzania,TZA,-6.54,34.31,United Republic of Tanzania
+country,Western Sahara,ESH,24.78,-12.03,Sahrawi Arab Democratic Republic|W. Sahara
+country,Canada,CAN,56.45,-91.07,
+country,United States,USA,38.27,-90.36,United States of America
+country,Kazakhstan,KAZ,47.26,65.25,Republic of Kazakhstan
+country,Uzbekistan,UZB,41.15,65.29,Republic of Uzbekistan
+country,Papua New Guinea,PNG,-7.77,146.21,Independent State of Papua New Guinea
+country,Indonesia,IDN,-2.04,121.59,Republic of Indonesia
+country,Argentina,ARG,-37.02,-65.09,Argentine Republic
+country,Chile,CHL,-38.12,-71.45,Republic of Chile
+country,Democratic Republic of the Congo,COD,-3.81,23.13,Dem. Rep. Congo
+country,Somalia,SOM,6.55,46.9,Federal Republic of Somalia
+country,Kenya,KEN,1.11,37.82,Republic of Kenya
+country,Sudan,SDN,12.81,29.34,Republic of the Sudan
+country,Chad,TCD,13.0,18.0,Republic of Chad
+country,Haiti,HTI,18.84,-72.7,Republic of Haiti
+country,Dominican Republic,DOM,18.73,-70.49,Dominican Rep.
+country,Russian Federation,RUS,59.1,90.87,Russia
+country,Bahamas,BHS,24.53,-77.95,Commonwealth of the Bahamas|The Bahamas
+country,Falkland Islands / Malvinas,FLK,-51.73,-59.59,Falkland Is.|Falkland Islands
+country,Norway,NOR,66.23,18.09,Kingdom of Norway
+country,Greenland,GRL,74.15,-41.03,
+country,French Southern and Antarctic Lands,ATF,-49.12,69.46,Fr. S. Antarctic Lands|Territory of the French Southern and Antarctic Lands
+country,Timor-Leste,TLS,-8.75,125.91,Democratic Republic of Timor-Leste|East Timor
+country,South Africa,ZAF,-28.6,24.72,Republic of South Africa
+country,Lesotho,LSO,-29.58,28.37,Kingdom of Lesotho
+country,Mexico,MEX,23.87,-103.13,United Mexican States
+country,Uruguay,URY,-32.7,-56.14,Oriental Republic of Uruguay
+country,Brazil,BRA,-9.66,-56.93,Federative Republic of Brazil
+country,Bolivia,BOL,-16.34,-64.13,Plurinational State of Bolivia
+country,Peru,PER,-7.75,-74.08,Republic of Peru
+country,Colombia,COL,4.49,-72.65,Republic of Colombia
+country,Panama,PAN,8.5,-80.32,Republic of Panama
+country,Costa Rica,CRI,9.82,-84.16,Republic of Costa Rica
+country,Nicaragua,NIC,13.08,-84.98,Republic of Nicaragua
+country,Honduras,HND,14.75,-86.31,Republic of Honduras
+country,El Salvador,SLV,13.85,-88.92,Republic of El Salvador
+country,Guatemala,GTM,15.53,-90.27,Republic of Guatemala
+country,Belize,BLZ,17.42,-88.63,
+country,Venezuela,VEN,7.21,-66.85,Bolivarian Republic of Venezuela
+country,Guyana,GUY,4.48,-58.9,Co-operative Republic of Guyana
+country,Suriname,SUR,3.7,-55.87,Republic of Suriname
+country,France,FRA,47.0,3.3,French Republic
+country,Ecuador,ECU,-1.64,-78.7,Republic of Ecuador
+country,Puerto Rico,PRI,18.28,-66.43,Commonwealth of Puerto Rico
+country,Jamaica,JAM,18.19,-77.35,
+country,Cuba,CUB,21.72,-79.73,Republic of Cuba
+country,Zimbabwe,ZWE,-18.87,29.66,Republic of Zimbabwe
+country,Botswana,BWA,-22.48,24.47,Republic of Botswana
+country,Namibia,NAM,-21.56,17.93,Republic of Namibia
+country,Senegal,SEN,13.88,-14.59,Republic of Senegal
+country,Mali,MLI,14.08,-5.8,Republic of Mali
+country,Mauritania,MRT,18.83,-12.42,Islamic Republic of Mauritania
+country,Benin,BEN,9.81,2.33,Republic of Benin
+country,Niger,NER,15.48,8.74,Republic of Niger
+country,Nigeria,NGA,9.73,8.35,Federal Republic of Nigeria
+country,Cameroon,CMR,6.91,13.17,Republic of Cameroon
+country,Togo,TGO,8.88,0.87,Togolese Republic
+country,Ghana,GHA,8.29,-0.97,Republic of Ghana
+country,Côte d'Ivoire,CIV,7.94,-6.35,Ivory Coast|Republic of Ivory Coast
+country,Guinea,GIN,10.42,-10.98,Republic of Guinea
+country,Guinea-Bissau,GNB,11.98,-15.21,Republic of Guinea-Bissau
+country,Liberia,LBR,6.75,-9.14,Republic of Liberia
+country,Sierra Leone,SLE,8.6,-11.7,Republic of Sierra Leone
+country,Burkina Faso,BFA,12.11,-1.92,
+country,Central African Republic,CAF,6.29,20.7,Central African Rep.
+country,Republic of the Congo,COG,-0.92,14.93,Congo
+country,Gabon,GAB,-0.34,11.89,Gabonese Republic
+country,Equatorial Guinea,GNQ,1.59,10.07,Eq. Guinea|Republic of Equatorial Guinea
+country,Zambia,ZMB,-12.83,27.98,Republic of Zambia
+country,Malawi,MWI,-12.91,34.06,Republic of Malawi
+country,Mozambique,MOZ,-17.72,35.0,Republic of Mozambique
+country,Kingdom of eSwatini,SWZ,-26.42,31.44,Eswatini|eSwatini
+country,Angola,AGO,-10.94,17.38,People's Republic of Angola
+country,Burundi,BDI,-3.23,30.04,Republic of Burundi
+country,Israel,ISR,32.0,35.11,State of Israel
+country,Lebanon,LBN,33.8,35.85,Lebanese Republic
+country,Madagascar,MDG,-17.97,46.99,Republic of Madagascar
+country,Palestine,PSE,31.81,35.24,West Bank and Gaza
+country,The Gambia,GMB,13.5,-15.29,Gambia|Republic of the Gambia
+country,Tunisia,TUN,34.02,9.84,Republic of Tunisia
+country,Algeria,DZA,29.67,3.02,People's Democratic Republic of Algeria
+country,Jordan,JOR,31.13,36.65,Hashemite Kingdom of Jordan
+country,United Arab Emirates,ARE,24.2,54.24,
+country,Qatar,QAT,25.26,51.15,State of Qatar
+country,Kuwait,KWT,29.34,47.74,State of Kuwait
+country,Iraq,IRQ,33.44,44.4,Republic of Iraq
+country,Oman,OMN,20.86,56.57,Sultanate of Oman
+country,Vanuatu,VUT,-15.38,166.89,Republic of Vanuatu
+country,Cambodia,KHM,12.64,104.9,Kingdom of Cambodia
+country,Thailand,THA,13.18,100.66,Kingdom of Thailand
+country,Lao PDR,LAO,18.28,103.69,Lao People's Democratic Republic|Laos
+country,Myanmar,MMR,20.0,97.15,Republic of the Union of Myanmar
+country,Vietnam,VNM,16.71,105.94,Socialist Republic of Vietnam
+country,Dem. Rep. Korea,PRK,39.94,127.4,Democratic People's Republic of Korea|North Korea
+country,Republic of Korea,KOR,36.72,127.47,South Korea
+country,Mongolia,MNG,47.2,104.59,
+country,India,IND,23.97,83.59,Republic of India
+country,Bangladesh,BGD,23.4,90.61,People's Republic of Bangladesh
+country,Bhutan,BTN,27.47,90.62,Kingdom of Bhutan
+country,Nepal,NPL,28.21,84.56,
+country,Pakistan,PAK,30.79,69.44,Islamic Republic of Pakistan
+country,Afghanistan,AFG,34.83,67.77,Islamic State of Afghanistan
+country,Tajikistan,TJK,38.51,70.79,Republic of Tajikistan
+country,Kyrgyzstan,KGZ,41.36,73.98,Kyrgyz Republic
+country,Turkmenistan,TKM,39.33,58.46,
+country,Iran,IRN,33.35,53.23,Islamic Republic of Iran
+country,Syria,SYR,35.15,37.95,Syrian Arab Republic
+country,Armenia,ARM,39.95,45.31,Republic of Armenia
+country,Sweden,SWE,62.74,16.56,Kingdom of Sweden
+country,Belarus,BLR,53.35,28.3,Republic of Belarus
+country,Ukraine,UKR,48.69,30.45,
+country,Poland,POL,51.74,19.48,Republic of Poland
+country,Austria,AUT,47.64,13.48,Republic of Austria
+country,Hungary,HUN,47.42,19.23,Republic of Hungary
+country,Moldova,MDA,47.05,28.47,Republic of Moldova
+country,Romania,ROU,45.86,25.19,
+country,Lithuania,LTU,55.2,24.02,Republic of Lithuania
+country,Latvia,LVA,56.86,24.94,Republic of Latvia
+country,Estonia,EST,58.7,26.14,Republic of Estonia
+country,Germany,DEU,51.04,10.69,Federal Republic of Germany
+country,Bulgaria,BGR,42.89,24.69,Republic of Bulgaria
+country,Greece,GRC,39.8,23.14,Hellenic Republic
+country,Turkey,TUR,38.38,36.9,Republic of Turkey
+country,Albania,ALB,41.28,20.12,Republic of Albania
+country,Croatia,HRV,44.85,16.43,Republic of Croatia
+country,Switzerland,CHE,46.8,8.31,Swiss Confederation
+country,Luxembourg,LUX,49.81,5.98,Grand Duchy of Luxembourg
+country,Belgium,BEL,50.72,4.43,Kingdom of Belgium
+country,Netherlands,NLD,52.1,5.49,Kingdom of the Netherlands
+country,Portugal,PRT,39.76,-8.04,Portuguese Republic
+country,Spain,ESP,40.18,-4.45,Kingdom of Spain
+country,Ireland,IRL,53.53,-7.72,
+country,New Caledonia,NCL,-21.18,165.51,
+country,Solomon Islands,SLB,-7.9,159.13,Solomon Is.
+country,New Zealand,NZL,-38.2,175.48,
+country,Australia,AUS,-23.8,133.25,Commonwealth of Australia
+country,Sri Lanka,LKA,7.63,80.86,Democratic Socialist Republic of Sri Lanka
+country,China,CHN,37.31,105.67,People's Republic of China
+country,Taiwan,TWN,23.86,121.11,
+country,Italy,ITA,43.09,12.63,Italian Republic
+country,Denmark,DNK,56.28,9.62,Kingdom of Denmark
+country,United Kingdom,GBR,53.9,-3.08,United Kingdom of Great Britain and Northern Ireland
+country,Iceland,ISL,65.28,-19.27,Republic of Iceland
+country,Azerbaijan,AZE,40.37,47.41,Republic of Azerbaijan
+country,Georgia,GEO,42.26,43.36,
+country,Philippines,PHL,15.37,121.82,Republic of the Philippines
+country,Malaysia,MYS,3.68,114.77,
+country,Brunei Darussalam,BRN,4.74,115.0,Brunei|Negara Brunei Darussalam
+country,Slovenia,SVN,46.11,15.0,Republic of Slovenia
+country,Finland,FIN,65.23,25.89,Republic of Finland
+country,Slovakia,SVK,48.76,19.35,Slovak Republic
+country,Czech Republic,CZE,49.78,15.85,Czechia
+country,Eritrea,ERI,14.71,39.59,State of Eritrea
+country,Japan,JPN,35.72,136.0,
+country,Paraguay,PRY,-23.3,-57.57,Republic of Paraguay
+country,Yemen,YEM,15.51,46.47,Republic of Yemen
+country,Saudi Arabia,SAU,24.04,43.59,Kingdom of Saudi Arabia
+country,Antarctica,ATA,-73.02,-2.7,
+country,Northern Cyprus,CYN,35.18,33.43,N. Cyprus|Turkish Republic of Northern Cyprus
+country,Cyprus,CYP,35.02,33.24,Republic of Cyprus
+country,Morocco,MAR,28.77,-9.43,Kingdom of Morocco
+country,Egypt,EGY,28.18,31.7,Arab Republic of Egypt
+country,Libya,LBY,28.48,16.64,
+country,Ethiopia,ETH,8.98,39.21,Federal Democratic Republic of Ethiopia
+country,Djibouti,DJI,11.8,42.52,Republic of Djibouti
+country,Somaliland,SOL,10.47,46.35,Republic of Somaliland
+country,Uganda,UGA,1.34,31.95,Republic of Uganda
+country,Rwanda,RWA,-2.01,29.93,Republic of Rwanda
+country,Bosnia and Herzegovina,BIH,44.19,17.92,Bosnia and Herz.
+country,North Macedonia,MKD,41.68,21.63,Republic of North Macedonia
+country,Serbia,SRB,43.89,20.86,Republic of Serbia
+country,Montenegro,MNE,42.74,19.45,
+country,Kosovo,KOS,42.55,20.96,Republic of Kosovo
+country,Trinidad and Tobago,TTO,10.48,-61.46,Republic of Trinidad and Tobago
+country,South Sudan,SSD,8.01,30.09,Republic of South Sudan|S. Sudan

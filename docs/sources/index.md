@@ -36,6 +36,7 @@ who = get_source("who")
 | UKHSA | `ukhsa` | UK | None |
 | Africa CDC | `africa_cdc` | Africa | None |
 | China CDC | `china_cdc` | China | `beautifulsoup4` |
+| Hong Kong CHP | `hk_chp` | Hong Kong SAR | None |
 | India IDSP | `india_idsp` | India | `beautifulsoup4` |
 | Colombia INS | `colombia_ins` | Colombia | None |
 | DATASUS (PySUS) | `datasus` | Brazil | `pysus` |

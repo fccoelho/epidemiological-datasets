@@ -52,6 +52,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "pypdf>=6.12.1",
     "pdfplumber>=0.11.9",
+    "geopandas>=1.1.4",
 ]
 
 [project.optional-dependencies]
@@ -105,8 +106,11 @@ gisaid = [
 pdf = [
     "pdfplumber>=0.10.0",
 ]
+news = [
+    "feedparser>=6.0.0",
+]
 all = [
-    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf,gisaid]",
+    "epidatasets[who,brazil,eurostat,climate,geo,viz,genomics,cli,worldbank,search,scraping,pdf,gisaid,news]",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -140,6 +144,7 @@ epidatasets = "epidatasets.cli:main"
 africa_cdc = "epidatasets.sources.africa_cdc:AfricaCDCAccessor"
 cdc_opendata = "epidatasets.sources.cdc_opendata:CDCOpenDataAccessor"
 china_cdc = "epidatasets.sources.china_cdc:ChinaCDCAccessor"
+hk_chp = "epidatasets.sources.hk_chp:HongKongCHPAccessor"
 colombia_ins = "epidatasets.sources.colombia_ins:ColombiaINSAccessor"
 copernicus_cds = "epidatasets.sources.copernicus_cds:CopernicusCDSAccessor"
 datasus = "epidatasets.sources.datasus_pysus:DataSUSAccessor"
@@ -160,6 +165,7 @@ indonesia_moh = "epidatasets.sources.indonesia_moh:IndonesiaMOHAccessor"
 japan_idwr = "epidatasets.sources.japan_idwr:JapanIDWRAccessor"
 malaysia_moh = "epidatasets.sources.malaysia_moh:MalaysiaMOHAccessor"
 malaria_atlas = "epidatasets.sources.malaria_atlas:MalariaAtlasAccessor"
+nhs_prescribing = "epidatasets.sources.nhs_prescribing:NHSPrescribingAccessor"
 nz_health = "epidatasets.sources.nz_health:NZHealthAccessor"
 opendatasus = "epidatasets.sources.opendatasus:OpenDataSUSAccessor"
 owid = "epidatasets.sources.owid:OWIDAccessor"
@@ -260,6 +266,9 @@ select = [
 ignore = [
     "E501",
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["epidatasets"]

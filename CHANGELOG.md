@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `nhs_prescribing` accessor (`NHSPrescribingAccessor`) for NHS England primary care prescribing data: OpenPrescribing REST API (national/CCG/practice spending by BNF code, prescribing quality measures such as antibiotic stewardship, BNF & org code search, practice/CCG geolocations) plus the NHSBSA English Prescribing Dataset (EPD) monthly bulk CSVs with chunked/lazy reading, BNF hierarchy filtering at all levels and per-month timeseries aggregation. Filesystem cache with 7-day TTL (monthly release cycle) and wrapped `NHSPrescribingAPIError` with retry guidance. No API key required.
+- Mocked HTTP tests using the `responses` library, EPD CSV fixtures, and live smoke tests gated behind `@pytest.mark.external_api`
+- Docs page `sources/nhs_prescribing.md` and README usage example
+- Example notebook for the NHS prescribing accessor (`47_NHS_Prescribing_England.ipynb`)
+
+### Changed
+
+- Bumped source count to 38 data sources in the README
+- Registered the `nhs_prescribing` entry-point in `pyproject.toml` and exported `NHSPrescribingAccessor` from `epidatasets.sources`
+
 ## [0.7.0] - 2026-07-13
 
 ### Added

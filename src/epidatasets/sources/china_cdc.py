@@ -1,29 +1,36 @@
 """
-China CDC Weekly Data Accessor
+China CDC Data Accessor
 
-This module provides access to surveillance data from China CDC Weekly,
-the official publication of the Chinese Center for Disease Control and Prevention.
-Includes notifiable infectious diseases, influenza surveillance, and weekly reports.
+Comprehensive accessor for official mainland China surveillance data:
+
+- China CDC Weekly (journal): notifiable infectious disease reports via
+  the CrossRef-indexed articles and their PDFs
+- CNIC (Chinese National Influenza Center): weekly influenza
+  surveillance reports (ILI%, laboratory positivity by type/subtype)
+- NDCPA (National Disease Control and Prevention Administration) monthly
+  notifiable disease overviews, mirrored on chinacdc.cn, including the
+  priority-monitored non-notifiable diseases
+- Monthly national COVID-19 situation reports (chinacdc.cn)
 
 Supports:
-- Scraping volume/issue listings from the website
-- Downloading individual article PDFs
-- Parsing PDF tables (notifiable disease reports) using pdfplumber
+- Article discovery via the CrossRef API (the journal site is
+  JavaScript-rendered)
+- Downloading article/report PDFs and parsing their tables (pdfplumber)
+- Scraping the server-rendered chinacdc.cn and CNIC listing pages
 - Parsing HTML tables directly from article pages
-- CSV table downloads when available
 
 Data Sources:
 - China CDC Weekly: http://weekly.chinacdc.cn/
-- Chinese CDC: https://www.chinacdc.cn/
-- Notifiable diseases surveillance system
-- ILI (Influenza-like Illness) surveillance network
+- CNIC weekly reports: https://ivdc.chinacdc.cn/cnic/en/Surveillance/WeeklyReport/
+- Monthly notifiable disease overviews: https://www.chinacdc.cn/jksj/jksj01/
+- Monthly COVID-19 situation reports: https://www.chinacdc.cn/jksj/xgbdyq/
 
 Update Frequency:
-- Weekly surveillance reports
-- Monthly notifiable disease summaries
+- CNIC weekly influenza reports
+- Monthly notifiable disease and COVID-19 summaries
 - Annual epidemiological reports
 
-License: Open Access (journal articles)
+License: Open Access (official government publications)
 
 Author: Flávio Codeço Coelho
 License: MIT
@@ -36,6 +43,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
+from urllib.parse import urljoin
 
 import pandas as pd
 import requests
@@ -132,8 +140,10 @@ class ChinaCDCAccessor(BaseAccessor):
 
     source_name: ClassVar[str] = "china_cdc"
     source_description: ClassVar[str] = (
-        "China CDC Weekly surveillance data including notifiable infectious diseases, "
-        "influenza surveillance, weekly reports, and COVID-19 updates"
+        "Mainland China surveillance data: China CDC Weekly notifiable "
+        "disease reports, NDCPA monthly disease overviews (incl. "
+        "priority-monitored non-notifiable diseases), CNIC weekly "
+        "influenza surveillance and monthly COVID-19 reports"
     )
     source_url: ClassVar[str] = "http://weekly.chinacdc.cn"
 
@@ -147,7 +157,21 @@ class ChinaCDCAccessor(BaseAccessor):
     PDF_URL_TEMPLATE = (
         "https://weekly.chinacdc.cn/en/article/pdf/preview/{doi}.pdf"
     )
-    CNIC_URL = "http://www.chinacdc.cn/cnic"
+    #: Chinese National Influenza Center (CNIC) English portal.
+    CNIC_URL = "https://ivdc.chinacdc.cn/cnic/en/"
+    #: CNIC weekly influenza surveillance report listing (server-rendered).
+    CNIC_WEEKLY_REPORTS_URL = (
+        "https://ivdc.chinacdc.cn/cnic/en/Surveillance/WeeklyReport/"
+    )
+    #: National Disease Control and Prevention Administration (NDCPA)
+    #: monthly notifiable disease overviews (official portal;
+    #: JavaScript-rendered, kept for reference/fallback).
+    NDCPA_URL = "https://www.ndcpa.gov.cn/jbkzzx/yqxxxw"
+    #: Server-rendered mirror of the monthly notifiable disease overviews
+    #: (primary scrape target for :meth:`list_monthly_overviews`).
+    NDCPA_MIRROR_URL = "https://www.chinacdc.cn/jksj/jksj01/"
+    #: Server-rendered archive of monthly COVID-19 situation reports.
+    NDCPA_COVID_MIRROR_URL = "https://www.chinacdc.cn/jksj/xgbdyq/"
 
     # Notifiable infectious diseases in China (38 categories)
     NOTIFIABLE_DISEASES = {
@@ -178,7 +202,15 @@ class ChinaCDCAccessor(BaseAccessor):
         "Schistosomiasis": {"cn": "血吸虫病", "category": "Class B"},
         "Malaria": {"cn": "疟疾", "category": "Class B"},
         "H7N9": {"cn": "人感染H7N9禽流感", "category": "Class B"},
-        "COVID_19": {"cn": "新型冠状病毒肺炎", "category": "Class B"},
+        "COVID_19": {"cn": "新型冠状病毒感染", "category": "Class B"},
+        "Novel_Subtype_Influenza": {
+            "cn": "人感染新亚型流感",
+            "category": "Class B",
+        },
+        "Dysentery": {"cn": "细菌性和阿米巴性痢疾", "category": "Class B"},
+        "Monkeypox": {"cn": "猴痘", "category": "Class B"},
+        "Chikungunya": {"cn": "基孔肯雅热", "category": "Class B"},
+        "SFTS": {"cn": "发热伴血小板减少综合征", "category": "Class B"},
         "Influenza": {"cn": "流行性感冒", "category": "Class C"},
         "Mumps": {"cn": "流行性腮腺炎", "category": "Class C"},
         "Rubella": {"cn": "风疹", "category": "Class C"},
@@ -225,6 +257,26 @@ class ChinaCDCAccessor(BaseAccessor):
         "QH": {"name": "Qinghai", "cn": "青海省"},
         "NX": {"name": "Ningxia", "cn": "宁夏回族自治区"},
         "XJ": {"name": "Xinjiang", "cn": "新疆维吾尔自治区"},
+    }
+
+    #: Priority-monitored diseases that are **not** part of the statutory
+    #: notifiable classes (A/B/C) but are published in the monthly NDCPA
+    #: overviews under "重点监测的其他传染病" (published since Jan 2026;
+    #: the monitored list may change over time).
+    NON_NOTIFIABLE_PRIORITY_DISEASES = {
+        "MERS": {"cn": "中东呼吸综合征", "en": "Middle East Respiratory Syndrome"},
+        "Ebola": {"cn": "埃博拉出血热", "en": "Ebola Virus Disease"},
+        "Zika": {"cn": "寨卡病毒病", "en": "Zika Virus Disease"},
+        "Lassa_Fever": {"cn": "拉沙热", "en": "Lassa Fever"},
+        "Chickenpox": {"cn": "水痘", "en": "Chickenpox"},
+        "Liver_Fluke": {
+            "cn": "肝吸虫病",
+            "en": "Liver Fluke Disease (Clonorchiasis)",
+        },
+        "Streptococcus_Suis": {
+            "cn": "人感染猪链球菌病",
+            "en": "Human Streptococcus Suis Infection",
+        },
     }
 
     def __init__(self, cache_dir: str | None = None):
@@ -856,79 +908,1019 @@ class ChinaCDCAccessor(BaseAccessor):
         )
         return result
 
+    # ------------------------------------------------------------------
+    # CNIC weekly influenza surveillance
+    # ------------------------------------------------------------------
+
+    def list_cnic_weekly_reports(
+        self,
+        year: int | None = None,
+        max_pages: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        List CNIC weekly influenza surveillance reports.
+
+        Scrapes the server-rendered English listing at
+        :attr:`CNIC_WEEKLY_REPORTS_URL` (paginated ``index_N.htm`` pages).
+
+        Args:
+            year: Only include reports published for this year.
+            max_pages: Optional cap on the number of listing pages fetched.
+
+        Returns:
+            DataFrame with ``year``, ``week``, ``title``, ``report_date``
+            and ``url`` columns, sorted by year and week.
+        """
+        reports: list[dict] = []
+        page = 0
+        total_pages: int | None = None
+        base = self.CNIC_WEEKLY_REPORTS_URL
+
+        while True:
+            if max_pages is not None and page >= max_pages:
+                break
+            url = base if page == 0 else urljoin(base, f"index_{page}.htm")
+            resp = self._session.get(url, timeout=self._request_timeout)
+            if resp.status_code != 200:
+                break
+            soup = BeautifulSoup(resp.content, "html.parser")
+            items = soup.select("div.erji_list1 ul li")
+            if not items:
+                break
+
+            reached_older_year = False
+            for li in items:
+                a_tag = li.select_one("span.span_01 a")
+                if a_tag is None:
+                    continue
+                title = a_tag.get_text(strip=True)
+                m = re.search(r"Week\s+(\d+)\s+(\d{4})", title)
+                if not m:
+                    # e.g. "Overview v1.0" informational entries
+                    continue
+                week = int(m.group(1))
+                rpt_year = int(m.group(2))
+                if year is not None:
+                    if rpt_year > year:
+                        continue
+                    if rpt_year < year:
+                        reached_older_year = True
+                        break
+                report_date = None
+                date_span = li.select_one("span.span_02")
+                if date_span is not None:
+                    dm = re.search(
+                        r"\((\d{2})-(\d{2})\)",
+                        date_span.get_text(strip=True),
+                    )
+                    if dm:
+                        report_date = (
+                            f"{rpt_year}-{dm.group(1)}-{dm.group(2)}"
+                        )
+                reports.append(
+                    {
+                        "year": rpt_year,
+                        "week": week,
+                        "title": title,
+                        "report_date": report_date,
+                        "url": urljoin(url, str(a_tag.get("href", ""))),
+                    }
+                )
+
+            if reached_older_year:
+                break
+            if total_pages is None:
+                tm = re.search(r"countPage\s*=\s*(\d+)", resp.text)
+                total_pages = int(tm.group(1)) if tm else 1
+            page += 1
+            if page >= total_pages:
+                break
+
+        if not reports:
+            logger.warning("No CNIC weekly reports found")
+            return pd.DataFrame(
+                columns=["year", "week", "title", "report_date", "url"]
+            )
+        df = (
+            pd.DataFrame(reports)
+            .drop_duplicates(subset=["year", "week"])
+            .sort_values(["year", "week"])
+            .reset_index(drop=True)
+        )
+        logger.info(f"Found {len(df)} CNIC weekly reports")
+        return df
+
+    def _fetch_cnic_report_details(self, url: str) -> dict:
+        """
+        Fetch a CNIC weekly report landing page and extract metadata.
+
+        Returns a dict with ``title``, ``period``, ``published_date``,
+        ``pdf_url``, ``pdf_name`` and ``summary`` keys.
+        """
+        resp = self._session.get(url, timeout=self._request_timeout)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.content, "html.parser")
+
+        h3 = soup.find("h3")
+        title = h3.get_text(strip=True) if h3 is not None else None
+
+        page_text = soup.get_text("\n", strip=True)
+
+        period = None
+        pm = re.search(
+            r"([A-Z][a-z]+ \d+(?:\s+to\s+\d+)?,\s*\d{4}\s*\(Week\s*\d+\))",
+            page_text,
+        )
+        if pm:
+            period = re.sub(r"\s+", " ", pm.group(1))
+
+        published_date = None
+        dm = re.search(r"Date time[：:]\s*(\d{4}-\d{2}-\d{2})", page_text)
+        if dm:
+            published_date = dm.group(1)
+
+        pdf_url = None
+        pdf_name = None
+        for a_tag in soup.find_all("a", href=True):
+            href = str(a_tag.get("href", ""))
+            if ".pdf" in href.lower():
+                pdf_url = urljoin(url, href)
+                pdf_name = a_tag.get_text(strip=True) or None
+                break
+
+        summary = None
+        summary_div = soup.select_one("div.trs_editor_view")
+        if summary_div is not None:
+            summary = re.sub(
+                r"\s+", " ", summary_div.get_text(" ", strip=True)
+            )
+        return {
+            "title": title,
+            "period": period,
+            "published_date": published_date,
+            "pdf_url": pdf_url,
+            "pdf_name": pdf_name,
+            "summary": summary,
+        }
+
+    @staticmethod
+    def parse_cnic_weekly_pdf(pdf_path: str | Path) -> dict:
+        """
+        Parse a CNIC weekly influenza surveillance report PDF.
+
+        Extracts the sentinel ILI consultation percentages for the
+        southern and northern provinces, the laboratory surveillance
+        totals, the Table 1 type/subtype breakdown and the ILI outbreak
+        count from the report text layer.
+
+        Args:
+            pdf_path: Path to a downloaded CNIC weekly report PDF.
+
+        Returns:
+            Dict of extracted values; keys are ``None`` when absent.
+        """
+        pdf_path = Path(pdf_path)
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+
+        text = PDFParser().extract_text(pdf_path)
+        result: dict = {
+            "week": None,
+            "year": None,
+            "period": None,
+            "ili_percent_south": None,
+            "ili_percent_north": None,
+            "ili_percent_last_week_south": None,
+            "ili_percent_last_week_north": None,
+            "specimens_tested_south": None,
+            "specimens_tested_north": None,
+            "specimens_tested_total": None,
+            "positive_south": None,
+            "positivity_south": None,
+            "positive_north": None,
+            "positivity_north": None,
+            "positive_total": None,
+            "positivity_total": None,
+            "by_type": {},
+            "ili_outbreaks": None,
+        }
+
+        pm = re.search(
+            r"([A-Z][a-z]+ \d+(?:\s+to\s+\d+)?,\s*(\d{4}))\s*"
+            r"\(Week\s*(\d+)\)",
+            text,
+        )
+        if pm:
+            result["period"] = re.sub(r"\s+", " ", pm.group(1))
+            result["year"] = int(pm.group(2))
+            result["week"] = int(pm.group(3))
+        wm = re.search(
+            r"Surveillance Report\s*\|\s*Week\s*(\d+)", text
+        )
+        if result["week"] is None and wm:
+            result["week"] = int(wm.group(1))
+
+        def _region_ili(region: str) -> tuple[float | None, float | None]:
+            m = re.search(
+                rf"in {region} provinces was\s+([\d.]+)%"
+                rf"(.*?)(?=During week|Figure \d+\.|\Z)",
+                text,
+                re.DOTALL,
+            )
+            if m is None:
+                return None, None
+            current = float(m.group(1))
+            last = None
+            lm = re.search(
+                r"than the last\s+week\s*\(([\d.]+)%\)", m.group(2)
+            )
+            if lm:
+                last = float(lm.group(1))
+            return current, last
+
+        (
+            result["ili_percent_south"],
+            result["ili_percent_last_week_south"],
+        ) = _region_ili("southern")
+        (
+            result["ili_percent_north"],
+            result["ili_percent_last_week_north"],
+        ) = _region_ili("northern")
+
+        om = re.search(
+            r"There (?:were|was)\s+(\d+)\s+ILI outbreaks", text
+        )
+        if om:
+            result["ili_outbreaks"] = int(om.group(1))
+
+        # Table 1 (text layer): three cells per row; each cell is either
+        # a plain count or ``count(percent%)`` (the closing paren may be
+        # full-width).
+        cell = r"([\d,]+)(?:\(([\d.]+)%[)）])?"
+
+        sm = re.search(
+            r"No\.\s*of specimens tested\s+([\d,]+)\s+([\d,]+)"
+            r"\s+([\d,]+)\s*$",
+            text,
+            re.MULTILINE,
+        )
+        if sm:
+            result["specimens_tested_south"] = int(
+                sm.group(1).replace(",", "")
+            )
+            result["specimens_tested_north"] = int(
+                sm.group(2).replace(",", "")
+            )
+            result["specimens_tested_total"] = int(
+                sm.group(3).replace(",", "")
+            )
+
+        posm = re.search(
+            rf"No\.\s*of positive specimens\s*(?:\(%\))?\s+"
+            rf"{cell}\s+{cell}\s+{cell}\s*$",
+            text,
+            re.MULTILINE,
+        )
+        if posm:
+            for key, count, pct in (
+                ("south", posm.group(1), posm.group(2)),
+                ("north", posm.group(3), posm.group(4)),
+                ("total", posm.group(5), posm.group(6)),
+            ):
+                result[f"positive_{key}"] = int(count.replace(",", ""))
+                result[f"positivity_{key}"] = (
+                    float(pct) if pct else None
+                )
+
+        labels = [
+            "Influenza A",
+            "Influenza B",
+            "A(H1N1)pdm09",
+            "A(H3N2)",
+            "A (subtype not determined)",
+            "B (lineage not determined)",
+            "Victoria",
+            "Yamagata",
+        ]
+        for label in labels:
+            m = re.search(
+                rf"^{re.escape(label)}\s+{cell}\s+{cell}\s+{cell}\s*$",
+                text,
+                re.MULTILINE,
+            )
+            if m is None:
+                continue
+            result["by_type"][label] = {
+                "south_count": int(m.group(1).replace(",", "")),
+                "south_pct": float(m.group(2)) if m.group(2) else None,
+                "north_count": int(m.group(3).replace(",", "")),
+                "north_pct": float(m.group(4)) if m.group(4) else None,
+                "total_count": int(m.group(5).replace(",", "")),
+                "total_pct": float(m.group(6)) if m.group(6) else None,
+            }
+
+        return result
+
     def get_influenza_surveillance(
         self,
         weeks: list[int] | None = None,
         year: int | None = None,
         provinces: list[str] | None = None,
     ) -> pd.DataFrame:
+        """
+        Get weekly influenza surveillance data for mainland China from the
+        Chinese National Influenza Center (CNIC).
+
+        For each weekly report the landing page is scraped for the PDF
+        link; the PDF is downloaded (TTL-cached) and parsed for sentinel
+        ILI% (southern/northern provinces), laboratory detections and
+        positivity, and ILI outbreak counts.
+
+        Args:
+            weeks: Optional list of surveillance week numbers (1-53).
+            year: Year of the reports (default: current year).
+            provinces: Optional region filter — ``"south"``/``"southern"``
+                and/or ``"north"``/``"northern"``. Restricts the ILI
+                columns returned to the requested regions.
+
+        Returns:
+            DataFrame with one row per weekly report: ``year``, ``week``,
+            ``period``, ``ili_percent_south``, ``ili_percent_north``,
+            ``ili_percent_last_week_south/north``, ``specimens_tested``,
+            ``positive_detections``, ``positivity_rate``, ``ili_outbreaks``,
+            ``by_type`` (dict with the Table 1 breakdown), ``summary``,
+            ``report_url``, ``pdf_url``, ``data_source`` and ``note``.
+        """
         year = year or datetime.now().year
-        weeks = weeks or list(range(1, 53))
+        week_filter = set(weeks) if weeks else None
+        region_filter = (
+            {str(p).lower() for p in provinces} if provinces else None
+        )
 
-        logger.info(f"Fetching influenza surveillance for year={year}, weeks={len(weeks)}")
+        logger.info(f"Fetching CNIC influenza surveillance for year={year}")
+        listings = self.list_cnic_weekly_reports(year=year)
+        if listings.empty:
+            return pd.DataFrame()
 
-        issues = self.get_volume_issues(year)
-        flu_articles = []
-        for _, row in issues.iterrows():
-            for art in row.get("articles", []):
-                title = art.get("title", "")
-                if "influenza" in title.lower() and (
-                    "surveillance" in title.lower()
-                    or "ili" in title.lower()
-                ):
-                    flu_articles.append(art)
-
-        if flu_articles:
-            logger.info(
-                f"Found {len(flu_articles)} influenza-related articles"
-            )
-
-        data = []
-        for week in weeks:
-            record = {
-                "year": year,
-                "week": week,
-                "ili_percent": None,
-                "ili_cases": None,
-                "total_outpatients": None,
-                "data_source": "China CDC Weekly / CNIC",
-                "note": (
-                    "ILI data requires weekly report parsing"
-                    if not flu_articles
-                    else None
-                ),
+        rows: list[dict] = []
+        for _, rpt in listings.iterrows():
+            if week_filter is not None and rpt["week"] not in week_filter:
+                continue
+            row = {
+                "year": rpt["year"],
+                "week": rpt["week"],
+                "period": None,
+                "ili_percent_south": None,
+                "ili_percent_north": None,
+                "ili_percent_last_week_south": None,
+                "ili_percent_last_week_north": None,
+                "specimens_tested": None,
+                "positive_detections": None,
+                "positivity_rate": None,
+                "ili_outbreaks": None,
+                "by_type": None,
+                "summary": None,
+                "report_url": rpt["url"],
+                "pdf_url": None,
+                "data_source": "CNIC (Chinese National Influenza Center)",
+                "note": None,
             }
-            data.append(record)
+            try:
+                details = self._fetch_cnic_report_details(rpt["url"])
+                row["period"] = details.get("period")
+                row["summary"] = details.get("summary")
+                row["pdf_url"] = details.get("pdf_url")
+                if not details.get("pdf_url"):
+                    row["note"] = "no PDF link on report page"
+                    rows.append(row)
+                    continue
+                path = self.download_pdf(details["pdf_url"])
+                parsed = self.parse_cnic_weekly_pdf(path)
+                if row["period"] is None:
+                    row["period"] = parsed.get("period")
+                for key in (
+                    "ili_percent_south",
+                    "ili_percent_north",
+                    "ili_percent_last_week_south",
+                    "ili_percent_last_week_north",
+                    "ili_outbreaks",
+                    "by_type",
+                ):
+                    row[key] = parsed.get(key)
+                row["specimens_tested"] = parsed.get(
+                    "specimens_tested_total"
+                )
+                row["positive_detections"] = parsed.get("positive_total")
+                row["positivity_rate"] = parsed.get("positivity_total")
+            except Exception as exc:
+                logger.error(
+                    f"Failed to parse CNIC report {rpt['year']} week "
+                    f"{rpt['week']}: {exc}"
+                )
+                row["note"] = f"parsing failed: {exc}"
+            rows.append(row)
 
-        if not flu_articles:
-            logger.warning(
-                "Influenza surveillance data requires parsing weekly reports. "
-                "CNIC also provides data at http://www.chinacdc.cn/cnic/"
+        df = pd.DataFrame(rows)
+        if df.empty or region_filter is None:
+            return df
+
+        keep_south = bool(region_filter & {"south", "southern"})
+        keep_north = bool(region_filter & {"north", "northern"})
+        drop_cols = []
+        if not keep_south:
+            drop_cols += [c for c in df.columns if c.endswith("_south")]
+        if not keep_north:
+            drop_cols += [c for c in df.columns if c.endswith("_north")]
+        return df.drop(columns=drop_cols)
+
+    # ------------------------------------------------------------------
+    # NDCPA monthly notifiable disease overviews
+    # ------------------------------------------------------------------
+
+    #: Section subtotal rows in the monthly overview tables, mapped to
+    #: normalized scope names.
+    OVERVIEW_SECTION_HEADERS = {
+        "甲乙丙类传染病总计": "notifiable_total",
+        "甲乙类传染病合计": "class_ab_subtotal",
+        "丙类传染病合计": "class_c_subtotal",
+        "重点监测的其他传染病合计": "monitored_subtotal",
+    }
+
+    #: Disease codes reported as sub-rows of an aggregate disease (e.g.
+    #: the hepatitis types under 病毒性肝炎).
+    SUBITEM_DISEASE_CODES = frozenset(
+        {
+            "Viral_Hepatitis_A",
+            "Viral_Hepatitis_B",
+            "Viral_Hepatitis_C",
+            "Viral_Hepatitis_D",
+            "Viral_Hepatitis_E",
+            "Viral_Hepatitis_Other",
+        }
+    )
+
+    def _scrape_chinacdc_listing(
+        self,
+        base_url: str,
+        year: int | None = None,
+        max_pages: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        Scrape a chinacdc.cn ``健康数据`` listing page.
+
+        The monthly notifiable disease overviews and the monthly COVID-19
+        situation reports share the same listing layout
+        (``ul.xw_list`` entries, ``index_N.html`` pagination). Entry
+        titles contain the report period as ``YYYY年M月``.
+
+        Args:
+            base_url: Listing URL (e.g. :attr:`NDCPA_MIRROR_URL`).
+            year: Only include entries for this year.
+            max_pages: Optional cap on listing pages fetched.
+
+        Returns:
+            DataFrame with ``year``, ``month``, ``title``,
+            ``published_date`` and ``url`` columns, sorted by year/month.
+        """
+        entries: list[dict] = []
+        page = 0
+
+        while True:
+            if max_pages is not None and page >= max_pages:
+                break
+            url = (
+                base_url
+                if page == 0
+                else urljoin(base_url, f"index_{page}.html")
             )
-        return pd.DataFrame(data)
+            resp = self._session.get(url, timeout=self._request_timeout)
+            if resp.status_code != 200:
+                break
+            soup = BeautifulSoup(resp.content, "html.parser")
+            links = soup.select("ul.xw_list li dl dd a[href]")
+            if not links:
+                break
+
+            reached_older_year = False
+            for a_tag in links:
+                title = a_tag.get_text(" ", strip=True)
+                published_date = None
+                date_span = a_tag.find("span")
+                if date_span is not None:
+                    span_text = date_span.get_text(strip=True)
+                    dm = re.search(r"(\d{4}-\d{2}-\d{2})", span_text)
+                    if dm:
+                        published_date = dm.group(1)
+                    title = title.replace(span_text, " ").strip()
+                ym = re.search(r"(\d{4})年(\d{1,2})月", title)
+                if ym is None:
+                    continue
+                entry_year = int(ym.group(1))
+                if year is not None:
+                    if entry_year > year:
+                        continue
+                    if entry_year < year:
+                        reached_older_year = True
+                        break
+                entries.append(
+                    {
+                        "year": entry_year,
+                        "month": int(ym.group(2)),
+                        "title": title,
+                        "published_date": published_date,
+                        "url": urljoin(url, str(a_tag["href"])),
+                    }
+                )
+
+            if reached_older_year:
+                break
+            page += 1
+            if f"index_{page}.html" not in resp.text:
+                break
+
+        if not entries:
+            logger.warning(f"No listing entries found at {base_url}")
+            return pd.DataFrame(
+                columns=["year", "month", "title", "published_date", "url"]
+            )
+        df = (
+            pd.DataFrame(entries)
+            .drop_duplicates(subset=["year", "month"])
+            .sort_values(["year", "month"])
+            .reset_index(drop=True)
+        )
+        logger.info(f"Found {len(df)} listing entries at {base_url}")
+        return df
+
+    def list_monthly_overviews(
+        self,
+        year: int | None = None,
+        max_pages: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        List the monthly national notifiable infectious disease overviews
+        (全国法定传染病疫情概况).
+
+        Uses the server-rendered chinacdc.cn mirror of the NDCPA monthly
+        overviews (see :attr:`NDCPA_MIRROR_URL`; the official NDCPA
+        portal at :attr:`NDCPA_URL` renders client-side).
+
+        Args:
+            year: Only include overviews for this year.
+            max_pages: Optional cap on listing pages fetched.
+
+        Returns:
+            DataFrame with ``year``, ``month``, ``title``,
+            ``published_date`` and ``url`` columns.
+        """
+        logger.info("Listing monthly notifiable disease overviews")
+        df = self._scrape_chinacdc_listing(
+            self.NDCPA_MIRROR_URL, year=year, max_pages=max_pages
+        )
+        logger.info(f"Found {len(df)} monthly overviews")
+        return df
+
+    @staticmethod
+    def _clean_overview_label(label: str) -> str:
+        """Normalize a table label (strip indentation and footnote digits)."""
+        label = label.replace("\u3000", " ").strip()
+        label = re.sub(r"[\d\s]+$", "", label)
+        return label.strip()
+
+    @staticmethod
+    def _overview_to_int(val) -> int | None:
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return None
+        s = str(val).replace(",", "").replace("，", "").strip()
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
+    def _parse_overview_page(
+        self, url: str
+    ) -> tuple[list[dict], dict]:
+        """
+        Fetch a monthly overview page and extract the per-disease table.
+
+        Handles both real HTML tables and TRS-editor text layouts.
+
+        Returns:
+            Tuple of ``(records, summary)`` where *records* are
+            disease-level dicts (``disease_cn``, ``cases``, ``deaths``,
+            ``section``) and *summary* maps scope names to
+            ``{"cases", "deaths"}`` subtotals.
+        """
+        resp = self._session.get(url, timeout=self._request_timeout)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.content, "html.parser")
+
+        triplets: list[tuple[str, str, str]] = []
+
+        # 1) real HTML tables
+        dfs: list[pd.DataFrame] = []
+        for table in soup.find_all("table"):
+            try:
+                dfs.extend(
+                    pd.read_html(io.StringIO(str(table)), flavor="lxml")
+                )
+            except ValueError:
+                continue
+
+        target = None
+        for df in dfs:
+            cols_text = " ".join(str(c) for c in df.columns)
+            first_col = df.iloc[:, 0].astype(str)
+            if "病名" in cols_text or first_col.str.contains("鼠疫").any():
+                target = df
+                break
+
+        if target is not None:
+            for _, r in target.iterrows():
+                cells = [str(c).strip() for c in r.tolist()]
+                if len(cells) < 3 or cells[0] in ("", "nan"):
+                    continue
+                if "病名" in cells[0] or "发病数" in cells[0]:
+                    continue
+                triplets.append((cells[0], cells[1], cells[2]))
+        else:
+            # 2) text-line fallback (values on consecutive lines)
+            lines = [
+                ln.strip()
+                for ln in soup.get_text("\n", strip=True).split("\n")
+                if ln.strip()
+            ]
+            n = len(lines)
+            i = 0
+            numeric = re.compile(r"^[\d,]+$")
+            while i < n:
+                name = self._clean_overview_label(lines[i])
+                if (
+                    name
+                    and not numeric.fullmatch(name)
+                    and re.search(r"[\u4e00-\u9fff]", name)
+                    and len(name) <= 40
+                    and i + 2 < n
+                    and numeric.fullmatch(lines[i + 1])
+                    and numeric.fullmatch(lines[i + 2])
+                ):
+                    triplets.append((lines[i], lines[i + 1], lines[i + 2]))
+                    i += 3
+                else:
+                    i += 1
+
+        records: list[dict] = []
+        summary: dict = {}
+        section: str | None = None
+        for name_raw, cases_raw, deaths_raw in triplets:
+            name = self._clean_overview_label(name_raw)
+            section_key = self.OVERVIEW_SECTION_HEADERS.get(name)
+            if section_key:
+                summary[section_key] = {
+                    "cases": self._overview_to_int(cases_raw),
+                    "deaths": self._overview_to_int(deaths_raw),
+                }
+                section = section_key
+                continue
+            if not re.search(r"[\u4e00-\u9fff]", name):
+                continue
+            records.append(
+                {
+                    "disease_code": _CN_NAME_TO_CODE.get(name, name),
+                    "disease_cn": name,
+                    "cases": self._overview_to_int(cases_raw),
+                    "deaths": self._overview_to_int(deaths_raw),
+                    "section": section,
+                }
+            )
+        return records, summary
+
+    def get_monthly_overview(self, year: int, month: int) -> pd.DataFrame:
+        """
+        Get the official per-disease monthly notifiable disease table for
+        mainland China (NDCPA monthly overview, via the chinacdc.cn
+        mirror).
+
+        Includes the statutory Class A/B/C diseases plus, when published,
+        the priority-monitored non-notifiable diseases (see
+        :attr:`NON_NOTIFIABLE_PRIORITY_DISEASES`).
+
+        Args:
+            year: Year (e.g. 2026).
+            month: Month (1-12).
+
+        Returns:
+            DataFrame with columns ``year``, ``month``, ``disease_code``,
+            ``disease_cn``, ``cases``, ``deaths``, ``category``,
+            ``is_subitem`` and ``source_url``. ``disease_code`` falls back
+            to the Chinese name for diseases outside the known maps.
+        """
+        listings = self.list_monthly_overviews(year)
+        if listings.empty:
+            return pd.DataFrame()
+        match = listings[listings["month"] == month]
+        if match.empty:
+            logger.warning(
+                f"No monthly overview found for {year}-{month:02d}"
+            )
+            return pd.DataFrame()
+
+        url = match.iloc[0]["url"]
+        records, _summary = self._parse_overview_page(url)
+        if not records:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(records)
+        df["year"] = year
+        df["month"] = month
+
+        def _category(row) -> str | None:
+            info = self.NOTIFIABLE_DISEASES.get(row["disease_code"])
+            if info is not None:
+                return info["category"]
+            return {
+                "class_ab_subtotal": "Class B",
+                "class_c_subtotal": "Class C",
+                "monitored_subtotal": "Monitored (non-notifiable)",
+            }.get(row["section"])
+
+        df["category"] = df.apply(_category, axis=1)
+        df["is_subitem"] = df["disease_code"].isin(
+            self.SUBITEM_DISEASE_CODES
+        )
+        df["source_url"] = url
+        cols = [
+            "year",
+            "month",
+            "disease_code",
+            "disease_cn",
+            "cases",
+            "deaths",
+            "category",
+            "is_subitem",
+            "source_url",
+        ]
+        logger.info(f"Parsed {len(df)} disease rows for {year}-{month:02d}")
+        return df[cols]
+
+    def get_monthly_summary(self, year: int, month: int) -> pd.DataFrame:
+        """
+        Get the summary of a monthly notifiable disease overview: totals
+        and subtotals per scope plus the most reported diseases.
+
+        Args:
+            year: Year (e.g. 2026).
+            month: Month (1-12).
+
+        Returns:
+            DataFrame with one row per scope (``notifiable_total``,
+            ``class_ab``, ``class_c``, ``monitored``) and columns
+            ``cases``, ``deaths`` and ``top_diseases`` (Chinese names of
+            the most reported diseases in that scope, when applicable).
+        """
+        listings = self.list_monthly_overviews(year)
+        if listings.empty:
+            return pd.DataFrame()
+        match = listings[listings["month"] == month]
+        if match.empty:
+            return pd.DataFrame()
+
+        url = match.iloc[0]["url"]
+        records, summary = self._parse_overview_page(url)
+        records_df = pd.DataFrame(records)
+
+        def _top_diseases(scope: str, n: int) -> str | None:
+            if records_df.empty:
+                return None
+            sec = f"{scope}_subtotal"
+            rows = records_df[records_df["section"] == sec]
+            # exclude subtype sub-rows (e.g. hepatitis types) so only
+            # top-level diseases are ranked
+            rows = rows[~rows["disease_code"].isin(self.SUBITEM_DISEASE_CODES)]
+            rows = rows.sort_values("cases", ascending=False).head(n)
+            if rows.empty:
+                return None
+            return "、".join(rows["disease_cn"].tolist())
+
+        scopes = [
+            ("notifiable_total", summary.get("notifiable_total"), None, 0),
+            ("class_ab", summary.get("class_ab_subtotal"), "class_ab_subtotal", 5),
+            ("class_c", summary.get("class_c_subtotal"), "class_c_subtotal", 3),
+            (
+                "monitored",
+                summary.get("monitored_subtotal"),
+                "monitored_subtotal",
+                0,
+            ),
+        ]
+        rows_out = []
+        for scope, totals, _section, top_n in scopes:
+            if totals is None:
+                continue
+            rows_out.append(
+                {
+                    "year": year,
+                    "month": month,
+                    "scope": scope,
+                    "cases": totals.get("cases"),
+                    "deaths": totals.get("deaths"),
+                    "top_diseases": (
+                        _top_diseases(scope, top_n) if top_n else None
+                    ),
+                    "source_url": url,
+                }
+            )
+        return pd.DataFrame(rows_out)
+
+    def get_annual_summary(self, year: int) -> pd.DataFrame:
+        """
+        Build an annual summary of notifiable diseases by aggregating all
+        available monthly overviews for *year*.
+
+        Returns:
+            DataFrame with ``disease_code``, ``disease_cn``,
+            ``category``, ``total_cases``, ``total_deaths`` and
+            ``months_reported``.
+        """
+        logger.info(f"Building annual overview summary for {year}")
+        listings = self.list_monthly_overviews(year)
+        if listings.empty:
+            logger.warning(f"No monthly overviews available for {year}")
+            return pd.DataFrame()
+
+        frames: list[pd.DataFrame] = []
+        for _, rpt in listings.iterrows():
+            try:
+                records, _summary = self._parse_overview_page(rpt["url"])
+            except Exception as exc:
+                logger.error(
+                    f"Failed to parse overview for {year}-"
+                    f"{rpt['month']:02d}: {exc}"
+                )
+                continue
+            if records:
+                frames.append(pd.DataFrame(records))
+
+        if not frames:
+            return pd.DataFrame()
+
+        monthly = pd.concat(frames, ignore_index=True)
+        agg = (
+            monthly.groupby(["disease_code", "disease_cn"], dropna=False)
+            .agg(
+                total_cases=("cases", "sum"),
+                total_deaths=("deaths", "sum"),
+                months_reported=("disease_cn", "count"),
+            )
+            .reset_index()
+        )
+
+        def _category(code) -> str | None:
+            info = self.NOTIFIABLE_DISEASES.get(code)
+            if info is not None:
+                return info["category"]
+            return "Monitored (non-notifiable)"
+
+        agg["category"] = agg["disease_code"].apply(_category)
+        agg["year"] = year
+        return agg[
+            [
+                "year",
+                "disease_code",
+                "disease_cn",
+                "category",
+                "total_cases",
+                "total_deaths",
+                "months_reported",
+            ]
+        ]
+
+    # ------------------------------------------------------------------
+    # Monthly COVID-19 situation reports
+    # ------------------------------------------------------------------
+
+    def list_covid_monthly_reports(
+        self,
+        year: int | None = None,
+        max_pages: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        List the monthly national COVID-19 situation reports
+        (全国新型冠状病毒感染疫情情况) published on chinacdc.cn.
+
+        Args:
+            year: Only include reports for this year.
+            max_pages: Optional cap on listing pages fetched.
+
+        Returns:
+            DataFrame with ``year``, ``month``, ``title``,
+            ``published_date`` and ``url`` columns.
+        """
+        logger.info("Listing monthly COVID-19 situation reports")
+        return self._scrape_chinacdc_listing(
+            self.NDCPA_COVID_MIRROR_URL, year=year, max_pages=max_pages
+        )
+
+    @staticmethod
+    def _extract_cn_count(pattern: str, text: str) -> int | None:
+        """
+        Extract a Chinese-language count (supporting ``万`` myriads, e.g.
+        ``7.9万``) from *text* using *pattern* with one capture group.
+        """
+        m = re.search(pattern, text)
+        if m is None:
+            return None
+        val = m.group(1)
+        try:
+            num = float(val.replace("万", ""))
+        except ValueError:
+            return None
+        return int(num * 10000) if "万" in val else int(num)
 
     def get_covid_updates(
         self,
         date_range: tuple[str, str] | None = None,
     ) -> pd.DataFrame:
-        logger.info("Fetching COVID-19 updates")
-        data = []
-        record = {
-            "date": None,
-            "new_cases": None,
-            "new_deaths": None,
-            "active_cases": None,
-            "severe_cases": None,
-            "data_source": "China CDC Weekly",
-            "note": "COVID-19 data requires weekly report parsing",
-        }
-        data.append(record)
+        """
+        Get the monthly national COVID-19 situation reports from China CDC
+        (chinacdc.cn).
 
-        logger.warning(
-            "COVID-19 data requires parsing China CDC Weekly reports. "
-            "For current data, see http://weekly.chinacdc.cn/"
+        Each monthly report is scraped for the headline counts: new
+        confirmed cases, severe cases and deaths. Reported values using
+        the ``万`` (10k) unit are converted to absolute counts.
+
+        Args:
+            date_range: Optional ``(start, end)`` date strings
+                (``YYYY-MM-DD``) filtering on the publication dates.
+
+        Returns:
+            DataFrame with ``year``, ``month``, ``new_cases``,
+            ``severe_cases``, ``new_deaths``, ``title``, ``url``,
+            ``data_source`` and ``note``. Values are ``None`` when not
+            stated in the report text.
+        """
+        logger.info("Fetching monthly COVID-19 updates from chinacdc.cn")
+        listings = self._scrape_chinacdc_listing(
+            self.NDCPA_COVID_MIRROR_URL
         )
-        return pd.DataFrame(data)
+        if listings.empty:
+            logger.warning("No monthly COVID-19 reports found")
+            return pd.DataFrame()
+
+        if date_range is not None:
+            start, end = date_range
+            published = pd.to_datetime(
+                listings["published_date"], errors="coerce"
+            )
+            listings = listings[
+                (published >= pd.Timestamp(start))
+                & (published <= pd.Timestamp(end))
+            ]
+            if listings.empty:
+                return pd.DataFrame()
+
+        rows: list[dict] = []
+        for _, rpt in listings.iterrows():
+            row = {
+                "year": rpt["year"],
+                "month": rpt["month"],
+                "new_cases": None,
+                "severe_cases": None,
+                "new_deaths": None,
+                "title": rpt["title"],
+                "url": rpt["url"],
+                "data_source": "China CDC (chinacdc.cn)",
+                "note": None,
+            }
+            try:
+                resp = self._session.get(
+                    rpt["url"], timeout=self._request_timeout
+                )
+                resp.raise_for_status()
+                soup = BeautifulSoup(resp.content, "html.parser")
+                # headline numbers sit in separate tags (e.g. styled
+                # spans), so strip all whitespace before matching
+                text = re.sub(r"\s+", "", soup.get_text())
+                row["new_cases"] = self._extract_cn_count(
+                    r"新增确诊病例([\d.]+万?)例", text
+                )
+                row["severe_cases"] = self._extract_cn_count(
+                    r"重症病例([\d.]+万?)例", text
+                )
+                row["new_deaths"] = self._extract_cn_count(
+                    r"死亡病例([\d.]+万?)例", text
+                )
+                if row["new_cases"] is None:
+                    row["note"] = "headline counts not found in report text"
+            except Exception as exc:
+                logger.error(
+                    f"Failed to parse COVID report {rpt['year']}-"
+                    f"{rpt['month']:02d}: {exc}"
+                )
+                row["note"] = f"parsing failed: {exc}"
+            rows.append(row)
+
+        return pd.DataFrame(rows)
 
     def get_vaccination_coverage(
         self,
@@ -1079,3 +2071,32 @@ class ChinaCDCAccessor(BaseAccessor):
         agg["year"] = year
         agg["data_source"] = "China CDC Weekly"
         return agg
+
+
+# Reverse mapping of Chinese disease names (as printed in the NDCPA /
+# China CDC monthly overview tables) to canonical disease codes. Built
+# from the class-level dictionaries plus aliases observed in the official
+# tables (hepatitis subtype breakdowns and historical names).
+_CN_NAME_TO_CODE: dict[str, str] = {
+    info["cn"]: code
+    for code, info in ChinaCDCAccessor.NOTIFIABLE_DISEASES.items()
+}
+for _code, _info in ChinaCDCAccessor.NON_NOTIFIABLE_PRIORITY_DISEASES.items():
+    _CN_NAME_TO_CODE.setdefault(_info["cn"], _code)
+_CN_NAME_TO_CODE.update(
+    {
+        "新型冠状病毒肺炎": "COVID_19",
+        "甲型肝炎": "Viral_Hepatitis_A",
+        "乙型肝炎": "Viral_Hepatitis_B",
+        "丙型肝炎": "Viral_Hepatitis_C",
+        "丁型肝炎": "Viral_Hepatitis_D",
+        "戊型肝炎": "Viral_Hepatitis_E",
+        "未分型肝炎": "Viral_Hepatitis_Other",
+        "伤寒和副伤寒": "Typhoid_Paratyphoid",
+        "其他感染性腹泻病": "Infectious_Diarrhea",
+        "感染性腹泻病": "Infectious_Diarrhea",
+        "斑疹伤寒": "Epidemic_Enteritis",
+        "肾综合征出血热": "Epidemic_Hemorrhagic_Fever",
+        "内脏利什曼病": "Kala_Azar",
+    }
+)

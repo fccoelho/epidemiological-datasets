@@ -28,12 +28,14 @@ if TYPE_CHECKING:
     from epidatasets.sources.global_health import GlobalHealthAccessor
     from epidatasets.sources.google_earth_engine import GoogleEarthEngineAccessor
     from epidatasets.sources.healthdata_gov import HealthDataGovAccessor
+    from epidatasets.sources.hk_chp import HongKongCHPAccessor
     from epidatasets.sources.india_idsp import IndiaIDSPAccessor
     from epidatasets.sources.indonesia_moh import IndonesiaMOHAccessor
     from epidatasets.sources.infodengue_api import InfoDengueAPI
     from epidatasets.sources.japan_idwr import JapanIDWRAccessor
     from epidatasets.sources.malaria_atlas import MalariaAtlasAccessor
     from epidatasets.sources.malaysia_moh import MalaysiaMOHAccessor
+    from epidatasets.sources.nhs_prescribing import NHSPrescribingAccessor
     from epidatasets.sources.nz_health import NZHealthAccessor
     from epidatasets.sources.oman_moh import OmanMOHAccessor
     from epidatasets.sources.opendatasus import OpenDataSUSAccessor
@@ -68,12 +70,14 @@ __all__ = [
     "GlobalHealthAccessor",
     "GoogleEarthEngineAccessor",
     "HealthDataGovAccessor",
+    "HongKongCHPAccessor",
     "IndiaIDSPAccessor",
     "IndonesiaMOHAccessor",
     "InfoDengueAPI",
     "JapanIDWRAccessor",
     "MalaysiaMOHAccessor",
     "MalariaAtlasAccessor",
+    "NHSPrescribingAccessor",
     "NZHealthAccessor",
     "OmanMOHAccessor",
     "OpenDataSUSAccessor",
