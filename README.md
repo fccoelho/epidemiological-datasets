@@ -307,7 +307,7 @@ epidemiological-datasets/
 
 | Dataset | Description | Update Frequency | Access Level | Module |
 |---------|-------------|------------------|--------------|--------|
-| [China CDC Weekly](http://weekly.chinacdc.cn/) | Chinese surveillance data (notifiable diseases, CNIC influenza, monthly overviews, COVID-19) | Weekly | Open | `epidatasets.sources.china_cdc` |
+| [China CDC Weekly](http://weekly.chinacdc.cn/) | Chinese surveillance data (notifiable diseases, CNIC influenza, weekly multi-pathogen respiratory sentinel ILI/SARI surveillance, monthly overviews, COVID-19) | Weekly | Open | `epidatasets.sources.china_cdc` |
 | [Flu Express (data.gov.hk)](https://data.gov.hk/en-data/dataset/hk-dh-chpsebcddr-flu-express) | Hong Kong influenza & COVID-19 surveillance | Weekly | Open | `epidatasets.sources.hk_chp` |
 | [IDSP India](https://idsp.nic.in/) | Indian disease surveillance | Weekly | Open* | `epidatasets.sources.india_idsp` |
 | [Oman MOH](https://moh.gov.om/en/statistics/annual-health-reports/) | Omani annual health reports (morbidity, mortality, indicators) | Annual | Open | `epidatasets.sources.oman_moh` |
@@ -687,7 +687,7 @@ od.get_sources(country="India")
 |-------------|-------|-------|-------------|
 | `africa_cdc` | `AfricaCDCAccessor` | — | Africa CDC public health data (55 AU states) |
 | `cdc_opendata` | `CDCOpenDataAccessor` | — | US CDC Open Data portal |
-| `china_cdc` | `ChinaCDCAccessor` | — | China surveillance: CDC Weekly, NDCPA monthly overviews, CNIC influenza, COVID-19 |
+| `china_cdc` | `ChinaCDCAccessor` | — | China surveillance: CDC Weekly, NDCPA monthly overviews, CNIC influenza, weekly respiratory sentinel ILI/SARI positivity, COVID-19 |
 | `hk_chp` | `HongKongCHPAccessor` | — | Hong Kong CHP Flu Express & COVID-19 open data |
 | `colombia_ins` | `ColombiaINSAccessor` | — | Colombia INS/SIVIGILA surveillance |
 | `copernicus_cds` | `CopernicusCDSAccessor` | `[climate]` | Copernicus Climate Data Store |
