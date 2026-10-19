@@ -9,15 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New `srag` accessor (`SRAGOpenDataSUSAccessor`) for the Brazilian SRAG surveillance line-level dataset (Sivep-Gripe / e-SUS Notifica, 2019–present) on OpenData SUS: per-year resource discovery, streamed downloads with UTF-8/Latin-1 encoding fallback, chunked/lazy reading with composable filters (state, IBGE municipality, epi-week, lab-confirmed pathogen, outcome, age), weekly counts by geography/pathogen, IBGE municipality↔name resolution, frozen-year permanent caching with 24h TTL for the live year. No API key required.
+- New `opendengue` accessor (`OpenDengueAccessor`) for the OpenDengue global dengue case count database: versioned GitHub release downloads (national / highest-spatial / highest-temporal extracts), country lookup with exact, ISO3 and fuzzy name matching, admin-level and date-overlap filtering, location time-series, per-country source series summaries, 30-day caching and `OpenDengueDataError`. Includes the mandatory CC BY 4.0 citation helper.
 - New `nhs_prescribing` accessor (`NHSPrescribingAccessor`) for NHS England primary care prescribing data: OpenPrescribing REST API (national/CCG/practice spending by BNF code, prescribing quality measures such as antibiotic stewardship, BNF & org code search, practice/CCG geolocations) plus the NHSBSA English Prescribing Dataset (EPD) monthly bulk CSVs with chunked/lazy reading, BNF hierarchy filtering at all levels and per-month timeseries aggregation. Filesystem cache with 7-day TTL (monthly release cycle) and wrapped `NHSPrescribingAPIError` with retry guidance. No API key required.
-- Mocked HTTP tests using the `responses` library, EPD CSV fixtures, and live smoke tests gated behind `@pytest.mark.external_api`
-- Docs page `sources/nhs_prescribing.md` and README usage example
-- Example notebook for the NHS prescribing accessor (`47_NHS_Prescribing_England.ipynb`)
+- Example notebooks for the new accessors (`47_NHS_Prescribing_England.ipynb`, `48_OpenDengue_Global_Dengue.ipynb`, `49_SRAG_Brazilian_SARI_Surveillance.ipynb`)
+- Mocked HTTP tests (CKAN portal, S3, IBGE and GitHub-release servers) with CSV/zip fixtures, plus live smoke tests gated behind `@pytest.mark.external_api`
+- Docs pages `sources/nhs_prescribing.md`, `sources/srag.md`, `sources/opendengue.md` and README usage examples
 
 ### Changed
 
-- Bumped source count to 38 data sources in the README
-- Registered the `nhs_prescribing` entry-point in `pyproject.toml` and exported `NHSPrescribingAccessor` from `epidatasets.sources`
+- Bumped source count to 40 data sources in the README
+- Registered the `nhs_prescribing`, `srag` and `opendengue` entry-points in `pyproject.toml` and their exports in `epidatasets.sources`
 
 ## [0.7.0] - 2026-07-13
 
