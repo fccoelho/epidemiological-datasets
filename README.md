@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **38 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **40 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -82,7 +82,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 38 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 40 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -204,12 +204,14 @@ epidemiological-datasets/
 │   │   ├── nhs_prescribing.py
 │   │   ├── nz_health.py
 │   │   ├── oman_moh.py
+│   │   ├── opendengue.py
 │   │   ├── owid.py
 │   │   ├── paho.py
 │   │   ├── pakistan_nih.py
 │   │   ├── pathoplexus.py
 │   │   ├── respicast.py
 │   │   ├── rki_germany.py
+│   │   ├── srag_opendata_sus.py
 │   │   ├── ukhsa.py
 │   │   └── who_ghoclient.py
 │   └── utils/                 # Utilities
@@ -255,6 +257,7 @@ epidemiological-datasets/
 | [HDX (Humanitarian Data Exchange)](https://data.humdata.org/) | Health in crisis contexts | Real-time | Open | Planned |
 | [Global.health](https://global.health/) | Pandemic linelist data | Varies | Open | `epidatasets.sources.global_health` |
 | [GMPD (Global Mammal Parasite Database)](https://parasites.nunn-lab.org/) | Wild mammal host-parasite associations (primates, carnivores, ungulates) | Irregular | Open | `epidatasets.sources.gmpd` |
+| [OpenDengue](https://opendengue.org/) | Global dengue case counts (100+ countries, adm0–adm2, 1924–present; CC BY 4.0) | Monthly | Open | `epidatasets.sources.opendengue` |
 | [Malaria Atlas Project](https://malariaatlas.org/) | Malaria prevalence & vector data | Annual | Open | `epidatasets.sources.malaria_atlas` |
 | [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/) | Environmental & climate data | Varies | Open | `epidatasets.sources.copernicus_cds` |
 | [Google Earth Engine](https://earthengine.google.com/) | Satellite imagery (Landsat, Sentinel-2, MODIS) — vegetation, built-up, water indices | Varies (per-scene) | Free registration | `epidatasets.sources.google_earth_engine` |
@@ -274,6 +277,7 @@ epidemiological-datasets/
 | Dataset | Description | Update Frequency | Access Level | Module |
 |---------|-------------|------------------|--------------|--------|
 | [SINAN / DATASUS - Brazil](http://portalsinan.saude.gov.br/) | Brazilian notifiable diseases & health system data | Weekly | Open* | `epidatasets.sources.datasus_pysus` |
+| [SRAG 2019–2026 (OpenData SUS)](https://dadosabertos.saude.gov.br/dataset/srag-2019-a-2026) | Brazilian severe acute respiratory syndrome line-level surveillance (Sivep-Gripe / e-SUS Notifica) | Weekly | Open | `epidatasets.sources.srag_opendata_sus` |
 | [PAHO/WHO Regional Data](https://www.paho.org/en/data) | Pan-American health data | Monthly | Open | `epidatasets.sources.paho` |
 | [Chile DEIS](https://deis.minsal.cl/) | Chilean health statistics | Monthly | Open | Planned |
 | [Colombia INS](https://www.ins.gov.co/) | Colombian public health data (SIVIGILA) | Weekly | Open | `epidatasets.sources.colombia_ins` |
@@ -303,7 +307,7 @@ epidemiological-datasets/
 
 | Dataset | Description | Update Frequency | Access Level | Module |
 |---------|-------------|------------------|--------------|--------|
-| [China CDC Weekly](http://weekly.chinacdc.cn/) | Chinese surveillance data (notifiable diseases, CNIC influenza, monthly overviews, COVID-19) | Weekly | Open | `epidatasets.sources.china_cdc` |
+| [China CDC Weekly](http://weekly.chinacdc.cn/) | Chinese surveillance data (notifiable diseases, CNIC influenza, weekly multi-pathogen respiratory sentinel ILI/SARI surveillance, monthly overviews, COVID-19) | Weekly | Open | `epidatasets.sources.china_cdc` |
 | [Flu Express (data.gov.hk)](https://data.gov.hk/en-data/dataset/hk-dh-chpsebcddr-flu-express) | Hong Kong influenza & COVID-19 surveillance | Weekly | Open | `epidatasets.sources.hk_chp` |
 | [IDSP India](https://idsp.nic.in/) | Indian disease surveillance | Weekly | Open* | `epidatasets.sources.india_idsp` |
 | [Oman MOH](https://moh.gov.om/en/statistics/annual-health-reports/) | Omani annual health reports (morbidity, mortality, indicators) | Annual | Open | `epidatasets.sources.oman_moh` |
@@ -603,13 +607,87 @@ for chunk in chunks:  # lazy evaluation for large files
 ts = nhs.get_epd_timeseries("0501013B0", "2024-01", "2024-06")
 ```
 
+### Example 11: Brazilian SRAG line-level surveillance (Sivep-Gripe)
+
+```python
+from epidatasets.sources.srag_opendata_sus import SRAGOpenDataSUSAccessor
+
+srag = SRAGOpenDataSUSAccessor()
+
+# Years available on the OpenData SUS portal
+srag.available_years()  # [2019, 2020, ..., 2026]
+
+# One year of line-level records (chunked download + lazy reading;
+# 0.5-3 GB per year). All filters are composable:
+df = srag.get_year(
+    2024,
+    state="RJ",                  # residence state
+    municipality_code=3304557,   # IBGE municipality (6 or 7 digits)
+    week_start=1, week_end=26,   # epidemiological weeks
+    pathogen="SARS-CoV-2",       # or "Influenza", "VSR"/"RSV", ...
+    outcome="death",             # or "cure"
+    age_min=60,
+    columns=["DT_NOTIFIC", "SEM_NOT", "SG_UF", "EVOLUCAO"],  # narrow early
+)
+
+# Memory-bounded chunk iteration for very large years
+for chunk in srag.get_year(2022, chunksize=500_000):
+    ...
+
+# Weekly counts by geography and pathogen across years
+ts = srag.get_weekly_counts(
+    years=[2022, 2023, 2024],
+    groupby="state",
+    pathogens=["SARS-CoV-2", "Influenza", "VSR"],
+)
+
+# IBGE municipality helpers
+srag.municipality_name(3304557)          # 'Rio de Janeiro'
+srag.municipality_code("São Paulo")      # '3550308'
+```
+
+### Example 12: Global dengue surveillance (OpenDengue)
+
+> **Citation required (CC BY 4.0):** Clarke J, Lim A, Gupte P, Pigott DM,
+> van Panhuis WG, Brady OJ. *A global dataset of publicly available dengue
+> case count data.* Sci Data 11, 296 (2024).
+> https://doi.org/10.1038/s41597-024-03120-7
+
+```python
+from epidatasets.sources.opendengue import OpenDengueAccessor
+
+od = OpenDengueAccessor()
+print(od.citation())  # mandatory citation for CC BY 4.0
+
+# Global extracts: "national", "highest_spatial", "highest_temporal"
+global_national = od.get_global(level="national")
+
+# Countries covered (name + ISO3)
+od.list_countries()
+
+# Country series with fuzzy name matching and ISO3 codes
+bra = od.get_country("Brasil")                      # fuzzy -> BRAZIL
+bra = od.get_country(
+    "BRA",
+    start_date="2015-01-01",
+    end_date="2024-12-31",
+    admin_level=1,        # state-level series only
+)
+
+# One location's time-series
+rj = od.get_timeseries("Brazil", admin1="Rio de Janeiro")
+
+# Underlying data-source series per country
+od.get_sources(country="India")
+```
+
 ## 📊 Available Sources
 
 | Source Name | Class | Extra | Description |
 |-------------|-------|-------|-------------|
 | `africa_cdc` | `AfricaCDCAccessor` | — | Africa CDC public health data (55 AU states) |
 | `cdc_opendata` | `CDCOpenDataAccessor` | — | US CDC Open Data portal |
-| `china_cdc` | `ChinaCDCAccessor` | — | China surveillance: CDC Weekly, NDCPA monthly overviews, CNIC influenza, COVID-19 |
+| `china_cdc` | `ChinaCDCAccessor` | — | China surveillance: CDC Weekly, NDCPA monthly overviews, CNIC influenza, weekly respiratory sentinel ILI/SARI positivity, COVID-19 |
 | `hk_chp` | `HongKongCHPAccessor` | — | Hong Kong CHP Flu Express & COVID-19 open data |
 | `colombia_ins` | `ColombiaINSAccessor` | — | Colombia INS/SIVIGILA surveillance |
 | `copernicus_cds` | `CopernicusCDSAccessor` | `[climate]` | Copernicus Climate Data Store |
@@ -627,6 +705,7 @@ ts = nhs.get_epd_timeseries("0501013B0", "2024-01", "2024-06")
 | `opendatasus` | `OpenDataSUSAccessor` | — | OpenDataSUS catalog (dadosabertos.saude.gov.br): list datasets, metadata & downloads |
 | `malaria_atlas` | `MalariaAtlasAccessor` | — | Malaria Atlas Project data |
 | `nhs_prescribing` | `NHSPrescribingAccessor` | — | NHS England prescribing (OpenPrescribing API + NHSBSA EPD bulk CSVs) |
+| `opendengue` | `OpenDengueAccessor` | — | Global dengue case counts, 100+ countries (CC BY 4.0 — cite Clarke et al. 2024) |
 | `nz_health` | `NZHealthAccessor` | — | New Zealand health statistics (Stats NZ & Health NZ) |
 | `oman_moh` | `OmanMOHAccessor` | — | Oman Ministry of Health annual reports |
 | `owid` | `OWIDAccessor` | — | Our World in Data (COVID-19, vaccination) |
@@ -635,6 +714,7 @@ ts = nhs.get_epd_timeseries("0501013B0", "2024-01", "2024-06")
 | `pathoplexus` | `PathoplexusAccessor` | `[genomics]` | Pathoplexus pathogen genomic data |
 | `respicast` | `RespiCastAccessor` | — | ECDC respiratory disease forecasting |
 | `rki` | `RKIGermanyAccessor` | — | Robert Koch Institute (Germany) |
+| `srag` | `SRAGOpenDataSUSAccessor` | — | Brazilian SRAG line-level surveillance (Sivep-Gripe / e-SUS Notifica) |
 | `ukhsa` | `UKHSAAccessor` | — | UK Health Security Agency |
 | `who` | `WHOAccessor` | `[who]` | WHO Global Health Observatory |
 
@@ -642,7 +722,7 @@ ts = nhs.get_epd_timeseries("0501013B0", "2024-01", "2024-06")
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 38 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 40 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 

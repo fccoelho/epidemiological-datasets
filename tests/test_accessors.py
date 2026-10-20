@@ -480,6 +480,253 @@ class TestChinaCDC:
         assert row["severe_cases"] == 487
         assert row["new_deaths"] == 1
 
+    # ------------------------------------------------------------------
+    # Weekly respiratory sentinel surveillance (哨点监测)
+    # ------------------------------------------------------------------
+
+    SENTINEL_ARTICLE_URL = (
+        "https://www.chinacdc.cn/jksj/jksj04_14275/"
+        "202610/t20261015_1842282.html"
+    )
+
+    def _mock_sentinel_listing(self, rsps, accessor, page1=True):
+        rsps.add(
+            responses.GET,
+            accessor.SENTINEL_MIRROR_URL,
+            body=(FIXTURES / "china_cdc" / "sentinel_listing.html").read_text(),
+            content_type="text/html",
+        )
+        if page1:
+            rsps.add(
+                responses.GET,
+                f"{accessor.SENTINEL_MIRROR_URL}index_1.html",
+                body="not found",
+                status=404,
+            )
+
+    def test_respiratory_pathogen_map(self):
+        from epidatasets.sources.china_cdc import RESPIRATORY_PATHOGEN_MAP
+
+        assert RESPIRATORY_PATHOGEN_MAP["新型冠状病毒"] == "SARS-CoV-2"
+        assert RESPIRATORY_PATHOGEN_MAP["流感病毒"] == "Influenza"
+        assert RESPIRATORY_PATHOGEN_MAP["呼吸道合胞病毒"] == "RSV"
+        assert RESPIRATORY_PATHOGEN_MAP["人偏肺病毒"] == "Human metapneumovirus"
+        assert RESPIRATORY_PATHOGEN_MAP["肺炎支原体"] == "Mycoplasma pneumoniae"
+        assert len(RESPIRATORY_PATHOGEN_MAP) == 11
+
+    def test_list_respiratory_sentinel_reports(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor, page1=False)
+            df = accessor.list_respiratory_sentinel_reports(max_pages=1)
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert {"year", "week", "title", "publish_date", "url"} <= set(df.columns)
+        assert (df["year"] == 2026).all()
+        assert df["week"].is_monotonic_increasing
+        assert df["url"].str.endswith(".html").all()
+        assert df["publish_date"].notna().all()
+
+    def test_list_respiratory_sentinel_reports_walks_pagination(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+        older_page = """
+        <div class="erjiRightBox"><ul class="xw_list">
+        <li><dl><dd>
+        <a href="./202607/t20260723_1836001.html">全国急性呼吸道传染病哨点监测情况（2026年第30周）<span>2026-07-23 </span></a>
+        </dd></dl></li>
+        <li><dl><dd>
+        <a href="./202607/t20260716_1835002.html">全国急性呼吸道传染病哨点监测情况（2026年第29周）<span>2026-07-16 </span></a>
+        </dd></dl></li>
+        </ul></div>
+        """
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor, page1=False)
+            rsps.add(
+                responses.GET,
+                f"{accessor.SENTINEL_MIRROR_URL}index_1.html",
+                body=older_page,
+                content_type="text/html",
+            )
+            df = accessor.list_respiratory_sentinel_reports()
+
+        # 12 entries from fixture page 0 + week 29 from the mocked second
+        # page (week 30 duplicates and is dropped); the walk stops because
+        # the second page has no further pagination
+        assert len(df) == 13
+        assert df["week"].is_monotonic_increasing
+        assert df["week"].iloc[0] == 29
+
+    def test_get_respiratory_sentinel_report(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            report = accessor.get_respiratory_sentinel_report(2026, 41)
+
+        assert report["year"] == 2026
+        assert report["week"] == 41
+        assert report["title"].endswith("（2026年第41周）")
+        assert report["publish_date"] == "2026-10-15"
+        assert report["url"] == self.SENTINEL_ARTICLE_URL
+        assert report["ili_percent_national"] == 3.8
+        assert report["ili_percent_south"] == 4.6
+        assert report["ili_percent_north"] == 3.0
+        assert report["sentinel_hospitals"] == 216
+        assert "A(H3N2)" in report["narrative"]
+
+        pos = report["positivity"]
+        assert len(pos) == 11
+        cov = pos[pos["pathogen"] == "SARS-CoV-2"].iloc[0]
+        assert cov["ili_positivity_pct"] == 3.4
+        assert cov["ili_change_vs_previous_week"] == -1.6
+        assert cov["sari_positivity_pct"] == 2.1
+        assert cov["sari_change_vs_previous_week"] == -0.5
+        flu = pos[pos["pathogen"] == "Influenza"].iloc[0]
+        assert flu["ili_positivity_pct"] == 13.6
+        assert flu["ili_change_vs_previous_week"] == 2.4
+        assert (
+            pos["pathogen"].str.contains("新型冠状病毒").sum() == 0
+        )  # English names throughout
+
+        region = report["top_pathogens_by_region"]
+        south_ili_top = region[
+            (region["region"] == "south")
+            & (region["syndrome"] == "ili_consultation")
+            & (region["rank"] == 1)
+        ]
+        assert south_ili_top.iloc[0]["pathogen"] == "Influenza"
+        # week 41 north/SARI rank 3 is a printed three-way tie
+        north_sari_third = region[
+            (region["region"] == "north")
+            & (region["syndrome"] == "sari_hospitalised")
+            & (region["rank"] == 3)
+        ]
+        assert set(north_sari_third["pathogen"]) == {
+            "SARS-CoV-2",
+            "Human metapneumovirus",
+            "Parainfluenza",
+        }
+
+        age = report["top_pathogens_by_age"]
+        assert set(age["age_group"]) == {"0-4", "5-14", "15-59", "60+"}
+        assert len(age) == 24  # 4 age groups x 2 syndromes x 3 ranks
+        youngest = age[
+            (age["age_group"] == "0-4")
+            & (age["syndrome"] == "ili_consultation")
+            & (age["rank"] == 1)
+        ]
+        assert youngest.iloc[0]["pathogen"] == "Rhinovirus"
+
+    def test_get_respiratory_sentinel_report_caches_article(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            accessor.get_respiratory_sentinel_report(2026, 41)
+            rsps.assert_call_count(self.SENTINEL_ARTICLE_URL, 1)
+
+        # second call within the TTL must be served from the cache: the
+        # article is not registered, so any HTTP hit would raise
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            report = accessor.get_respiratory_sentinel_report(2026, 41)
+
+        assert report["ili_percent_national"] == 3.8
+
+    def test_get_respiratory_sentinel_surveillance(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            surv = accessor.get_respiratory_sentinel_surveillance(weeks=1)
+
+        assert isinstance(surv, pd.DataFrame)
+        assert {
+            "year",
+            "week",
+            "publish_date",
+            "syndrome",
+            "pathogen",
+            "positivity_pct",
+            "change_vs_previous_week",
+        } <= set(surv.columns)
+        assert len(surv) == 22  # 11 pathogens x 2 syndromes
+        assert set(surv["syndrome"]) == {"ili_consultation", "sari_hospitalised"}
+        assert (surv["week"] == 41).all()
+        ili = surv[surv["syndrome"] == "ili_consultation"]
+        assert ili["positivity_pct"].max() == 13.6  # Influenza leads
+
+    def test_get_respiratory_sentinel_ili(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            ili = accessor.get_respiratory_sentinel_ili(weeks=1)
+
+        assert isinstance(ili, pd.DataFrame)
+        assert len(ili) == 1
+        row = ili.iloc[0]
+        assert row["year"] == 2026
+        assert row["week"] == 41
+        assert row["ili_percent_national"] == 3.8
+        assert row["ili_percent_south"] == 4.6
+        assert row["ili_percent_north"] == 3.0
+
+    @requires_external_api
+    def test_respiratory_sentinel_live(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+        reports = accessor.list_respiratory_sentinel_reports(max_pages=1)
+        assert not reports.empty
+
+        latest = reports.iloc[-1]
+        report = accessor.get_respiratory_sentinel_report(
+            int(latest["year"]), int(latest["week"])
+        )
+        assert report["ili_percent_national"] is not None
+        assert not report["positivity"].empty
+        assert not report["top_pathogens_by_age"].empty
+
     def test_get_vaccination_coverage_returns_dataframe(self):
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
         accessor = ChinaCDCAccessor()
