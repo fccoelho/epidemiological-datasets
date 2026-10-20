@@ -7,22 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-20
+
 ### Added
 
 - New `swiss_bag` accessor (`SwissBAGAccessor`) for the Swiss Federal Office of Public Health (BAG) Infectious Diseases Dashboard API: 54 topics / 1,600+ series sets (notifiable diseases, sentinel ILI/ARI, respiratory pathogens, wastewater viral load & sequencing, antimicrobial resistance/consumption) with weekly version listing, set metadata discovery, filtered and all-series (`availableSeriesConfigurations` fan-out) tidy series queries with parsed ISO-like `temporal` column, and cached CSV/JSON bulk exports with version override. National + cantonal (26 cantons) coverage since 2023-11. No API key required.
-- `china_cdc` accessor: new weekly national sentinel surveillance of acute respiratory infections (全国急性呼吸道传染病哨点监测情况) methods — `list_respiratory_sentinel_reports()` (paginated chinacdc.cn archive, week 46/2024–present), `get_respiratory_sentinel_report(year, week)` (ILI consultation share national/South/North, 11-pathogen PCR positivity for outpatient ILI and hospitalised SARI syndromes, top-3 pathogens by region and age group, narrative; HTML cached under `~/.cache/epidatasets/china_cdc/` with 24h TTL), `get_respiratory_sentinel_surveillance(weeks)` (tidy long positivity table) and `get_respiratory_sentinel_ili(weeks)` (weekly ILI share series); module-level Chinese→English `RESPIRATORY_PATHOGEN_MAP`
 - New `srag` accessor (`SRAGOpenDataSUSAccessor`) for the Brazilian SRAG surveillance line-level dataset (Sivep-Gripe / e-SUS Notifica, 2019–present) on OpenData SUS: per-year resource discovery, streamed downloads with UTF-8/Latin-1 encoding fallback, chunked/lazy reading with composable filters (state, IBGE municipality, epi-week, lab-confirmed pathogen, outcome, age), weekly counts by geography/pathogen, IBGE municipality↔name resolution, frozen-year permanent caching with 24h TTL for the live year. No API key required.
 - New `opendengue` accessor (`OpenDengueAccessor`) for the OpenDengue global dengue case count database: versioned GitHub release downloads (national / highest-spatial / highest-temporal extracts), country lookup with exact, ISO3 and fuzzy name matching, admin-level and date-overlap filtering, location time-series, per-country source series summaries, 30-day caching and `OpenDengueDataError`. Includes the mandatory CC BY 4.0 citation helper.
 - New `nhs_prescribing` accessor (`NHSPrescribingAccessor`) for NHS England primary care prescribing data: OpenPrescribing REST API (national/CCG/practice spending by BNF code, prescribing quality measures such as antibiotic stewardship, BNF & org code search, practice/CCG geolocations) plus the NHSBSA English Prescribing Dataset (EPD) monthly bulk CSVs with chunked/lazy reading, BNF hierarchy filtering at all levels and per-month timeseries aggregation. Filesystem cache with 7-day TTL (monthly release cycle) and wrapped `NHSPrescribingAPIError` with retry guidance. No API key required.
-- Example notebooks for the new accessors (`47_NHS_Prescribing_England.ipynb`, `48_OpenDengue_Global_Dengue.ipynb`, `49_SRAG_Brazilian_SARI_Surveillance.ipynb`, `50_Swiss_BAG_IDD.ipynb`)
+- New `opendatasus` accessor (`OpenDataSUSAccessor`) for the OpenDataSUS catalog (dadosabertos.saude.gov.br): dataset discovery, metadata and downloads from the Brazilian Ministry of Health open-data portal (CKAN backend via its Next.js frontend).
+- New `japan_idwr` accessor (`JapanIDWRAccessor`) for the Japan Infectious Diseases Weekly Report: prefecture-level weekly surveillance for 88 notifiable and 19 sentinel-reporting diseases.
+- New `hk_chp` accessor (`HongKongCHPAccessor`) for Hong Kong Centre for Health Protection open data (data.gov.hk): influenza and COVID-19 situation series.
+- `china_cdc` accessor extended into comprehensive mainland-China coverage: NDCPA monthly notifiable disease overviews (including priority-monitored non-notifiable diseases), monthly COVID-19 situation reports and CNIC weekly influenza surveillance (sentinel ILI%, laboratory positivity by type/subtype).
+- `china_cdc` accessor: weekly national sentinel surveillance of acute respiratory infections (全国急性呼吸道传染病哨点监测情况) — `list_respiratory_sentinel_reports()` (paginated chinacdc.cn archive, week 46/2024–present), `get_respiratory_sentinel_report(year, week)` (ILI consultation share national/South/North, 11-pathogen PCR positivity for outpatient ILI and hospitalised SARI syndromes, top-3 pathogens by region and age group, narrative; HTML cached under `~/.cache/epidatasets/china_cdc/` with 24h TTL), `get_respiratory_sentinel_surveillance(weeks)` (tidy long positivity table) and `get_respiratory_sentinel_ili(weeks)` (weekly ILI share series); module-level Chinese→English `RESPIRATORY_PATHOGEN_MAP`
+- New `newsfeeds` module: RSS/news-feed aggregator with geotagging and spatiotemporal visualization (city/country/US-state gazetteers included).
+- New `google_earth_engine` accessor (`GoogleEarthEngineAccessor`) for planetary-scale satellite imagery relevant to epidemiological analyses (requires the `earthengine` extra and GEE credentials).
+- Example notebooks 42–50: OpenDataSUS catalog, Japan IDWR, Hong Kong CHP, China comprehensive surveillance (extended with the weekly respiratory sentinel section), news-feed spatiotemporal visualization, NHS prescribing, OpenDengue, SRAG and Swiss BAG IDD
 - Mocked HTTP tests (CKAN portal, S3, IBGE and GitHub-release servers) with CSV/zip fixtures, plus live smoke tests gated behind `@pytest.mark.external_api`
 - Docs pages `sources/nhs_prescribing.md`, `sources/srag.md`, `sources/opendengue.md`, `sources/swiss_bag.md` and README usage examples
 
 ### Changed
 
 - Bumped source count to 41 data sources in the README
-- Registered the `nhs_prescribing`, `srag`, `opendengue` and `swiss_bag` entry-points in `pyproject.toml` and their exports in `epidatasets.sources`
-- Extended the China comprehensive surveillance example notebook (`45_China_Comprehensive_Surveillance.ipynb`) with the weekly respiratory sentinel surveillance section
+- Registered the `nhs_prescribing`, `srag`, `opendengue`, `swiss_bag`, `opendatasus`, `japan_idwr` and `google_earth_engine` entry-points in `pyproject.toml` and their exports in `epidatasets.sources`
+- `disease_sh` accessor completed: full error handling, caching tests and docs
+- `china_cdc`: article discovery now CrossRef-backed with DOI-based PDF URLs
+- `gisaid`: uses `input()` instead of `getpass` for the password prompt in Jupyter
+- Fixed the loss of `GoogleEarthEngineAccessor`/`JapanIDWR`/`OpenDataSUS` exports in `epidatasets.sources`
+
+## [0.8.0] - 2026-08-03
+
+### Added
+
+- New `gisaid` accessor (`GISAIDAccessor`) for all 5 GISAID genomic surveillance databases (EpiCoV, EpiFlu, EpiPox, EpiRSV, EpiArbo) via Playwright browser automation with interactive credential prompts, query/metadata/sequence downloads, disk caching and rate limiting (requires the `gisaid` extra)
+- New `gmpd` accessor (`GMPDAccessor`) for the Global Mammal Parasite Database: wild mammal host–parasite associations
 
 ## [0.7.0] - 2026-07-13
 
