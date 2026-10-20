@@ -9,18 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New `swiss_bag` accessor (`SwissBAGAccessor`) for the Swiss Federal Office of Public Health (BAG) Infectious Diseases Dashboard API: 54 topics / 1,600+ series sets (notifiable diseases, sentinel ILI/ARI, respiratory pathogens, wastewater viral load & sequencing, antimicrobial resistance/consumption) with weekly version listing, set metadata discovery, filtered and all-series (`availableSeriesConfigurations` fan-out) tidy series queries with parsed ISO-like `temporal` column, and cached CSV/JSON bulk exports with version override. National + cantonal (26 cantons) coverage since 2023-11. No API key required.
 - `china_cdc` accessor: new weekly national sentinel surveillance of acute respiratory infections (全国急性呼吸道传染病哨点监测情况) methods — `list_respiratory_sentinel_reports()` (paginated chinacdc.cn archive, week 46/2024–present), `get_respiratory_sentinel_report(year, week)` (ILI consultation share national/South/North, 11-pathogen PCR positivity for outpatient ILI and hospitalised SARI syndromes, top-3 pathogens by region and age group, narrative; HTML cached under `~/.cache/epidatasets/china_cdc/` with 24h TTL), `get_respiratory_sentinel_surveillance(weeks)` (tidy long positivity table) and `get_respiratory_sentinel_ili(weeks)` (weekly ILI share series); module-level Chinese→English `RESPIRATORY_PATHOGEN_MAP`
 - New `srag` accessor (`SRAGOpenDataSUSAccessor`) for the Brazilian SRAG surveillance line-level dataset (Sivep-Gripe / e-SUS Notifica, 2019–present) on OpenData SUS: per-year resource discovery, streamed downloads with UTF-8/Latin-1 encoding fallback, chunked/lazy reading with composable filters (state, IBGE municipality, epi-week, lab-confirmed pathogen, outcome, age), weekly counts by geography/pathogen, IBGE municipality↔name resolution, frozen-year permanent caching with 24h TTL for the live year. No API key required.
 - New `opendengue` accessor (`OpenDengueAccessor`) for the OpenDengue global dengue case count database: versioned GitHub release downloads (national / highest-spatial / highest-temporal extracts), country lookup with exact, ISO3 and fuzzy name matching, admin-level and date-overlap filtering, location time-series, per-country source series summaries, 30-day caching and `OpenDengueDataError`. Includes the mandatory CC BY 4.0 citation helper.
 - New `nhs_prescribing` accessor (`NHSPrescribingAccessor`) for NHS England primary care prescribing data: OpenPrescribing REST API (national/CCG/practice spending by BNF code, prescribing quality measures such as antibiotic stewardship, BNF & org code search, practice/CCG geolocations) plus the NHSBSA English Prescribing Dataset (EPD) monthly bulk CSVs with chunked/lazy reading, BNF hierarchy filtering at all levels and per-month timeseries aggregation. Filesystem cache with 7-day TTL (monthly release cycle) and wrapped `NHSPrescribingAPIError` with retry guidance. No API key required.
-- Example notebooks for the new accessors (`47_NHS_Prescribing_England.ipynb`, `48_OpenDengue_Global_Dengue.ipynb`, `49_SRAG_Brazilian_SARI_Surveillance.ipynb`)
+- Example notebooks for the new accessors (`47_NHS_Prescribing_England.ipynb`, `48_OpenDengue_Global_Dengue.ipynb`, `49_SRAG_Brazilian_SARI_Surveillance.ipynb`, `50_Swiss_BAG_IDD.ipynb`)
 - Mocked HTTP tests (CKAN portal, S3, IBGE and GitHub-release servers) with CSV/zip fixtures, plus live smoke tests gated behind `@pytest.mark.external_api`
-- Docs pages `sources/nhs_prescribing.md`, `sources/srag.md`, `sources/opendengue.md` and README usage examples
+- Docs pages `sources/nhs_prescribing.md`, `sources/srag.md`, `sources/opendengue.md`, `sources/swiss_bag.md` and README usage examples
 
 ### Changed
 
-- Bumped source count to 40 data sources in the README
-- Registered the `nhs_prescribing`, `srag` and `opendengue` entry-points in `pyproject.toml` and their exports in `epidatasets.sources`
+- Bumped source count to 41 data sources in the README
+- Registered the `nhs_prescribing`, `srag`, `opendengue` and `swiss_bag` entry-points in `pyproject.toml` and their exports in `epidatasets.sources`
 - Extended the China comprehensive surveillance example notebook (`45_China_Comprehensive_Surveillance.ipynb`) with the weekly respiratory sentinel surveillance section
 
 ## [0.7.0] - 2026-07-13

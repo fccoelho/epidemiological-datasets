@@ -736,6 +736,390 @@ class TestChinaCDC:
         assert result.iloc[0]["vaccine"] == "EPI"
 
 
+class TestSwissBAG:
+    API = "https://api.idd.bag.admin.ch/api/v1"
+
+    SETS = [
+        "dengueFever/cases/value/month",
+        "dengueFever/cases/incValue/month",
+        "covid19/cases/incValue/iso_week",
+        "measles/cases/value/year",
+    ]
+
+    DENGUE_DETAILS = {
+        "identifier": "dengueFever/cases/value/month",
+        "source": "mandatory_reporting_system",
+        "sourceDate": "2026-10-06",
+        "version": "20261007",
+        "properties": {
+            "CHFL": {"allValue": "all", "possibleValues": ["CHFL", "all"]},
+            "georegion": {"allValue": None, "possibleValues": ["CHFL", "country"]},
+            "type": {"allValue": "all", "possibleValues": ["all"]},
+        },
+        "availableSeriesConfigurations": [
+            {"CHFL": "CHFL", "georegion": "CHFL", "type": "all"}
+        ],
+    }
+
+    COVID_DETAILS = {
+        "identifier": "covid19/cases/incValue/iso_week",
+        "source": "mandatory_reporting_system",
+        "sourceDate": "2026-10-13",
+        "version": "20261014",
+        "properties": {},
+        "availableSeriesConfigurations": [
+            {"agegroup": "agegroup_ili_ari", "georegion": "canton", "canton": "AG", "sex": "all"},
+            {"agegroup": "agegroup_ili_ari", "georegion": "canton", "canton": "ZH", "sex": "all"},
+            {"agegroup": "agegroup_ili_ari", "georegion": "country", "sex": "all"},
+        ],
+    }
+
+    QUERY_RESPONSE = {
+        "source": "mandatory_reporting_system",
+        "sourceDate": "2026-10-06",
+        "version": "20261007",
+        "values": [
+            {"x": 202605, "y": 17, "properties": {"trend": "stagnant"}},
+            {"x": 202606, "y": 10, "properties": {"trend": None}},
+        ],
+    }
+
+    EXPORT_CSV = (
+        "valueCategory,temporal,temporal_type,georegion,agegroup,value,trend\n"
+        "consultations,2013-W01,week,CH,all,7233.7,NA\n"
+        "consultations,2013-W02,week,CH,all,7100.1,NA\n"
+    )
+
+    def _accessor(self, cache_dir=None):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        return SwissBAGAccessor(cache_dir=cache_dir)
+
+    def _mock_catalogue(self, rsps, accessor):
+        rsps.add(
+            responses.GET,
+            f"{self.API}/version",
+            json=[{"name": "20261014"}, {"name": "20261007"}, {"name": "20231107"}],
+        )
+        rsps.add(
+            responses.GET,
+            f"{self.API}/data/version",
+            json={"name": "20261014"},
+        )
+        rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+
+    def test_initialization(self):
+        accessor = self._accessor()
+        assert accessor is not None
+        assert accessor.source_name == "swiss_bag"
+
+    def test_list_countries(self):
+        countries = self._accessor().list_countries()
+        assert list(countries["country_code"]) == ["CH", "FL"]
+
+    def test_list_cantons(self):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        cantons = SwissBAGAccessor.list_cantons()
+        assert len(cantons) == 26
+        assert cantons[cantons["canton"] == "ZH"].iloc[0]["canton_name"] == "Zürich"
+
+    def test_list_versions(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/version",
+                json=[{"name": "20261014"}, {"name": "20231107"}],
+            )
+            versions = accessor.list_versions()
+        assert versions.iloc[0]["version"] == "20261014"
+        assert versions.iloc[0]["date"] == "2026-10-14"
+        assert versions.iloc[-1]["date"] == "2023-11-07"
+
+    def test_list_sets_and_topics(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            sets = accessor.list_sets()
+
+        assert len(sets) == 4
+        assert set(sets.columns) == {"topic", "chapter", "aggregation", "temporality"}
+        dengue = accessor.list_sets(topic="dengueFever")
+        assert (dengue["topic"] == "dengueFever").all()
+
+        # fresh accessor: the sets cache is per-instance
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            topics = self._accessor().list_topics()
+        dengue_row = topics[topics["topic"] == "dengueFever"].iloc[0]
+        assert dengue_row["n_sets"] == 2
+        assert dengue_row["chapters"] == ["cases"]
+
+    def test_list_sets_unknown_topic_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            with pytest.raises(ValueError, match="Unknown topic"):
+                accessor.list_sets(topic="not_a_topic")
+
+    def test_get_set_details(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/dengueFever/cases/value/month/details",
+                json=self.DENGUE_DETAILS,
+            )
+            details = accessor.get_set_details(
+                "dengueFever", "cases", "value", "month"
+            )
+        assert details["version"] == "20261007"
+        assert details["availableSeriesConfigurations"][0]["georegion"] == "CHFL"
+
+    def test_get_set_details_unknown_set_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            with pytest.raises(ValueError, match="Unknown series set"):
+                accessor.get_set_details("dengueFever", "deaths", "value", "month")
+
+    def test_parse_temporal(self):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        parse = SwissBAGAccessor._parse_temporal
+        assert parse(2013, "year") == "2013"
+        assert parse(201301, "month") == "2013-01"
+        assert parse(202641, "iso_week") == "2026-W41"
+        assert parse(202641, "week") == "2026-W41"
+        assert parse(202605, "iso_week_sentinella") == "2026-W05"
+        assert parse(20250210, "date") == "2025-02-10"
+
+    def test_get_series_builds_body_from_configuration(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/dengueFever/cases/value/month/details",
+                json=self.DENGUE_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/dengueFever/cases/value/month",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_series("dengueFever", "cases", "value", "month")
+
+            # the POST body must be one of availableSeriesConfigurations
+            import json as _json
+
+            body = _json.loads(rsps.calls[-1].request.body)
+            assert body == {"CHFL": "CHFL", "georegion": "CHFL", "type": "all"}
+
+        assert list(df["temporal"]) == ["2026-05", "2026-06"]
+        assert list(df["value"]) == [17, 10]
+        assert (df["georegion"] == "CHFL").all()
+        assert df["version"].iloc[0] == "20261007"
+        assert df["source_date"].iloc[0] == "2026-10-06"
+        assert {
+            "topic",
+            "chapter",
+            "aggregation",
+            "temporality",
+            "temporal",
+            "value",
+            "trend",
+        } <= set(df.columns)
+
+    def test_get_series_filter_selects_matching_configuration(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/covid19/cases/incValue/iso_week/details",
+                json=self.COVID_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/covid19/cases/incValue/iso_week",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_series(
+                "covid19",
+                "cases",
+                "incValue",
+                "iso_week",
+                filters={"georegion": "canton", "canton": "ZH"},
+            )
+
+            import json as _json
+
+            body = _json.loads(rsps.calls[-1].request.body)
+            assert body["canton"] == "ZH"
+        assert (df["canton"] == "ZH").all()
+        assert list(df["temporal"]) == ["2026-W05", "2026-W06"]  # iso_week parse
+
+    def test_get_series_all_series_fans_out(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/covid19/cases/incValue/iso_week/details",
+                json=self.COVID_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/covid19/cases/incValue/iso_week",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_series(
+                "covid19",
+                "cases",
+                "incValue",
+                "iso_week",
+                filters={"georegion": "canton"},
+                all_series=True,
+            )
+
+            # only the two canton configurations match the filter
+            assert len(rsps.calls) == 4  # sets + details + 2 POSTs
+        assert set(df["canton"]) == {"AG", "ZH"}
+        assert len(df) == 4
+
+    def test_get_series_unknown_filter_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/dengueFever/cases/value/month/details",
+                json=self.DENGUE_DETAILS,
+            )
+            with pytest.raises(ValueError, match="not part of the series"):
+                accessor.get_series(
+                    "dengueFever",
+                    "cases",
+                    "value",
+                    "month",
+                    filters={"canton": "ZH"},
+                )
+
+    def test_get_disease_data_resolves_chapter(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/measles/cases/value/year/details",
+                json=self.DENGUE_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/measles/cases/value/year",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_disease_data("measles", temporality="year")
+
+        assert (df["topic"] == "measles").all()
+        assert (df["chapter"] == "cases").all()
+
+    def test_get_disease_data_invalid_temporality_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            with pytest.raises(ValueError, match="temporality"):
+                accessor.get_disease_data("measles", temporality="iso_week")
+
+    def test_download_export_caches(self, tmp_path):
+        accessor = self._accessor(cache_dir=tmp_path)
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/version",
+                json={"name": "20261014"},
+            )
+            rsps.add(
+                responses.GET,
+                f"{self.API}/export/20261014/files",
+                json=["SALMONELLOSIS_oblig", "INFLUENZA_sentinella"],
+            )
+            rsps.add(
+                responses.GET,
+                f"{self.API}/export/20261014/SALMONELLOSIS_oblig/csv",
+                body=self.EXPORT_CSV,
+                content_type="text/csv",
+            )
+            files = accessor.list_export_files()
+            df = accessor.download_export("SALMONELLOSIS_oblig")
+            rsps.assert_call_count(
+                f"{self.API}/export/20261014/SALMONELLOSIS_oblig/csv", 1
+            )
+
+        assert files == ["INFLUENZA_sentinella", "SALMONELLOSIS_oblig"]
+        assert len(df) == 2
+        assert df["value"].iloc[0] == 7233.7
+
+        # second call within the TTL must be served from the cache
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/version",
+                json={"name": "20261014"},
+            )
+            df2 = accessor.download_export("SALMONELLOSIS_oblig")
+        assert len(df2) == 2
+
+    def test_download_export_explicit_version_cached_permanently(self, tmp_path):
+        accessor = self._accessor(cache_dir=tmp_path)
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/export/20231107/SALMONELLOSIS_oblig/csv",
+                body=self.EXPORT_CSV,
+                content_type="text/csv",
+            )
+            df = accessor.download_export(
+                "SALMONELLOSIS_oblig", version="20231107"
+            )
+        assert len(df) == 2
+
+        # immutable snapshot: served from cache without any HTTP call
+        with responses.RequestsMock() as rsps:
+            df2 = accessor.download_export(
+                "SALMONELLOSIS_oblig", version="20231107"
+            )
+        assert len(df2) == 2
+
+    def test_download_export_invalid_format_raises(self):
+        with pytest.raises(ValueError, match="Unsupported format"):
+            self._accessor().download_export("SALMONELLOSIS_oblig", format="xlsx")
+
+    @requires_external_api
+    def test_swiss_bag_live(self):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        accessor = SwissBAGAccessor()
+        topics = accessor.list_topics()
+        assert len(topics) > 40
+
+        dengue = accessor.get_disease_data("dengueFever", temporality="month")
+        assert not dengue.empty
+        assert dengue["temporal"].str.match(r"^\d{4}-\d{2}$").all()
+
+        versions = accessor.list_versions()
+        # weekly YYYYMMDD snapshots, with rare re-run suffixes (20250827_V2)
+        assert versions["version"].str.fullmatch(r"\d{8}(_V\d+)?").all()
+        assert versions["date"].notna().all()
+        assert len(versions) > 100
+
+        files = accessor.list_export_files()
+        assert "INFLUENZA_sentinella" in files
+
+
 class TestHongKongCHP:
     FLU_CSV_URL = "https://www.chp.gov.hk/files/misc/flux_data.csv"
     COVID_CSV_URL = (

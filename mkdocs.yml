@@ -87,6 +87,7 @@ nav:
       - NHS England Prescribing: sources/nhs_prescribing.md
       - OpenDengue: sources/opendengue.md
       - SRAG (Sivep-Gripe): sources/srag.md
+      - Swiss BAG IDD: sources/swiss_bag.md
   - News Feeds: newsfeeds.md
   - API Reference:
       - Overview: api/index.md
@@ -145,5 +146,6 @@ nav:
       - NHS England Prescribing: examples/47_NHS_Prescribing_England.ipynb
       - OpenDengue Global: examples/48_OpenDengue_Global_Dengue.ipynb
       - SRAG Brazil: examples/49_SRAG_Brazilian_SARI_Surveillance.ipynb
+      - Swiss BAG IDD: examples/50_Swiss_BAG_IDD.ipynb
   - Contributing: contributing.md
   - Changelog: changelog.md

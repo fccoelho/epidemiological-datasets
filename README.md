@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **40 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **41 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -82,7 +82,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 40 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 41 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -212,6 +212,7 @@ epidemiological-datasets/
 │   │   ├── respicast.py
 │   │   ├── rki_germany.py
 │   │   ├── srag_opendata_sus.py
+│   │   ├── swiss_bag.py
 │   │   ├── ukhsa.py
 │   │   └── who_ghoclient.py
 │   └── utils/                 # Utilities
@@ -295,6 +296,7 @@ epidemiological-datasets/
 | [UK Health Security Agency](https://www.gov.uk/government/collections/health-protection-data) | UK health data | Weekly | Open | `epidatasets.sources.ukhsa` |
 | [NHS England Prescribing (OpenPrescribing + EPD)](https://openprescribing.net/api/) | NHS primary care prescribing: spending, antibiotic stewardship measures, practice-level EPD bulk data | Monthly | Open | `epidatasets.sources.nhs_prescribing` |
 | [Robert Koch Institute](https://www.rki.de/EN/Content/infections/epidemiology/data.html) | German surveillance data | Weekly | Open | `epidatasets.sources.rki_germany` |
+| [Swiss BAG Infectious Diseases Dashboard](https://idd.bag.admin.ch) | Swiss national & cantonal surveillance: notifiable diseases, sentinel ILI/ARI, wastewater viral load, antimicrobial resistance | Weekly (Wed) | Open | `epidatasets.sources.swiss_bag` |
 
 ### Africa 🌍
 
@@ -715,6 +717,7 @@ od.get_sources(country="India")
 | `respicast` | `RespiCastAccessor` | — | ECDC respiratory disease forecasting |
 | `rki` | `RKIGermanyAccessor` | — | Robert Koch Institute (Germany) |
 | `srag` | `SRAGOpenDataSUSAccessor` | — | Brazilian SRAG line-level surveillance (Sivep-Gripe / e-SUS Notifica) |
+| `swiss_bag` | `SwissBAGAccessor` | — | Swiss BAG IDD: 54 topics, national & cantonal (26 cantons), weekly versions since 2023-11 |
 | `ukhsa` | `UKHSAAccessor` | — | UK Health Security Agency |
 | `who` | `WHOAccessor` | `[who]` | WHO Global Health Observatory |
 
@@ -722,7 +725,7 @@ od.get_sources(country="India")
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 40 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 41 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 

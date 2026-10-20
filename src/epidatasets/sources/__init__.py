@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.singapore_moh import SingaporeMOHAccessor
     from epidatasets.sources.singapore_nea import SingaporeNEAAccessor
     from epidatasets.sources.srag_opendata_sus import SRAGOpenDataSUSAccessor
+    from epidatasets.sources.swiss_bag import SwissBAGAccessor
     from epidatasets.sources.thailand_ddc import ThailandDDCAccessor
     from epidatasets.sources.ukhsa import UKHSAAccessor
     from epidatasets.sources.who_ghoclient import WHOAccessor
@@ -93,6 +94,7 @@ __all__ = [
     "SingaporeMOHAccessor",
     "SingaporeNEAAccessor",
     "SRAGOpenDataSUSAccessor",
+    "SwissBAGAccessor",
     "ThailandDDCAccessor",
     "UKHSAAccessor",
     "WHOAccessor",
