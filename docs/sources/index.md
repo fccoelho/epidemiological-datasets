@@ -1,6 +1,6 @@
 # Data Sources
 
-Epidatasets provides access to **34 epidemiological data sources** from around the world.
+Epidatasets provides access to **42 epidemiological data sources** from around the world.
 
 ## How Sources Work
 

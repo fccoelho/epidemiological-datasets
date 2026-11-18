@@ -74,6 +74,7 @@ nav:
       - Malaria Atlas: sources/malaria_atlas.md
       - Pathoplexus: sources/pathoplexus.md
       - Copernicus CDS: sources/copernicus_cds.md
+      - Google Earth Engine: sources/google_earth_engine.md
       - InfoDengue: sources/infodengue.md
       - Singapore MOH: sources/singapore_moh.md
       - Singapore NEA: sources/singapore_nea.md
@@ -88,6 +89,9 @@ nav:
       - OpenDengue: sources/opendengue.md
       - SRAG (Sivep-Gripe): sources/srag.md
       - Swiss BAG IDD: sources/swiss_bag.md
+      - New Zealand Health: sources/nz_health.md
+      - Oman MOH: sources/oman_moh.md
+      - Pakistan NIH: sources/pakistan_nih.md
   - News Feeds: newsfeeds.md
   - Methodology & References: references.md
   - API Reference:

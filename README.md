@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **41 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **42 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -82,7 +82,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 41 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 42 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -183,7 +183,7 @@ epidemiological-datasets/
 │   ├── _registry.py           # Plugin registry (entry_points)
 │   ├── cli.py                 # CLI (typer)
 │   ├── newsfeeds/             # RSS/news-feed aggregator + spatiotemporal viz
-│   ├── sources/               # 32 data source accessors
+│   ├── sources/               # 42 data source accessors
 │   │   ├── __init__.py
 │   │   ├── africa_cdc.py
 │   │   ├── cdc_opendata.py
@@ -232,7 +232,7 @@ epidemiological-datasets/
 │       ├── index.md
 │       ├── installation.md
 │       ├── quickstart.md
-│       ├── sources/           # Per-source API docs (36 pages)
+│       ├── sources/           # Per-source API docs (42 pages)
 │       ├── api/               # API reference
 │       │   ├── base.md
 │       │   ├── registry.md
@@ -725,7 +725,7 @@ od.get_sources(country="India")
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 41 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 42 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 
