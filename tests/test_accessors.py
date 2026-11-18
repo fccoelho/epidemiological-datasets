@@ -4,6 +4,7 @@ These tests validate that each accessor can be instantiated and return
 valid data structures. Tests are designed to be fast and non-breaking.
 """
 
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,14 @@ import requests
 import responses
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def has_module(name: str) -> bool:
+    """Whether an optional dependency is installed."""
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):  # pragma: no cover - broken installs
+        return False
 
 
 def requires_external_api(func):
@@ -1941,6 +1950,9 @@ class TestECDCAtlas:
         with pytest.raises(ValueError):
             accessor.get_disease_data("NonExistentDisease")
 
+@pytest.mark.skipif(
+    not has_module("ee"), reason="install epidatasets[earthengine] to run these tests"
+)
 class TestGoogleEarthEngine:
     @pytest.fixture
     def accessor(self):
@@ -3551,6 +3563,9 @@ class TestGMPD:
 GISAID_TEST_CREDS = {"username": "test_user", "password": "test_pass"}
 
 
+@pytest.mark.skipif(
+    not has_module("playwright"), reason="install epidatasets[gisaid] to run these tests"
+)
 class TestGISAID:
     """Tests for GISAID accessor.
 

@@ -120,6 +120,11 @@ dev = [
     "ruff>=0.0.280",
     "mypy>=1.5.0",
     "pre-commit>=3.3.0",
+    # Needed to import the scraping-based accessors and the news-feed tests;
+    # keep the test suite runnable from a bare "pip install -e .[dev]".
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.0",
+    "matplotlib>=3.7.0",
 ]
 docs = [
     "mkdocs>=1.5.0",
