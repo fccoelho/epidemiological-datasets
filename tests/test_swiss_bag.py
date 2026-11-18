@@ -297,7 +297,10 @@ class TestBulkExport:
         assert frame.shape[0] == 2
         assert frame["value"].iloc[0] == 3
         assert pd.isna(frame["value"].iloc[1])
-        assert frame["temporal"].dtype == object
+        # pandas >= 3 infers a string dtype here, older versions keep object
+        assert pd.api.types.is_object_dtype(
+            frame["temporal"]
+        ) or pd.api.types.is_string_dtype(frame["temporal"])
 
         cached = bag.download_export("HEPATITIS_A_oblig")
         assert len(responses.calls) == 3  # 2 version lookups + 1 download
