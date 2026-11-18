@@ -37,6 +37,7 @@ License: MIT
 """
 
 import io
+import json
 import logging
 import os
 import re
@@ -106,6 +107,28 @@ _DISEASE_NAME_MAP = {
     "Novel coronavirus pneumonia": "COVID_19",
 }
 
+#: Chinese-to-English pathogen names used by the weekly national sentinel
+#: surveillance of acute respiratory infections (全国急性呼吸道传染病哨点监测).
+RESPIRATORY_PATHOGEN_MAP = {
+    "新型冠状病毒": "SARS-CoV-2",
+    "流感病毒": "Influenza",
+    "呼吸道合胞病毒": "RSV",
+    "腺病毒": "Adenovirus",
+    "人偏肺病毒": "Human metapneumovirus",
+    "副流感病毒": "Parainfluenza",
+    "普通冠状病毒": "Seasonal coronavirus",
+    "博卡病毒": "Bocavirus",
+    "鼻病毒": "Rhinovirus",
+    "肠道病毒": "Enterovirus",
+    "肺炎支原体": "Mycoplasma pneumoniae",
+}
+
+#: Syndrome labels used in the sentinel pathogen positivity table.
+SENTINEL_SYNDROMES = {
+    "ili_consultation": "门急诊流感样病例",
+    "sari_hospitalised": "住院严重急性呼吸道感染病例",
+}
+
 
 class ChinaCDCAccessor(BaseAccessor):
     """
@@ -172,6 +195,10 @@ class ChinaCDCAccessor(BaseAccessor):
     NDCPA_MIRROR_URL = "https://www.chinacdc.cn/jksj/jksj01/"
     #: Server-rendered archive of monthly COVID-19 situation reports.
     NDCPA_COVID_MIRROR_URL = "https://www.chinacdc.cn/jksj/xgbdyq/"
+    #: Weekly national sentinel surveillance of acute respiratory
+    #: infections (全国急性呼吸道传染病哨点监测情况), published every
+    #: Thursday since week 46/2024.
+    RESPIRATORY_SENTINEL_URL = "https://www.chinacdc.cn/jksj/jksj04_14275/"
 
     # Notifiable infectious diseases in China (38 categories)
     NOTIFIABLE_DISEASES = {
@@ -1921,6 +1948,398 @@ class ChinaCDCAccessor(BaseAccessor):
             rows.append(row)
 
         return pd.DataFrame(rows)
+
+    # ------------------------------------------------------------------
+    # Weekly sentinel surveillance of acute respiratory infections
+    # ------------------------------------------------------------------
+    def list_respiratory_sentinel_reports(
+        self,
+        pages: int = 1,
+        year: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        List the weekly acute respiratory infection sentinel reports.
+
+        The bulletin (全国急性呼吸道传染病哨点监测情况) is published every
+        Thursday and reports ILL/ARI sentinel results for mainland China
+        (Hong Kong, Macau and Taiwan excluded).
+
+        Args:
+            pages: Number of listing pages to walk (10 reports per page).
+            year: Only return reports for this publication year.
+
+        Returns:
+            DataFrame with ``year``, ``week``, ``title``,
+            ``published_date`` and ``url``, newest first.
+        """
+        entries: list[dict] = []
+        for page in range(max(1, pages)):
+            url = (
+                self.RESPIRATORY_SENTINEL_URL
+                if page == 0
+                else urljoin(
+                    self.RESPIRATORY_SENTINEL_URL, f"index_{page}.html"
+                )
+            )
+            resp = self._session.get(url, timeout=self._request_timeout)
+            if resp.status_code != 200:
+                break
+            soup = BeautifulSoup(resp.content, "html.parser")
+            links = soup.select("ul.xw_list li dl dd a[href]")
+            if not links:
+                break
+            for a_tag in links:
+                title = a_tag.get_text(" ", strip=True)
+                match = re.search(r"(\d{4})年第(\d{1,2})周", title)
+                if match is None:
+                    continue
+                entry_year = int(match.group(1))
+                if year is not None and entry_year != year:
+                    continue
+                date_match = re.search(r"(\d{4}-\d{2}-\d{2})", title)
+                entries.append(
+                    {
+                        "year": entry_year,
+                        "week": int(match.group(2)),
+                        "title": re.sub(
+                            r"\d{4}-\d{2}-\d{2}\s*$", "", title
+                        ).strip(),
+                        "published_date": (
+                            date_match.group(1) if date_match else None
+                        ),
+                        "url": urljoin(url, str(a_tag["href"])),
+                    }
+                )
+
+        columns = ["year", "week", "title", "published_date", "url"]
+        if not entries:
+            logger.warning(
+                f"No sentinel reports found at {self.RESPIRATORY_SENTINEL_URL}"
+            )
+            return pd.DataFrame(columns=columns)
+        df = (
+            pd.DataFrame(entries)
+            .drop_duplicates(subset=["year", "week"])
+            .sort_values(["year", "week"], ascending=False)
+            .reset_index(drop=True)
+        )
+        logger.info(f"Found {len(df)} sentinel respiratory reports")
+        return df[columns]
+
+    @staticmethod
+    def _sentinel_number(value: str) -> float | None:
+        """Parse a sentinel table cell (``"+2.4"``, ``"-0.3"``, ``"0"``)."""
+        if value is None:
+            return None
+        text = str(value).replace("＋", "+").replace("－", "-").strip()
+        text = text.replace("%", "").replace("−", "-")
+        if not text or text.upper() in {"NA", "N/A", "—", "-"}:
+            return None
+        try:
+            return float(text)
+        except ValueError:
+            return None
+
+    @classmethod
+    def parse_respiratory_sentinel_report(
+        cls,
+        html: str,
+        year: int | None = None,
+        week: int | None = None,
+        url: str | None = None,
+    ) -> dict:
+        """
+        Parse one weekly sentinel respiratory bulletin page.
+
+        Args:
+            html: Raw HTML of the article page.
+            year: Override the reporting year (inferred from the text).
+            week: Override the epidemiological week.
+            url: Source URL, stored in the result.
+
+        Returns:
+            Dict with ``year``, ``week``, ``published_date``, ``url``,
+            ``ili_percent`` (``national``/``south``/``north``, may be
+            ``None`` in older bulletins) and ``pathogen_positivity``, a
+            tidy DataFrame with ``syndrome``, ``pathogen``,
+            ``pathogen_cn``, ``positivity_pct`` and
+            ``change_vs_previous_week``.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        text = re.sub(r"\s+", "", soup.get_text("", strip=True))
+
+        if year is None or week is None:
+            title_match = re.search(r"(\d{4})年第(\d{1,2})周", text)
+            if title_match is not None:
+                year = year or int(title_match.group(1))
+                week = week or int(title_match.group(2))
+
+        result: dict = {
+            "year": year,
+            "week": week,
+            "published_date": None,
+            "url": url,
+            "ili_percent": {"national": None, "south": None, "north": None},
+        }
+
+        date_match = re.search(r"时间[:：]?(\d{4}-\d{2}-\d{2})", text)
+        if date_match is not None:
+            result["published_date"] = date_match.group(1)
+
+        ili_patterns = {
+            "national": r"流感样病例百分比）?为([\d.]+)%",
+            "south": r"南方省份（([\d.]+)%",
+            "north": r"北方省份（([\d.]+)%",
+        }
+        for key, pattern in ili_patterns.items():
+            match = re.search(pattern, text)
+            if match is not None:
+                result["ili_percent"][key] = float(match.group(1))
+
+        rows: list[dict] = []
+        for table in soup.find_all("table"):
+            header = table.get_text("", strip=True)
+            if "病原体" not in header or "较上周" not in header:
+                continue
+            for tr in table.find_all("tr")[2:]:
+                cells = [
+                    td.get_text("", strip=True)
+                    for td in tr.find_all(["td", "th"])
+                ]
+                cells = [cell for cell in cells if cell]
+                if len(cells) != 5:
+                    continue
+                name_cn, ili_value, ili_delta, sari_value, sari_delta = cells
+                ili_pct = cls._sentinel_number(ili_value)
+                sari_pct = cls._sentinel_number(sari_value)
+                if ili_pct is None and sari_pct is None:
+                    continue
+                pathogen = RESPIRATORY_PATHOGEN_MAP.get(name_cn, name_cn)
+                for syndrome, value, delta in (
+                    ("ili_consultation", ili_pct, ili_delta),
+                    ("sari_hospitalised", sari_pct, sari_delta),
+                ):
+                    rows.append(
+                        {
+                            "syndrome": syndrome,
+                            "pathogen": pathogen,
+                            "pathogen_cn": name_cn,
+                            "positivity_pct": value,
+                            "change_vs_previous_week": cls._sentinel_number(
+                                delta
+                            ),
+                        }
+                    )
+            break
+
+        result["pathogen_positivity"] = pd.DataFrame(
+            rows,
+            columns=[
+                "syndrome",
+                "pathogen",
+                "pathogen_cn",
+                "positivity_pct",
+                "change_vs_previous_week",
+            ],
+        )
+        return result
+
+    def _sentinel_cache_paths(self, year: int, week: int) -> tuple[Path, Path]:
+        stem = Path(self.cache_dir) / f"sentinel_{year}_W{week:02d}"
+        return stem.with_suffix(".json"), stem.with_name(
+            stem.name + "_pathogens.csv"
+        )
+
+    def _fetch_sentinel_payload(
+        self,
+        year: int,
+        week: int,
+        url: str,
+        use_cache: bool = True,
+    ) -> tuple[dict, pd.DataFrame]:
+        """Return the cached (or freshly parsed) payload of one bulletin."""
+        meta_path, table_path = self._sentinel_cache_paths(year, week)
+        if use_cache and meta_path.exists() and table_path.exists():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            return meta, pd.read_csv(table_path)
+
+        resp = self._session.get(url, timeout=self._request_timeout)
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Failed to fetch sentinel report {year}-W{week:02d}: "
+                f"HTTP {resp.status_code}"
+            )
+        resp.encoding = resp.encoding or "utf-8"
+        report = self.parse_respiratory_sentinel_report(
+            resp.text, year=year, week=week, url=url
+        )
+        meta = {
+            key: report[key]
+            for key in ("year", "week", "published_date", "url", "ili_percent")
+        }
+        meta_path.write_text(
+            json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
+        table = report["pathogen_positivity"]
+        table.to_csv(table_path, index=False)
+        return meta, table
+
+    def _find_sentinel_report(
+        self,
+        year: int,
+        week: int,
+        max_pages: int = 7,
+    ) -> str:
+        """Resolve the URL of a given epidemiological week."""
+        listing = self.list_respiratory_sentinel_reports(pages=max_pages)
+        match = listing[(listing["year"] == year) & (listing["week"] == week)]
+        if match.empty:
+            raise ValueError(f"No sentinel report found for {year}-W{week:02d}")
+        return str(match.iloc[0]["url"])
+
+    def get_respiratory_sentinel_report(
+        self,
+        year: int,
+        week: int | None = None,
+        use_cache: bool = True,
+    ) -> dict:
+        """
+        Fetch and parse one weekly sentinel respiratory bulletin.
+
+        Args:
+            year: Reporting year.
+            week: Epidemiological week; defaults to the latest week of
+                ``year``.
+            use_cache: Reuse the parsed payload cached on disk.
+
+        Returns:
+            Dict with ``year``, ``week``, ``published_date``, ``url``,
+            ``ili_percent`` and ``pathogen_positivity``.
+        """
+        if week is None:
+            listing = self.list_respiratory_sentinel_reports(pages=1)
+            year_reports = listing[listing["year"] == year]
+            if year_reports.empty:
+                raise ValueError(f"No sentinel report found for {year}")
+            week = int(year_reports.iloc[0]["week"])
+        url = self._find_sentinel_report(year, week)
+        meta, table = self._fetch_sentinel_payload(
+            year, week, url, use_cache=use_cache
+        )
+        return {**meta, "pathogen_positivity": table}
+
+    def get_respiratory_sentinel_surveillance(
+        self,
+        weeks: int = 8,
+        use_cache: bool = True,
+    ) -> pd.DataFrame:
+        """
+        Collect pathogen positivity for the most recent ``weeks`` bulletins.
+
+        Returns:
+            Tidy long DataFrame with ``year``, ``week``,
+            ``published_date``, ``syndrome``, ``pathogen``, ``pathogen_cn``,
+            ``positivity_pct`` and ``change_vs_previous_week``.
+        """
+        pages = max(1, weeks // 10 + 1)
+        listing = self.list_respiratory_sentinel_reports(pages=pages)
+        listing = listing.head(weeks)
+        if listing.empty:
+            return pd.DataFrame(
+                columns=[
+                    "year",
+                    "week",
+                    "published_date",
+                    "syndrome",
+                    "pathogen",
+                    "pathogen_cn",
+                    "positivity_pct",
+                    "change_vs_previous_week",
+                ]
+            )
+
+        frames = []
+        for row in listing.itertuples(index=False):
+            try:
+                meta, table = self._fetch_sentinel_payload(
+                    int(row.year), int(row.week), str(row.url), use_cache
+                )
+            except Exception as exc:  # noqa: BLE001 - keep going on failures
+                logger.warning(
+                    f"Skipping sentinel report {row.year}-W{row.week:02d}: {exc}"
+                )
+                continue
+            if table.empty:
+                continue
+            table = table.copy()
+            table.insert(0, "published_date", meta.get("published_date"))
+            table.insert(0, "week", int(row.week))
+            table.insert(0, "year", int(row.year))
+            frames.append(table)
+
+        if not frames:
+            return pd.DataFrame()
+        return (
+            pd.concat(frames, ignore_index=True)
+            .sort_values(["year", "week", "syndrome", "pathogen"])
+            .reset_index(drop=True)
+        )
+
+    def get_respiratory_sentinel_ili(
+        self,
+        weeks: int = 52,
+        use_cache: bool = True,
+    ) -> pd.DataFrame:
+        """
+        Time series of the sentinel ILI share (% of outpatient visits).
+
+        Returns:
+            DataFrame with ``year``, ``week``, ``published_date``,
+            ``ili_percent_national``, ``ili_percent_south`` and
+            ``ili_percent_north``. Older bulletins (before the indicator
+            was published) leave these as ``None``.
+        """
+        pages = max(1, weeks // 10 + 1)
+        listing = self.list_respiratory_sentinel_reports(pages=pages)
+        listing = listing.head(weeks)
+        rows = []
+        for row in listing.itertuples(index=False):
+            try:
+                meta, _ = self._fetch_sentinel_payload(
+                    int(row.year), int(row.week), str(row.url), use_cache
+                )
+            except Exception as exc:  # noqa: BLE001 - keep going on failures
+                logger.warning(
+                    f"Skipping sentinel report {row.year}-W{row.week:02d}: {exc}"
+                )
+                continue
+            ili = meta.get("ili_percent") or {}
+            rows.append(
+                {
+                    "year": int(row.year),
+                    "week": int(row.week),
+                    "published_date": meta.get("published_date"),
+                    "ili_percent_national": ili.get("national"),
+                    "ili_percent_south": ili.get("south"),
+                    "ili_percent_north": ili.get("north"),
+                }
+            )
+        if not rows:
+            return pd.DataFrame(
+                columns=[
+                    "year",
+                    "week",
+                    "published_date",
+                    "ili_percent_national",
+                    "ili_percent_south",
+                    "ili_percent_north",
+                ]
+            )
+        return (
+            pd.DataFrame(rows)
+            .sort_values(["year", "week"])
+            .reset_index(drop=True)
+        )
 
     def get_vaccination_coverage(
         self,
