@@ -95,3 +95,11 @@ journal articles, policy news) genuinely mention no location.
 
 See the [News Feeds API reference](api/newsfeeds.md) for the full
 signature documentation.
+
+## Methodology & references
+
+The methods behind this module — event-based surveillance, RSS/Atom
+aggregation, gazetteer geoparsing, near-duplicate detection, rate
+limiting and geovisualization — are described, with citations to the
+WHO guidance, primary literature and specifications, on the
+[Methodology & References](references.md) page.

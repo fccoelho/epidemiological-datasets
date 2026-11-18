@@ -9,9 +9,14 @@ A curated collection of openly accessible epidemiological data sources with a un
 - **21 data sources** covering 100+ countries
 - **Plugin registry** -- sources auto-discovered via entry-points
 - **Unified API** -- all sources share a common `BaseAccessor` interface
+- **News feeds** -- RSS aggregator for outbreak news with geo-tagging and spatiotemporal visualization
 - **Optional dependencies** -- install only what you need
 - **CLI** -- query sources from the command line
 - **Well-documented** -- API reference, examples, and Jupyter notebooks
+
+The algorithms and data-mining methods used across the package are
+catalogued, with citations, on the
+[Methodology & References](references.md) page.
 
 ## Quick Start
 

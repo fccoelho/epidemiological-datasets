@@ -22,6 +22,5 @@ sources = list_sources()
 
 ## Base Class
 
-All accessors inherit from `BaseAccessor`.
-
-::: epidatasets._base.BaseAccessor
+All accessors inherit from `BaseAccessor` — see the
+[BaseAccessor reference](base.md) page.

@@ -86,6 +86,7 @@ nav:
       - OpenDataSUS (SUS open-data catalog): sources/opendatasus.md
       - NHS England Prescribing: sources/nhs_prescribing.md
   - News Feeds: newsfeeds.md
+  - Methodology & References: references.md
   - API Reference:
       - Overview: api/index.md
       - Base Accessor: api/base.md
