@@ -378,7 +378,7 @@ class TestVisualize:
         out = tmp_path / "map.html"
         fmap = plot_map(locations, out=str(out))
         assert out.exists()
-        html = out.read_text()
+        html = out.read_text(encoding="utf-8")
         assert "firebrick" in html or "folium" in html.lower()
         assert fmap is not None
 

@@ -34,6 +34,29 @@ def requires_external_api(func):
     )(func)
 
 
+def tolerates_upstream_failure(func):
+    """Skip a live smoke test when the upstream API is down or throttling.
+
+    These tests exist to prove the accessor still speaks the right protocol;
+    an unreachable or rate-limited upstream is an environment problem, not a
+    regression, so it must not turn the whole suite red.
+    """
+    import functools
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except requests.exceptions.RequestException as exc:
+            pytest.skip(f"upstream API unreachable: {exc}")
+        except RuntimeError as exc:
+            if "429" in str(exc):
+                pytest.skip(f"upstream API throttled: {exc}")
+            raise
+
+    return wrapper
+
+
 class TestAfricaCDC:
     def test_initialization(self):
         from epidatasets.sources.africa_cdc import AfricaCDCAccessor
@@ -268,7 +291,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 accessor.CNIC_WEEKLY_REPORTS_URL,
-                body=(FIXTURES / "china_cdc" / "cnic_weekly_listing.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "cnic_weekly_listing.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             df = accessor.list_cnic_weekly_reports(year=2026, max_pages=1)
@@ -318,7 +341,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 accessor.CNIC_WEEKLY_REPORTS_URL,
-                body=(FIXTURES / "china_cdc" / "cnic_weekly_listing.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "cnic_weekly_listing.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             rsps.add(
@@ -330,7 +353,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 f"{accessor.CNIC_WEEKLY_REPORTS_URL}202609/t20260911_1840084.htm",
-                body=(FIXTURES / "china_cdc" / "cnic_landing.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "cnic_landing.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             result = accessor.get_influenza_surveillance(
@@ -365,7 +388,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 accessor.NDCPA_MIRROR_URL,
-                body=(FIXTURES / "china_cdc" / "ndcpa_monthly_listing.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "ndcpa_monthly_listing.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             df = accessor.list_monthly_overviews(year=2026, max_pages=1)
@@ -383,7 +406,7 @@ class TestChinaCDC:
         rsps.add(
             responses.GET,
             accessor.NDCPA_MIRROR_URL,
-            body=(FIXTURES / "china_cdc" / "ndcpa_monthly_listing.html").read_text(),
+            body=(FIXTURES / "china_cdc" / "ndcpa_monthly_listing.html").read_text(encoding="utf-8"),
             content_type="text/html",
         )
 
@@ -397,7 +420,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 f"{accessor.NDCPA_MIRROR_URL}202608/t20260814_1838943.html",
-                body=(FIXTURES / "china_cdc" / "ndcpa_month_page.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "ndcpa_month_page.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             df = accessor.get_monthly_overview(2026, 7)
@@ -434,7 +457,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 f"{accessor.NDCPA_MIRROR_URL}202608/t20260814_1838943.html",
-                body=(FIXTURES / "china_cdc" / "ndcpa_month_page.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "ndcpa_month_page.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             summary = accessor.get_monthly_summary(2026, 7)
@@ -461,7 +484,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 accessor.NDCPA_COVID_MIRROR_URL,
-                body=(FIXTURES / "china_cdc" / "covid_monthly_listing.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "covid_monthly_listing.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             rsps.add(
@@ -473,7 +496,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 f"{accessor.NDCPA_COVID_MIRROR_URL}202608/t20260813_1838941.html",
-                body=(FIXTURES / "china_cdc" / "covid_month_page.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "covid_month_page.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             result = accessor.get_covid_updates(
@@ -502,7 +525,7 @@ class TestChinaCDC:
         rsps.add(
             responses.GET,
             accessor.SENTINEL_MIRROR_URL,
-            body=(FIXTURES / "china_cdc" / "sentinel_listing.html").read_text(),
+            body=(FIXTURES / "china_cdc" / "sentinel_listing.html").read_text(encoding="utf-8"),
             content_type="text/html",
         )
         if page1:
@@ -582,7 +605,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 self.SENTINEL_ARTICLE_URL,
-                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             report = accessor.get_respiratory_sentinel_report(2026, 41)
@@ -651,7 +674,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 self.SENTINEL_ARTICLE_URL,
-                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             accessor.get_respiratory_sentinel_report(2026, 41)
@@ -675,7 +698,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 self.SENTINEL_ARTICLE_URL,
-                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             surv = accessor.get_respiratory_sentinel_surveillance(weeks=1)
@@ -706,7 +729,7 @@ class TestChinaCDC:
             rsps.add(
                 responses.GET,
                 self.SENTINEL_ARTICLE_URL,
-                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(encoding="utf-8"),
                 content_type="text/html",
             )
             ili = accessor.get_respiratory_sentinel_ili(weeks=1)
@@ -1162,7 +1185,7 @@ class TestHongKongCHP:
         rsps.add(
             responses.GET,
             self.FLU_CSV_URL,
-            body=(FIXTURES / "hk_chp" / "flux_data_sample.csv").read_text(),
+            body=(FIXTURES / "hk_chp" / "flux_data_sample.csv").read_text(encoding="utf-8"),
             content_type="text/csv",
         )
 
@@ -1238,7 +1261,7 @@ class TestHongKongCHP:
         rsps.add(
             responses.GET,
             self.COVID_CSV_URL,
-            body=(FIXTURES / "hk_chp" / "covid_situation_sample.csv").read_text(),
+            body=(FIXTURES / "hk_chp" / "covid_situation_sample.csv").read_text(encoding="utf-8"),
             content_type="text/csv",
         )
 
@@ -1739,6 +1762,7 @@ class TestSingaporeNEA:
         assert _parse_nea_date("notadate") == "notadate"
 
     @requires_external_api
+    @tolerates_upstream_failure
     def test_get_weekly_cases_live(self, accessor):
         df = accessor.get_weekly_cases(use_cache=False)
         assert isinstance(df, pd.DataFrame)
@@ -3201,6 +3225,7 @@ class TestDemas:
         )
 
     @requires_external_api
+    @tolerates_upstream_failure
     def test_list_datasets_live(self, accessor):
         accessor._swagger = None
         df = accessor.list_datasets(use_cache=False)
@@ -3209,6 +3234,7 @@ class TestDemas:
         assert "/arboviroses/dengue" in df["endpoint"].values
 
     @requires_external_api
+    @tolerates_upstream_failure
     def test_get_dataset_live(self, accessor):
         df = accessor.get_dataset("/arboviroses/dengue", year=2024, use_cache=False)
         assert isinstance(df, pd.DataFrame)

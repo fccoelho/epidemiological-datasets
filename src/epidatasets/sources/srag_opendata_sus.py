@@ -37,6 +37,7 @@ This accessor is complementary to:
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 import unicodedata
@@ -279,7 +280,7 @@ class SRAGOpenDataSUSAccessor(BaseAccessor):
                             for chunk in resp.iter_content(chunk_size=1 << 20):
                                 if chunk:
                                     fh.write(chunk)
-                    tmp.rename(destination)
+                    os.replace(tmp, destination)
                     return destination
                 except (requests.ConnectionError, requests.Timeout) as exc:
                     if attempt == self.max_retries:

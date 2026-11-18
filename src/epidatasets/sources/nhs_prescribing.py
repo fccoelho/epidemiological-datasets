@@ -34,6 +34,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 from collections.abc import Callable, Iterator
@@ -857,7 +858,7 @@ class NHSPrescribingAccessor(BaseAccessor):
                     for chunk in resp.iter_content(chunk_size=1 << 20):
                         if chunk:
                             fh.write(chunk)
-            tmp.rename(destination)
+            os.replace(tmp, destination)
         except requests.RequestException as exc:
             tmp.unlink(missing_ok=True)
             raise NHSPrescribingAPIError(
