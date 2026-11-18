@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.nz_health import NZHealthAccessor
     from epidatasets.sources.oman_moh import OmanMOHAccessor
     from epidatasets.sources.opendatasus import OpenDataSUSAccessor
+    from epidatasets.sources.opendengue import OpenDengueAccessor
     from epidatasets.sources.owid import OWIDAccessor
     from epidatasets.sources.paho import PAHOAccessor
     from epidatasets.sources.pakistan_nih import PakistanNIHAccessor
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
     from epidatasets.sources.rki_germany import RKIGermanyAccessor
     from epidatasets.sources.singapore_moh import SingaporeMOHAccessor
     from epidatasets.sources.singapore_nea import SingaporeNEAAccessor
+    from epidatasets.sources.srag_opendata_sus import SRAGOpenDataSUSAccessor
     from epidatasets.sources.swiss_bag import SwissBAGAccessor
     from epidatasets.sources.thailand_ddc import ThailandDDCAccessor
     from epidatasets.sources.ukhsa import UKHSAAccessor
@@ -82,6 +84,7 @@ __all__ = [
     "NZHealthAccessor",
     "OmanMOHAccessor",
     "OpenDataSUSAccessor",
+    "OpenDengueAccessor",
     "OWIDAccessor",
     "PAHOAccessor",
     "PakistanNIHAccessor",
@@ -90,6 +93,7 @@ __all__ = [
     "RKIGermanyAccessor",
     "SingaporeMOHAccessor",
     "SingaporeNEAAccessor",
+    "SRAGOpenDataSUSAccessor",
     "SwissBAGAccessor",
     "ThailandDDCAccessor",
     "UKHSAAccessor",

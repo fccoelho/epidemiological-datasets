@@ -1,54 +1,43 @@
 """
-Swiss Federal Office of Public Health (BAG / OFSP) Infectious Diseases Dashboard
+Swiss BAG Infectious Diseases Dashboard (IDD) Accessor
 
-Accessor for the Swiss "Infectious Diseases Dashboard" (IDD), which is
-backed by a public REST API maintained by the Federal Office of Public
-Health (Bundesamt für Gesundheit, BAG).  It is the most complete
-machine-readable open source for Swiss national and cantonal
-infectious-disease surveillance.
+Accesses the official Swiss Federal Office of Public Health
+(Bundesamt für Gesundheit, BAG/OFSP) **Infectious Diseases Dashboard**
+ IDD) REST API — the most complete open machine-readable source for
+Swiss national and cantonal infectious-disease surveillance.
 
-Coverage
---------
-54 topics / 1,610 series sets spanning:
+Coverage (54 topics / 1,600+ series sets):
 
-- mandatory notifiable diseases (measles, tuberculosis, hepatitis A/B/C/E,
-  salmonellosis, campylobacteriosis, EHEC, shigellosis, listeriosis,
-  legionellosis, pertussis, diphtheria, tetanus, brucellosis, tularaemia,
-  tick-borne encephalitis, Lyme borreliosis, Q fever, hantavirus, malaria,
-  dengue, chikungunya, zika, yellow fever, West Nile, mpox, HIV, syphilis,
-  gonorrhoea, chlamydiosis, ...)
-- sentinel systems (influenza-like illness, acute respiratory infection,
-  respiratory pathogens, influenza, COVID-19)
-- environmental surveillance (wastewater viral load and sequencing)
-- antimicrobial resistance, antibiotic usage and prescribing
+- Mandatory notifiable diseases: measles, rubella, diphtheria, pertussis,
+  tuberculosis, hepatitis A/B/C/E, salmonellosis, campylobacteriosis,
+  EHEC, shigellosis, listeriosis, legionellosis, tick-borne encephalitis,
+  Lyme borreliosis, Q fever, hantavirus, malaria, dengue, chikungunya,
+  zika, west nile, mpox, HIV, syphilis, gonorrhoea, chlamydiosis, ...
+- Sentinel systems: ``influenza-like_illness``,
+  ``acute_respiratory_infection``, ``respiratory_pathogens``,
+  ``influenza``, ``covid19``
+- Environmental: ``wastewater_viral_load``, ``wastewater_sequencing``
+- Antimicrobial resistance and consumption: ``antibiotic_resistance``,
+  ``antibiotic_usage``, ``antibiotic_prescriptions``
 
-Geography: Switzerland (national, ``CH``) and its 26 cantons, plus a
-handful of series covering Liechtenstein (``FL``).  Stratification by age
-group, sex, pathogen/subtype, test result and wastewater treatment plant.
-Temporal granularities: ``year``, ``month``, ``week``, ``iso_week``,
-``iso_week_sentinella`` and ``date``.
+Geography: national (``CH``, plus Liechtenstein ``FL`` in some series)
+and cantonal (26 cantons). Stratifications include age group, sex,
+pathogen/subtype, test result and wastewater treatment plant.
 
-Data Sources
-------------
+Data Sources:
 - Dashboard: https://idd.bag.admin.ch
 - API root: https://api.idd.bag.admin.ch/api/v1
+- OpenAPI spec:
+  https://api.idd.bag.admin.ch/swagger-ui/api-doc-middleware.json
 
-Authentication
---------------
-None.  The API is public and unauthenticated.
+Authentication: none required
+Update Frequency: new weekly version every Wednesday (weekly snapshots
+archived since 2023-11-07; some sets lag one version behind — the
+``version``/``source_date`` columns returned by the accessor are
+authoritative)
 
-Update Frequency
-----------------
-A new weekly snapshot every Wednesday (159 archived versions are listed by
-the API, the oldest being ``20231107``).  Note that individual series sets
-may lag one version behind the newest snapshot; the version actually
-returned by the API is recorded in ``DataFrame.attrs``.
-
-License
--------
-Open government data published by the Federal Office of Public Health.
-The API self-describes as a beta version; reference the dashboard and the
-BAG terms of use when redistributing.
+License: Swiss open government data (OGD) published by BAG; confirm the
+exact terms of use on the dashboard footer before redistribution.
 
 Author: Flávio Codeço Coelho
 License: MIT
@@ -57,222 +46,264 @@ License: MIT
 from __future__ import annotations
 
 import logging
-import re
-from collections.abc import Mapping
+import os
+import time
+import warnings
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import pandas as pd
 import requests
 
 from epidatasets._base import BaseAccessor
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-API_ROOT = "https://api.idd.bag.admin.ch/api/v1"
-DEFAULT_TIMEOUT = 60
-EXPORT_FORMATS = ("csv", "json")
-
-#: Temporalities exposed by the API and how their ``x`` values are encoded.
-TEMPORALITIES = {
-    "year": "YYYY",
-    "month": "YYYYMM",
-    "week": "YYYYWW",
-    "iso_week": "YYYYWW",
-    "iso_week_sentinella": "YYYYWW",
-    "date": "YYYYMMDD",
+#: The 26 Swiss cantons (ISO 3166-2:CH two-letter codes).
+CANTONS: dict[str, str] = {
+    "AG": "Aargau",
+    "AI": "Appenzell Innerrhoden",
+    "AR": "Appenzell Ausserrhoden",
+    "BE": "Bern",
+    "BL": "Basel-Landschaft",
+    "BS": "Basel-Stadt",
+    "FR": "Fribourg",
+    "GE": "Geneva",
+    "GL": "Glarus",
+    "GR": "Graubünden",
+    "JU": "Jura",
+    "LU": "Luzern",
+    "NE": "Neuchâtel",
+    "NW": "Nidwalden",
+    "OW": "Obwalden",
+    "SG": "St. Gallen",
+    "SH": "Schaffhausen",
+    "SO": "Solothurn",
+    "SZ": "Schwyz",
+    "TG": "Thurgau",
+    "TI": "Ticino",
+    "UR": "Uri",
+    "VD": "Vaud",
+    "VS": "Valais",
+    "ZG": "Zug",
+    "ZH": "Zürich",
 }
 
-#: Columns of the bulk exports that must stay textual.
-_TEXT_COLUMNS = frozenset(
-    {
-        "valueCategory",
-        "temporal",
-        "temporal_type",
-        "georegion",
-        "georegion_type",
-        "agegroup",
-        "agegroup_type",
-        "sex",
-        "type",
-        "subtype",
-        "pathogen",
-        "testResult",
-        "testResult_type",
-        "defaultView",
-    }
-)
-
-
-class SwissBAGAPIError(RuntimeError):
-    """Raised when the BAG IDD API returns an unexpected response."""
-
-
-def parse_temporal(value: Any, temporality: str) -> str | None:
-    """Convert an API ``x`` value into an ISO-like temporal label.
-
-    Parameters
-    ----------
-    value:
-        Raw ``x`` value returned by the API (usually an integer).
-    temporality:
-        One of :data:`TEMPORALITIES`.
-
-    Returns
-    -------
-    str or None
-        ``2009``, ``2020-01``, ``2026-W41`` or ``2026-10-15`` depending on
-        the temporality, or ``None`` when the value is missing.
-    """
-    if value is None:
-        return None
-    if isinstance(value, float) and pd.isna(value):
-        return None
-    text = str(value).strip()
-    if not text or text.lower() == "nan":
-        return None
-    if temporality == "year":
-        return text[:4]
-    if temporality == "month" and len(text) >= 6:
-        return f"{text[:4]}-{text[4:6]}"
-    if temporality in {"week", "iso_week", "iso_week_sentinella"} and len(text) >= 6:
-        return f"{text[:4]}-W{int(text[4:6]):02d}"
-    if temporality == "date" and len(text) >= 8:
-        return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
-    return text
-
-
-def _slugify(text: str) -> str:
-    """Turn a file-group name into a safe cache filename fragment."""
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("_")
+#: Column order enforced on series query results.
+_SERIES_COLUMNS = [
+    "topic",
+    "chapter",
+    "aggregation",
+    "temporality",
+    "temporal",
+    "value",
+]
 
 
 class SwissBAGAccessor(BaseAccessor):
-    """Accessor for the Swiss BAG Infectious Diseases Dashboard (IDD) API.
+    """
+    Accessor for the Swiss BAG Infectious Diseases Dashboard (IDD) API.
 
-    Examples
-    --------
-    >>> from epidatasets import get_source
-    >>> bag = get_source("swiss_bag")
-    >>>
-    >>> # What is available?
-    >>> bag.list_topics().head()
-    >>> bag.list_sets(topic="dengueFever")
-    >>>
-    >>> # Monthly dengue notifications in Switzerland
-    >>> df = bag.get_series("dengueFever", "cases", "value", "month")
-    >>>
-    >>> # Weekly COVID-19 incidence for every canton
-    >>> cantons = bag.get_series(
-    ...     "covid19",
-    ...     "cases",
-    ...     "incValue",
-    ...     "iso_week",
-    ...     all_series=True,
-    ... )
-    >>>
-    >>> # Bulk export of the sentinel influenza data
-    >>> flu = bag.download_export("INFLUENZA_sentinella")
+    Example:
+        >>> from epidatasets.sources.swiss_bag import SwissBAGAccessor
+        >>> bag = SwissBAGAccessor()
+        >>>
+        >>> # Explore the catalogue
+        >>> bag.list_topics()                    # 54 topics
+        >>> bag.list_sets(topic="dengueFever")   # chapter/aggregation/temporality
+        >>> bag.list_versions().tail()           # weekly snapshots
+        >>>
+        >>> # National monthly dengue cases
+        >>> bag.get_disease_data("dengueFever", temporality="month")
+        >>>
+        >>> # Canton-level weekly COVID-19 incidence (all cantons)
+        >>> bag.get_series(
+        ...     "covid19", "cases", "incValue", "iso_week",
+        ...     filters={"georegion": "canton"}, all_series=True,
+        ... )
+        >>>
+        >>> # Bulk export (cached)
+        >>> bag.download_export("INFLUENZA_sentinella", format="csv")
+
+    Data Sources:
+        - Infectious Diseases Dashboard: https://idd.bag.admin.ch
+        - BAG (Federal Office of Public Health): https://www.bag.admin.ch
     """
 
     source_name: ClassVar[str] = "swiss_bag"
     source_description: ClassVar[str] = (
         "Swiss Federal Office of Public Health (BAG) Infectious Diseases "
-        "Dashboard: national and cantonal surveillance of notifiable "
-        "diseases, sentinel ILI/ARI and respiratory pathogens, wastewater "
-        "viral load and antimicrobial resistance."
+        "Dashboard: national and cantonal surveillance for notifiable "
+        "diseases, sentinel ILI/ARI, respiratory pathogens, wastewater "
+        "viral load/sequencing and antimicrobial resistance/consumption"
     )
     source_url: ClassVar[str] = "https://idd.bag.admin.ch"
+
+    #: Versioned REST API root (unauthenticated; beta but export-stable).
+    API_ROOT = "https://api.idd.bag.admin.ch/api/v1"
+    #: OpenAPI 3.0.1 description of the API.
+    OPENAPI_SPEC_URL = (
+        "https://api.idd.bag.admin.ch/swagger-ui/"
+        "api-doc-middleware.json"
+    )
 
     def __init__(
         self,
         cache_dir: str | Path | None = None,
-        timeout: int = DEFAULT_TIMEOUT,
+        cache_ttl_days: float = 7.0,
+        timeout: int = 120,
     ):
-        if cache_dir:
-            self.cache_dir = Path(cache_dir)
-        else:
-            self.cache_dir = Path.home() / ".cache" / "epidatasets" / "swiss_bag"
+        """
+        Initialize the accessor.
+
+        Args:
+            cache_dir: Directory for cached bulk exports (default
+                ``~/.cache/epidatasets/swiss_bag``).
+            cache_ttl_days: TTL for cached downloads of the *current*
+                version (weekly release cycle). Explicit-version
+                downloads are immutable and cached permanently.
+            timeout: HTTP timeout in seconds.
+        """
+        if cache_dir is None:
+            cache_dir = os.path.join(
+                os.path.expanduser("~"),
+                ".cache",
+                "epidatasets",
+                "swiss_bag",
+            )
+        self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self._cache_ttl_days = cache_ttl_days
         self.timeout = timeout
         self._session = requests.Session()
         self._session.headers.update(
             {
                 "User-Agent": (
-                    "epidatasets/SwissBAGAccessor "
-                    "(+https://github.com/fccoelho/epidemiological-datasets)"
+                    "Mozilla/5.0 (X11; Linux x86_64) epidatasets/"
+                    "SwissBAGAccessor (Research Purpose)"
                 ),
-                "Accept": "application/json",
+                "Accept": "application/json,text/csv,*/*",
             }
         )
+        # in-memory caches for catalogue metadata
         self._sets_cache: list[str] | None = None
+        self._details_cache: dict[str, dict] = {}
 
     # ------------------------------------------------------------------
-    # Catalogue helpers
+    # Internal helpers
     # ------------------------------------------------------------------
+
+    def _get(self, path: str, **kwargs) -> requests.Response:
+        url = f"{self.API_ROOT}{path}"
+        resp = self._session.get(url, timeout=self.timeout, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    @staticmethod
+    def _parse_temporal(x: int, temporality: str) -> str:
+        """
+        Decode the API's integer ``x`` time axis into an ISO-like label.
+
+        Encodings: ``year`` → ``2013``; ``month`` → ``2013-01``;
+        ``week``/``iso_week``/``iso_week_sentinella`` → ``2013-W01``;
+        ``date`` → ``2013-02-10``.
+        """
+        x = int(x)
+        if temporality == "year":
+            return str(x)
+        if temporality == "month":
+            return f"{x // 100:04d}-{x % 100:02d}"
+        if temporality in ("week", "iso_week", "iso_week_sentinella"):
+            return f"{x // 100:04d}-W{x % 100:02d}"
+        if temporality == "date":
+            return f"{x // 10000:04d}-{(x // 100) % 100:02d}-{x % 100:02d}"
+        return str(x)
+
+    def _set_identifier(
+        self,
+        topic: str,
+        chapter: str,
+        aggregation: str,
+        temporality: str,
+    ) -> str:
+        return f"{topic}/{chapter}/{aggregation}/{temporality}"
+
+    # ------------------------------------------------------------------
+    # Catalogue discovery
+    # ------------------------------------------------------------------
+
     def list_countries(self) -> pd.DataFrame:
-        """Return the countries covered by the dashboard (CH and LI)."""
+        """
+        Countries covered by the dashboard.
+
+        Liechtenstein (``FL``) is reported jointly with Switzerland
+        (``CHFL``) in several series; it is only surfaced where a series
+        carries the ``country`` property.
+
+        Returns:
+            DataFrame with ``country_code`` and ``country_name``.
+        """
         return pd.DataFrame(
             [
                 {"country_code": "CH", "country_name": "Switzerland"},
-                {"country_code": "LI", "country_name": "Liechtenstein"},
+                {"country_code": "FL", "country_name": "Liechtenstein"},
             ]
         )
 
-    def list_versions(self, limit: int | None = None) -> pd.DataFrame:
-        """List the weekly data snapshots published by the API.
-
-        Parameters
-        ----------
-        limit:
-            Return only the ``limit`` most recent versions.
-
-        Returns
-        -------
-        pandas.DataFrame
-            Columns ``version`` (``YYYYMMDD`` string) and ``date``.
-        """
-        payload = self._get("version")
-        names = [item["name"] for item in payload if item.get("name")]
-        if limit is not None:
-            names = names[:limit]
+    @staticmethod
+    def list_cantons() -> pd.DataFrame:
+        """The 26 Swiss cantons (``canton`` code and ``canton_name``)."""
         return pd.DataFrame(
-            {
-                "version": names,
-                "date": pd.to_datetime(names, format="%Y%m%d", errors="coerce"),
-            }
+            [
+                {"canton": code, "canton_name": name}
+                for code, name in CANTONS.items()
+            ]
         )
 
+    def list_versions(self) -> pd.DataFrame:
+        """
+        Weekly data versions available in the API.
+
+        Returns:
+            DataFrame with ``version`` (e.g. ``"20261014"``) and
+            ``date`` (``"2026-10-14"``), newest first.
+        """
+        payload = self._get("/version").json()
+        rows = []
+        for entry in payload:
+            name = str(entry.get("name", ""))
+            # names are YYYYMMDD, with rare re-run suffixes (e.g. "20250827_V2")
+            digits = name.split("_", 1)[0]
+            date = None
+            if len(digits) == 8 and digits.isdigit():
+                date = f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+            rows.append({"version": name, "date": date})
+        logger.info(f"Found {len(rows)} IDD data versions")
+        return pd.DataFrame(rows)
+
+    @property
     def current_version(self) -> str:
-        """Return the version of the newest available snapshot."""
-        payload = self._get("data/version")
-        if isinstance(payload, dict):
-            for key in ("version", "name", "data"):
-                value = payload.get(key)
-                if isinstance(value, str):
-                    return value
-        return str(payload)
+        """Identifier of the current data version (e.g. ``"20261014"``)."""
+        return str(self._get("/data/version").json()["name"])
 
-    def list_sets(
-        self,
-        topic: str | None = None,
-        chapter: str | None = None,
-        aggregation: str | None = None,
-        temporality: str | None = None,
-    ) -> pd.DataFrame:
-        """List the series sets (``topic/chapter/aggregation/temporality``).
+    def list_sets(self, topic: str | None = None) -> pd.DataFrame:
+        """
+        List all series sets (``topic/chapter/aggregation/temporality``).
 
-        Each row of the returned DataFrame is one queryable series set.
+        Args:
+            topic: Optional topic filter (e.g. ``"dengueFever"``).
+
+        Returns:
+            DataFrame with ``topic``, ``chapter``, ``aggregation`` and
+            ``temporality`` columns.
         """
         if self._sets_cache is None:
-            payload = self._get("data/sets")
-            if not isinstance(payload, list):
-                raise SwissBAGAPIError("Unexpected response for /data/sets")
-            self._sets_cache = [str(item) for item in payload]
-
+            self._sets_cache = self._get("/data/sets").json()
+            logger.info(f"Fetched {len(self._sets_cache)} IDD series sets")
         rows = []
-        for set_id in self._sets_cache:
-            parts = set_id.split("/")
+        for entry in self._sets_cache:
+            parts = entry.split("/")
             if len(parts) != 4:
                 continue
             rows.append(
@@ -281,57 +312,40 @@ class SwissBAGAccessor(BaseAccessor):
                     "chapter": parts[1],
                     "aggregation": parts[2],
                     "temporality": parts[3],
-                    "set_id": set_id,
                 }
             )
         df = pd.DataFrame(rows)
-        if df.empty:
-            return df
-        filters = {
-            "topic": topic,
-            "chapter": chapter,
-            "aggregation": aggregation,
-            "temporality": temporality,
-        }
-        for column, value in filters.items():
-            if value is not None:
-                df = df[df[column] == value]
-        return df.reset_index(drop=True)
+        if topic is not None:
+            df = df[df["topic"] == topic].reset_index(drop=True)
+            if df.empty:
+                known = sorted({r["topic"] for r in rows})
+                raise ValueError(
+                    f"Unknown topic '{topic}'. "
+                    f"Use list_topics(); {len(known)} topics available."
+                )
+        return df
 
     def list_topics(self) -> pd.DataFrame:
-        """Summarise the available topics and their number of sets."""
+        """
+        Summarise the available topics.
+
+        Returns:
+            DataFrame with ``topic``, ``n_sets``, ``chapters``,
+            ``aggregations`` and ``temporalities`` (list columns).
+        """
         sets = self.list_sets()
-        if sets.empty:
-            return sets
         grouped = (
             sets.groupby("topic")
             .agg(
-                n_sets=("set_id", "size"),
-                chapters=("chapter", lambda s: ", ".join(sorted(set(s)))),
-                temporalities=(
-                    "temporality",
-                    lambda s: ", ".join(sorted(set(s))),
-                ),
+                n_sets=("chapter", "size"),
+                chapters=("chapter", lambda s: sorted(set(s))),
+                aggregations=("aggregation", lambda s: sorted(set(s))),
+                temporalities=("temporality", lambda s: sorted(set(s))),
             )
             .reset_index()
-            .sort_values("topic")
-            .reset_index(drop=True)
         )
+        logger.info(f"Found {len(grouped)} IDD topics")
         return grouped
-
-    def list_export_files(self, version: str | None = None) -> list[str]:
-        """List the bulk-export file groups for a version.
-
-        Only 14 file groups are exported in bulk; every other topic has to
-        be queried through :meth:`get_series`.
-        """
-        version = version or self.current_version()
-        payload = self._get(f"export/{version}/files")
-        if not isinstance(payload, list):
-            raise SwissBAGAPIError(
-                f"Unexpected response for /export/{version}/files"
-            )
-        return [str(item) for item in payload]
 
     def get_set_details(
         self,
@@ -339,320 +353,341 @@ class SwissBAGAccessor(BaseAccessor):
         chapter: str,
         aggregation: str,
         temporality: str,
-    ) -> dict[str, Any]:
-        """Return the metadata (properties, series configurations) of a set."""
-        set_id = self._set_id(topic, chapter, aggregation, temporality)
-        payload = self._get(f"data/{set_id}/details")
-        if not isinstance(payload, dict):
-            raise SwissBAGAPIError(f"Unexpected response for {set_id}/details")
-        return payload
+    ) -> dict:
+        """
+        Fetch the metadata of one series set: source system, data
+        version, the ``properties`` map (possible values per property)
+        and ``availableSeriesConfigurations`` (the valid POST bodies).
+
+        Args:
+            topic: Topic (e.g. ``"measles"``).
+            chapter: Chapter (e.g. ``"cases"``).
+            aggregation: Aggregation (e.g. ``"value"``).
+            temporality: Temporality (e.g. ``"month"``).
+
+        Returns:
+            The raw JSON metadata dict.
+        """
+        identifier = self._set_identifier(
+            topic, chapter, aggregation, temporality
+        )
+        if identifier not in self._details_cache:
+            known = self.list_sets()
+            known_sets = set(
+                known["topic"]
+                + "/"
+                + known["chapter"]
+                + "/"
+                + known["aggregation"]
+                + "/"
+                + known["temporality"]
+            )
+            if identifier not in known_sets:
+                raise ValueError(
+                    f"Unknown series set '{identifier}'. "
+                    "Use list_sets() to browse available sets."
+                )
+            self._details_cache[identifier] = self._get(
+                f"/data/{identifier}/details"
+            ).json()
+        return self._details_cache[identifier]
 
     # ------------------------------------------------------------------
     # Series queries
     # ------------------------------------------------------------------
+
+    def _query_series(
+        self,
+        topic: str,
+        chapter: str,
+        aggregation: str,
+        temporality: str,
+        body: dict,
+    ) -> pd.DataFrame:
+        """POST one series query (body from ``availableSeriesConfigurations``)."""
+        identifier = self._set_identifier(
+            topic, chapter, aggregation, temporality
+        )
+        resp = self._session.post(
+            f"{self.API_ROOT}/data/{identifier}",
+            json=body,
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+
+        rows: list[dict] = []
+        for point in payload.get("values", []):
+            row: dict = {
+                "temporal": self._parse_temporal(
+                    point.get("x"), temporality
+                ),
+                "value": point.get("y"),
+            }
+            row.update(point.get("properties") or {})
+            row.update(body)
+            row["topic"] = topic
+            row["chapter"] = chapter
+            row["aggregation"] = aggregation
+            row["temporality"] = temporality
+            row["source"] = payload.get("source")
+            row["source_date"] = payload.get("sourceDate")
+            row["version"] = payload.get("version")
+            rows.append(row)
+
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return pd.DataFrame(
+                columns=[
+                    *_SERIES_COLUMNS,
+                    "source",
+                    "source_date",
+                    "version",
+                ]
+            )
+        ordered = [
+            *_SERIES_COLUMNS,
+            *(c for c in df.columns if c not in _SERIES_COLUMNS),
+        ]
+        return df[ordered]
+
     def get_series(
         self,
         topic: str,
         chapter: str,
         aggregation: str,
         temporality: str,
-        filters: Mapping[str, Any] | None = None,
+        filters: dict | None = None,
         all_series: bool = False,
-        max_series: int = 200,
-        group_by: str | None = None,
     ) -> pd.DataFrame:
-        """Query one or more time series from a series set.
-
-        Parameters
-        ----------
-        topic, chapter, aggregation, temporality:
-            Identify the series set; see :meth:`list_sets`.
-        filters:
-            Property-to-value mapping used as the request body, e.g.
-            ``{"georegion": "canton", "canton": "ZH"}``.  When omitted, the
-            series configurations advertised by the API are used (the first
-            one by default, all of them with ``all_series=True``).
-        all_series:
-            Query every configuration advertised for the set and stack the
-            results, adding one column per filter property.
-        max_series:
-            Safety limit for ``all_series``.
-        group_by:
-            Optional comma-separated property list passed to the API as
-            ``?groupBy=``; the grouped response is flattened into columns.
-
-        Returns
-        -------
-        pandas.DataFrame
-            Columns ``temporal`` and ``value`` followed by the filter
-            properties and the per-point properties (``trend``,
-            ``dataComplete``, ...).  ``DataFrame.attrs`` carries ``set_id``,
-            ``version``, ``source`` and ``source_date``.
         """
-        set_id = self._set_id(topic, chapter, aggregation, temporality)
+        Query one series set as a tidy DataFrame.
 
-        if filters is not None:
-            configurations: list[dict[str, Any]] = [dict(filters)]
-        else:
-            details = self.get_set_details(
-                topic, chapter, aggregation, temporality
+        The POST body must match one of the set's
+        ``availableSeriesConfigurations`` (an empty body yields HTTP
+        404), so the set ``/details`` metadata is fetched first and the
+        body is built from it.
+
+        Args:
+            topic: Topic (e.g. ``"covid19"``).
+            chapter: Chapter (e.g. ``"cases"``).
+            aggregation: Aggregation (e.g. ``"incValue"``).
+            temporality: Temporality (e.g. ``"iso_week"``).
+            filters: Optional property→value constraints applied to the
+                configuration (e.g. ``{"georegion": "canton",
+                "canton": "ZH"}``). Property values must be valid for
+                the set (see :meth:`get_set_details`).
+            all_series: Fan out over every
+                ``availableSeriesConfigurations`` entry matching
+                *filters* and concatenate the results (the rows carry
+                the configuration properties as columns).
+
+        Returns:
+            Tidy DataFrame with ``topic``, ``chapter``, ``aggregation``,
+            ``temporality``, ``temporal`` (parsed from the integer time
+            axis), ``value``, per-value properties (``trend``,
+            ``dataComplete``, ...), the configuration properties
+            (``georegion``, ``canton``, ``agegroup``, ...) and
+            ``source``/``source_date``/``version``.
+        """
+        details = self.get_set_details(
+            topic, chapter, aggregation, temporality
+        )
+        configs = details.get("availableSeriesConfigurations") or []
+        if not configs:
+            raise ValueError(
+                f"Series set {topic}/{chapter}/{aggregation}/{temporality} "
+                "exposes no availableSeriesConfigurations"
             )
-            configurations = [
+        filters = dict(filters or {})
+
+        if all_series:
+            selected = [
                 dict(cfg)
-                for cfg in details.get("availableSeriesConfigurations") or []
+                for cfg in configs
+                if all(cfg.get(k) == v for k, v in filters.items())
             ]
-            if not configurations:
-                raise SwissBAGAPIError(
-                    f"No series configuration available for {set_id}"
-                )
-            if not all_series:
-                configurations = configurations[:1]
-            elif len(configurations) > max_series:
+            if not selected:
                 raise ValueError(
-                    f"{set_id} exposes {len(configurations)} series; "
-                    f"pass filters or raise max_series (currently {max_series})"
+                    "No series configuration matches filters "
+                    f"{filters}; {len(configs)} configurations "
+                    "available (see get_set_details())"
                 )
-
-        frames = []
-        for configuration in configurations:
-            payload = self._query(set_id, configuration, group_by=group_by)
-            frame = self._values_to_frame(
-                payload.get("values"),
-                temporality=temporality,
-                filters=configuration,
-                group_by=group_by,
+            logger.info(
+                f"Querying {len(selected)} series configuration(s) of "
+                f"{topic}/{chapter}/{aggregation}/{temporality}"
             )
-            frame.attrs["version"] = payload.get("version")
-            frame.attrs["source"] = payload.get("source")
-            frame.attrs["source_date"] = payload.get("sourceDate")
-            frames.append(frame)
-
-        if len(frames) == 1:
-            result = frames[0]
         else:
-            non_empty = [frame for frame in frames if not frame.empty]
-            if not non_empty:
-                result = frames[0]
-                result.attrs["set_id"] = set_id
-                return result
-            result = pd.concat(non_empty, ignore_index=True)
-        result.attrs.setdefault("version", frames[0].attrs.get("version"))
-        result.attrs["set_id"] = set_id
+            base = next(
+                (
+                    cfg
+                    for cfg in configs
+                    if all(cfg.get(k) == v for k, v in filters.items())
+                ),
+                None,
+            )
+            if base is None:
+                base = dict(configs[0])
+                unknown = [k for k in filters if k not in base]
+                if unknown:
+                    raise ValueError(
+                        f"Filter properties {unknown} are not part of the "
+                        f"series configuration (properties: "
+                        f"{sorted(base)}); see get_set_details()"
+                    )
+            body = dict(base)
+            body.update(filters)
+            selected = [body]
+
+        frames = [
+            self._query_series(
+                topic, chapter, aggregation, temporality, body
+            )
+            for body in selected
+        ]
+        # fan-out frames may carry different per-value property columns;
+        # the union-with-NaN behaviour is exactly what we want
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            result = pd.concat(frames, ignore_index=True)
+        logger.info(
+            f"Retrieved {len(result)} values for "
+            f"{topic}/{chapter}/{aggregation}/{temporality}"
+        )
         return result
 
     def get_disease_data(
         self,
         topic: str,
-        aggregation: str = "value",
         temporality: str = "month",
+        aggregation: str = "value",
         chapter: str | None = None,
-        **kwargs: Any,
+        filters: dict | None = None,
     ) -> pd.DataFrame:
-        """Query a disease topic resolving the chapter automatically.
-
-        ``chapter`` is inferred from :meth:`list_sets`, preferring
-        ``cases``, then ``consultations``, ``detections`` and finally the
-        first available chapter.
         """
-        available = self.list_sets(
-            topic=topic, aggregation=aggregation, temporality=temporality
-        )
-        if available.empty:
-            raise SwissBAGAPIError(
-                f"No set found for topic={topic!r}, aggregation="
-                f"{aggregation!r}, temporality={temporality!r}"
-            )
+        Convenience wrapper: resolve the chapter of a disease topic and
+        fetch its series.
+
+        Args:
+            topic: Disease topic (e.g. ``"dengueFever"``).
+            temporality: Temporality (default ``"month"``).
+            aggregation: Aggregation (default ``"value"``, i.e. case
+                counts; use ``"incValue"`` for incidence per 100k).
+            chapter: Optional explicit chapter (default: ``"cases"``
+                when available, otherwise the first alphabetically).
+            filters: Optional property→value constraints (see
+                :meth:`get_series`).
+
+        Returns:
+            Tidy DataFrame (see :meth:`get_series`).
+        """
+        sets = self.list_sets(topic=topic)
+        if sets.empty:
+            raise ValueError(f"Unknown topic '{topic}'")
         if chapter is None:
-            chapters = list(dict.fromkeys(available["chapter"]))
-            for preferred in ("cases", "consultations", "detections", "samples"):
-                if preferred in chapters:
-                    chapter = preferred
-                    break
-            else:
-                chapter = chapters[0]
+            chapters = sorted(set(sets["chapter"]))
+            chapter = "cases" if "cases" in chapters else chapters[0]
+        available = sets[sets["chapter"] == chapter]
+        if temporality not in set(available["temporality"]):
+            raise ValueError(
+                f"Topic '{topic}' chapter '{chapter}' has no "
+                f"'{temporality}' temporality; available: "
+                f"{sorted(set(available['temporality']))}"
+            )
+        if aggregation not in set(
+            available[available["temporality"] == temporality][
+                "aggregation"
+            ]
+        ):
+            raise ValueError(
+                f"Topic '{topic}' chapter '{chapter}' temporality "
+                f"'{temporality}' has no '{aggregation}' aggregation; "
+                f"available: "
+                f"{sorted(set(available[available['temporality'] == temporality]['aggregation']))}"
+            )
         return self.get_series(
-            topic, chapter, aggregation, temporality, **kwargs
+            topic, chapter, aggregation, temporality, filters=filters
         )
 
     # ------------------------------------------------------------------
     # Bulk exports
     # ------------------------------------------------------------------
-    def export_path(
-        self, file: str, format: str = "csv", version: str | None = None
-    ) -> Path:
-        """Return the local cache path of a bulk export."""
-        if format not in EXPORT_FORMATS:
-            raise ValueError(
-                f"format must be one of {EXPORT_FORMATS}, got {format!r}"
-            )
-        version = version or self.current_version()
-        return self.cache_dir / f"{version}_{_slugify(file)}.{format}"
+
+    def list_export_files(self, version: str | None = None) -> list[str]:
+        """
+        Bulk-export file groups available for *version*.
+
+        Args:
+            version: Data version (default: current). The export
+                controller is the API's most stable part; prefer bulk
+                exports where a group exists for the topic of interest.
+
+        Returns:
+            Sorted list of file group names (e.g.
+            ``"INFLUENZA_sentinella"``).
+        """
+        version = version or self.current_version
+        files = self._get(f"/export/{version}/files").json()
+        logger.info(f"Found {len(files)} export file groups for {version}")
+        return sorted(str(f) for f in files)
 
     def download_export(
         self,
         file: str,
         format: str = "csv",
         version: str | None = None,
-        use_cache: bool = True,
-        **read_kwargs: Any,
+        max_age_days: float | None = None,
     ) -> pd.DataFrame:
-        """Download (or reuse the cached copy of) a bulk export.
-
-        Parameters
-        ----------
-        file:
-            Export file group, see :meth:`list_export_files`.
-        format:
-            ``"csv"`` (default) or ``"json"``.
-        version:
-            Snapshot version; defaults to the current one.
-        use_cache:
-            Reuse a previously downloaded copy when present.
-        **read_kwargs:
-            Forwarded to :func:`pandas.read_csv`.
         """
-        if format not in EXPORT_FORMATS:
-            raise ValueError(
-                f"format must be one of {EXPORT_FORMATS}, got {format!r}"
-            )
-        version = version or self.current_version()
-        path = self.export_path(file, format=format, version=version)
-        if not (use_cache and path.exists() and path.stat().st_size > 0):
-            url = f"{API_ROOT}/export/{version}/{file}/{format}"
-            logger.info("Downloading %s", url)
-            response = self._session.get(url, timeout=self.timeout)
-            if response.status_code != 200:
-                raise SwissBAGAPIError(
-                    f"Export {file!r} ({format}) failed with HTTP "
-                    f"{response.status_code}"
-                )
-            path.write_bytes(response.content)
+        Download (and cache) a bulk export as a DataFrame.
 
+        Args:
+            file: Export file group (see :meth:`list_export_files`).
+            format: ``"csv"`` or ``"json"``.
+            version: Data version (default: current). Explicit-version
+                downloads are immutable and cached permanently.
+            max_age_days: Optional cache TTL override (default: the
+                accessor's ``cache_ttl_days``; only applied to downloads
+                of the *current* version).
+
+        Returns:
+            DataFrame of the export records (one row per
+            geography×stratification×period).
+        """
+        if format not in ("csv", "json"):
+            raise ValueError(f"Unsupported format '{format}' (csv|json)")
+        explicit_version = version is not None
+        version = version or self.current_version
+
+        cache_path = self.cache_dir / f"export_{version}_{file}.{format}"
+        ttl = (
+            self._cache_ttl_days
+            if max_age_days is None
+            else max_age_days
+        )
+        if cache_path.exists():
+            if explicit_version:
+                logger.info(f"Cache hit: {cache_path.name}")
+                return self._read_export(cache_path, format)
+            age_days = (
+                time.time() - cache_path.stat().st_mtime
+            ) / 86400
+            if age_days < ttl:
+                logger.info(f"Cache hit: {cache_path.name}")
+                return self._read_export(cache_path, format)
+
+        url = f"{self.API_ROOT}/export/{version}/{file}/{format}"
+        logger.info(f"Downloading export {file} ({format}) for {version}")
+        resp = self._session.get(url, timeout=self.timeout)
+        resp.raise_for_status()
+        cache_path.write_bytes(resp.content)
+        return self._read_export(cache_path, format)
+
+    @staticmethod
+    def _read_export(path: Path, format: str) -> pd.DataFrame:
         if format == "csv":
-            frame = pd.read_csv(path, low_memory=False, **read_kwargs)
-        else:
-            frame = pd.read_json(path)
-        frame = self._clean_export_frame(frame)
-        frame.attrs["version"] = version
-        frame.attrs["file"] = file
-        return frame
+            return pd.read_csv(path)
+        import json
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-    def _set_id(
-        self, topic: str, chapter: str, aggregation: str, temporality: str
-    ) -> str:
-        return f"{topic}/{chapter}/{aggregation}/{temporality}"
-
-    def _get(self, path: str) -> Any:
-        url = f"{API_ROOT}/{path}"
-        response = self._session.get(url, timeout=self.timeout)
-        if response.status_code >= 400:
-            raise SwissBAGAPIError(
-                f"GET {url} failed with HTTP {response.status_code}"
-            )
-        return response.json()
-
-    def _query(
-        self,
-        set_id: str,
-        configuration: Mapping[str, Any],
-        group_by: str | None = None,
-    ) -> dict[str, Any]:
-        url = f"{API_ROOT}/data/{set_id}"
-        params = {"groupBy": group_by} if group_by else None
-        response = self._session.post(
-            url, json=dict(configuration), params=params, timeout=self.timeout
-        )
-        if response.status_code == 404:
-            raise SwissBAGAPIError(
-                f"Series {set_id} not found for configuration "
-                f"{dict(configuration)}; check get_set_details()"
-            )
-        if response.status_code >= 400:
-            raise SwissBAGAPIError(
-                f"POST {url} failed with HTTP {response.status_code}"
-            )
-        payload = response.json()
-        if not isinstance(payload, dict):
-            raise SwissBAGAPIError(f"Unexpected response for {set_id}")
-        return payload
-
-    def _values_to_frame(
-        self,
-        values: Any,
-        temporality: str,
-        filters: Mapping[str, Any] | None = None,
-        group_by: str | None = None,
-    ) -> pd.DataFrame:
-        group_keys = (
-            [key.strip() for key in group_by.split(",") if key.strip()]
-            if group_by
-            else []
-        )
-        rows: list[dict[str, Any]] = []
-
-        if isinstance(values, dict):
-            for key, series in values.items():
-                key_parts = [part.strip() for part in str(key).split(",")]
-                for item in series or []:
-                    row: dict[str, Any] = {}
-                    for index, name in enumerate(group_keys):
-                        if index < len(key_parts):
-                            row[name] = key_parts[index]
-                    row.update(self._point_to_row(item, temporality, filters))
-                    rows.append(row)
-        else:
-            for item in values or []:
-                rows.append(self._point_to_row(item, temporality, filters))
-
-        if not rows:
-            return pd.DataFrame(columns=["temporal", "value"])
-
-        frame = pd.DataFrame(rows)
-        leading = [column for column in ("temporal", "value") if column in frame]
-        ordered = leading + [c for c in frame.columns if c not in leading]
-        return frame[ordered]
-
-    @staticmethod
-    def _point_to_row(
-        item: Mapping[str, Any],
-        temporality: str,
-        filters: Mapping[str, Any] | None,
-    ) -> dict[str, Any]:
-        row: dict[str, Any] = {}
-        properties = item.get("properties") or {}
-        if isinstance(properties, dict):
-            row.update(properties)
-        if filters:
-            row.update(dict(filters))
-        row["temporal"] = parse_temporal(item.get("x"), temporality)
-        row["value"] = item.get("y")
-        return row
-
-    @staticmethod
-    def _clean_export_frame(frame: pd.DataFrame) -> pd.DataFrame:
-        """Replace the ``"NA"`` marker and coerce numeric columns."""
-        frame = frame.replace({"NA": pd.NA, "": pd.NA})
-        for column in frame.columns:
-            if column in _TEXT_COLUMNS:
-                continue
-            if frame[column].dtype != object:
-                continue
-            converted = pd.to_numeric(frame[column], errors="coerce")
-            if converted.notna().sum() >= frame[column].notna().sum():
-                frame[column] = converted
-        return frame
-
-    def __repr__(self) -> str:
-        return f"SwissBAGAccessor(cache_dir={str(self.cache_dir)!r})"
-
-
-__all__ = [
-    "SwissBAGAccessor",
-    "SwissBAGAPIError",
-    "parse_temporal",
-    "API_ROOT",
-    "TEMPORALITIES",
-]
+        records = json.loads(path.read_text())
+        return pd.DataFrame(records)

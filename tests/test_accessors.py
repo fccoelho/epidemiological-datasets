@@ -480,6 +480,253 @@ class TestChinaCDC:
         assert row["severe_cases"] == 487
         assert row["new_deaths"] == 1
 
+    # ------------------------------------------------------------------
+    # Weekly respiratory sentinel surveillance (哨点监测)
+    # ------------------------------------------------------------------
+
+    SENTINEL_ARTICLE_URL = (
+        "https://www.chinacdc.cn/jksj/jksj04_14275/"
+        "202610/t20261015_1842282.html"
+    )
+
+    def _mock_sentinel_listing(self, rsps, accessor, page1=True):
+        rsps.add(
+            responses.GET,
+            accessor.SENTINEL_MIRROR_URL,
+            body=(FIXTURES / "china_cdc" / "sentinel_listing.html").read_text(),
+            content_type="text/html",
+        )
+        if page1:
+            rsps.add(
+                responses.GET,
+                f"{accessor.SENTINEL_MIRROR_URL}index_1.html",
+                body="not found",
+                status=404,
+            )
+
+    def test_respiratory_pathogen_map(self):
+        from epidatasets.sources.china_cdc import RESPIRATORY_PATHOGEN_MAP
+
+        assert RESPIRATORY_PATHOGEN_MAP["新型冠状病毒"] == "SARS-CoV-2"
+        assert RESPIRATORY_PATHOGEN_MAP["流感病毒"] == "Influenza"
+        assert RESPIRATORY_PATHOGEN_MAP["呼吸道合胞病毒"] == "RSV"
+        assert RESPIRATORY_PATHOGEN_MAP["人偏肺病毒"] == "Human metapneumovirus"
+        assert RESPIRATORY_PATHOGEN_MAP["肺炎支原体"] == "Mycoplasma pneumoniae"
+        assert len(RESPIRATORY_PATHOGEN_MAP) == 11
+
+    def test_list_respiratory_sentinel_reports(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor, page1=False)
+            df = accessor.list_respiratory_sentinel_reports(max_pages=1)
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert {"year", "week", "title", "publish_date", "url"} <= set(df.columns)
+        assert (df["year"] == 2026).all()
+        assert df["week"].is_monotonic_increasing
+        assert df["url"].str.endswith(".html").all()
+        assert df["publish_date"].notna().all()
+
+    def test_list_respiratory_sentinel_reports_walks_pagination(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+        older_page = """
+        <div class="erjiRightBox"><ul class="xw_list">
+        <li><dl><dd>
+        <a href="./202607/t20260723_1836001.html">全国急性呼吸道传染病哨点监测情况（2026年第30周）<span>2026-07-23 </span></a>
+        </dd></dl></li>
+        <li><dl><dd>
+        <a href="./202607/t20260716_1835002.html">全国急性呼吸道传染病哨点监测情况（2026年第29周）<span>2026-07-16 </span></a>
+        </dd></dl></li>
+        </ul></div>
+        """
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor, page1=False)
+            rsps.add(
+                responses.GET,
+                f"{accessor.SENTINEL_MIRROR_URL}index_1.html",
+                body=older_page,
+                content_type="text/html",
+            )
+            df = accessor.list_respiratory_sentinel_reports()
+
+        # 12 entries from fixture page 0 + week 29 from the mocked second
+        # page (week 30 duplicates and is dropped); the walk stops because
+        # the second page has no further pagination
+        assert len(df) == 13
+        assert df["week"].is_monotonic_increasing
+        assert df["week"].iloc[0] == 29
+
+    def test_get_respiratory_sentinel_report(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            report = accessor.get_respiratory_sentinel_report(2026, 41)
+
+        assert report["year"] == 2026
+        assert report["week"] == 41
+        assert report["title"].endswith("（2026年第41周）")
+        assert report["publish_date"] == "2026-10-15"
+        assert report["url"] == self.SENTINEL_ARTICLE_URL
+        assert report["ili_percent_national"] == 3.8
+        assert report["ili_percent_south"] == 4.6
+        assert report["ili_percent_north"] == 3.0
+        assert report["sentinel_hospitals"] == 216
+        assert "A(H3N2)" in report["narrative"]
+
+        pos = report["positivity"]
+        assert len(pos) == 11
+        cov = pos[pos["pathogen"] == "SARS-CoV-2"].iloc[0]
+        assert cov["ili_positivity_pct"] == 3.4
+        assert cov["ili_change_vs_previous_week"] == -1.6
+        assert cov["sari_positivity_pct"] == 2.1
+        assert cov["sari_change_vs_previous_week"] == -0.5
+        flu = pos[pos["pathogen"] == "Influenza"].iloc[0]
+        assert flu["ili_positivity_pct"] == 13.6
+        assert flu["ili_change_vs_previous_week"] == 2.4
+        assert (
+            pos["pathogen"].str.contains("新型冠状病毒").sum() == 0
+        )  # English names throughout
+
+        region = report["top_pathogens_by_region"]
+        south_ili_top = region[
+            (region["region"] == "south")
+            & (region["syndrome"] == "ili_consultation")
+            & (region["rank"] == 1)
+        ]
+        assert south_ili_top.iloc[0]["pathogen"] == "Influenza"
+        # week 41 north/SARI rank 3 is a printed three-way tie
+        north_sari_third = region[
+            (region["region"] == "north")
+            & (region["syndrome"] == "sari_hospitalised")
+            & (region["rank"] == 3)
+        ]
+        assert set(north_sari_third["pathogen"]) == {
+            "SARS-CoV-2",
+            "Human metapneumovirus",
+            "Parainfluenza",
+        }
+
+        age = report["top_pathogens_by_age"]
+        assert set(age["age_group"]) == {"0-4", "5-14", "15-59", "60+"}
+        assert len(age) == 24  # 4 age groups x 2 syndromes x 3 ranks
+        youngest = age[
+            (age["age_group"] == "0-4")
+            & (age["syndrome"] == "ili_consultation")
+            & (age["rank"] == 1)
+        ]
+        assert youngest.iloc[0]["pathogen"] == "Rhinovirus"
+
+    def test_get_respiratory_sentinel_report_caches_article(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            accessor.get_respiratory_sentinel_report(2026, 41)
+            rsps.assert_call_count(self.SENTINEL_ARTICLE_URL, 1)
+
+        # second call within the TTL must be served from the cache: the
+        # article is not registered, so any HTTP hit would raise
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            report = accessor.get_respiratory_sentinel_report(2026, 41)
+
+        assert report["ili_percent_national"] == 3.8
+
+    def test_get_respiratory_sentinel_surveillance(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            surv = accessor.get_respiratory_sentinel_surveillance(weeks=1)
+
+        assert isinstance(surv, pd.DataFrame)
+        assert {
+            "year",
+            "week",
+            "publish_date",
+            "syndrome",
+            "pathogen",
+            "positivity_pct",
+            "change_vs_previous_week",
+        } <= set(surv.columns)
+        assert len(surv) == 22  # 11 pathogens x 2 syndromes
+        assert set(surv["syndrome"]) == {"ili_consultation", "sari_hospitalised"}
+        assert (surv["week"] == 41).all()
+        ili = surv[surv["syndrome"] == "ili_consultation"]
+        assert ili["positivity_pct"].max() == 13.6  # Influenza leads
+
+    def test_get_respiratory_sentinel_ili(self, tmp_path):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor(cache_dir=str(tmp_path))
+
+        with responses.RequestsMock() as rsps:
+            self._mock_sentinel_listing(rsps, accessor)
+            rsps.add(
+                responses.GET,
+                self.SENTINEL_ARTICLE_URL,
+                body=(FIXTURES / "china_cdc" / "sentinel_article_w41.html").read_text(),
+                content_type="text/html",
+            )
+            ili = accessor.get_respiratory_sentinel_ili(weeks=1)
+
+        assert isinstance(ili, pd.DataFrame)
+        assert len(ili) == 1
+        row = ili.iloc[0]
+        assert row["year"] == 2026
+        assert row["week"] == 41
+        assert row["ili_percent_national"] == 3.8
+        assert row["ili_percent_south"] == 4.6
+        assert row["ili_percent_north"] == 3.0
+
+    @requires_external_api
+    def test_respiratory_sentinel_live(self):
+        from epidatasets.sources.china_cdc import ChinaCDCAccessor
+
+        accessor = ChinaCDCAccessor()
+        reports = accessor.list_respiratory_sentinel_reports(max_pages=1)
+        assert not reports.empty
+
+        latest = reports.iloc[-1]
+        report = accessor.get_respiratory_sentinel_report(
+            int(latest["year"]), int(latest["week"])
+        )
+        assert report["ili_percent_national"] is not None
+        assert not report["positivity"].empty
+        assert not report["top_pathogens_by_age"].empty
+
     def test_get_vaccination_coverage_returns_dataframe(self):
         from epidatasets.sources.china_cdc import ChinaCDCAccessor
         accessor = ChinaCDCAccessor()
@@ -487,6 +734,390 @@ class TestChinaCDC:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 1
         assert result.iloc[0]["vaccine"] == "EPI"
+
+
+class TestSwissBAG:
+    API = "https://api.idd.bag.admin.ch/api/v1"
+
+    SETS = [
+        "dengueFever/cases/value/month",
+        "dengueFever/cases/incValue/month",
+        "covid19/cases/incValue/iso_week",
+        "measles/cases/value/year",
+    ]
+
+    DENGUE_DETAILS = {
+        "identifier": "dengueFever/cases/value/month",
+        "source": "mandatory_reporting_system",
+        "sourceDate": "2026-10-06",
+        "version": "20261007",
+        "properties": {
+            "CHFL": {"allValue": "all", "possibleValues": ["CHFL", "all"]},
+            "georegion": {"allValue": None, "possibleValues": ["CHFL", "country"]},
+            "type": {"allValue": "all", "possibleValues": ["all"]},
+        },
+        "availableSeriesConfigurations": [
+            {"CHFL": "CHFL", "georegion": "CHFL", "type": "all"}
+        ],
+    }
+
+    COVID_DETAILS = {
+        "identifier": "covid19/cases/incValue/iso_week",
+        "source": "mandatory_reporting_system",
+        "sourceDate": "2026-10-13",
+        "version": "20261014",
+        "properties": {},
+        "availableSeriesConfigurations": [
+            {"agegroup": "agegroup_ili_ari", "georegion": "canton", "canton": "AG", "sex": "all"},
+            {"agegroup": "agegroup_ili_ari", "georegion": "canton", "canton": "ZH", "sex": "all"},
+            {"agegroup": "agegroup_ili_ari", "georegion": "country", "sex": "all"},
+        ],
+    }
+
+    QUERY_RESPONSE = {
+        "source": "mandatory_reporting_system",
+        "sourceDate": "2026-10-06",
+        "version": "20261007",
+        "values": [
+            {"x": 202605, "y": 17, "properties": {"trend": "stagnant"}},
+            {"x": 202606, "y": 10, "properties": {"trend": None}},
+        ],
+    }
+
+    EXPORT_CSV = (
+        "valueCategory,temporal,temporal_type,georegion,agegroup,value,trend\n"
+        "consultations,2013-W01,week,CH,all,7233.7,NA\n"
+        "consultations,2013-W02,week,CH,all,7100.1,NA\n"
+    )
+
+    def _accessor(self, cache_dir=None):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        return SwissBAGAccessor(cache_dir=cache_dir)
+
+    def _mock_catalogue(self, rsps, accessor):
+        rsps.add(
+            responses.GET,
+            f"{self.API}/version",
+            json=[{"name": "20261014"}, {"name": "20261007"}, {"name": "20231107"}],
+        )
+        rsps.add(
+            responses.GET,
+            f"{self.API}/data/version",
+            json={"name": "20261014"},
+        )
+        rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+
+    def test_initialization(self):
+        accessor = self._accessor()
+        assert accessor is not None
+        assert accessor.source_name == "swiss_bag"
+
+    def test_list_countries(self):
+        countries = self._accessor().list_countries()
+        assert list(countries["country_code"]) == ["CH", "FL"]
+
+    def test_list_cantons(self):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        cantons = SwissBAGAccessor.list_cantons()
+        assert len(cantons) == 26
+        assert cantons[cantons["canton"] == "ZH"].iloc[0]["canton_name"] == "Zürich"
+
+    def test_list_versions(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/version",
+                json=[{"name": "20261014"}, {"name": "20231107"}],
+            )
+            versions = accessor.list_versions()
+        assert versions.iloc[0]["version"] == "20261014"
+        assert versions.iloc[0]["date"] == "2026-10-14"
+        assert versions.iloc[-1]["date"] == "2023-11-07"
+
+    def test_list_sets_and_topics(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            sets = accessor.list_sets()
+
+        assert len(sets) == 4
+        assert set(sets.columns) == {"topic", "chapter", "aggregation", "temporality"}
+        dengue = accessor.list_sets(topic="dengueFever")
+        assert (dengue["topic"] == "dengueFever").all()
+
+        # fresh accessor: the sets cache is per-instance
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            topics = self._accessor().list_topics()
+        dengue_row = topics[topics["topic"] == "dengueFever"].iloc[0]
+        assert dengue_row["n_sets"] == 2
+        assert dengue_row["chapters"] == ["cases"]
+
+    def test_list_sets_unknown_topic_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            with pytest.raises(ValueError, match="Unknown topic"):
+                accessor.list_sets(topic="not_a_topic")
+
+    def test_get_set_details(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/dengueFever/cases/value/month/details",
+                json=self.DENGUE_DETAILS,
+            )
+            details = accessor.get_set_details(
+                "dengueFever", "cases", "value", "month"
+            )
+        assert details["version"] == "20261007"
+        assert details["availableSeriesConfigurations"][0]["georegion"] == "CHFL"
+
+    def test_get_set_details_unknown_set_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            with pytest.raises(ValueError, match="Unknown series set"):
+                accessor.get_set_details("dengueFever", "deaths", "value", "month")
+
+    def test_parse_temporal(self):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        parse = SwissBAGAccessor._parse_temporal
+        assert parse(2013, "year") == "2013"
+        assert parse(201301, "month") == "2013-01"
+        assert parse(202641, "iso_week") == "2026-W41"
+        assert parse(202641, "week") == "2026-W41"
+        assert parse(202605, "iso_week_sentinella") == "2026-W05"
+        assert parse(20250210, "date") == "2025-02-10"
+
+    def test_get_series_builds_body_from_configuration(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/dengueFever/cases/value/month/details",
+                json=self.DENGUE_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/dengueFever/cases/value/month",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_series("dengueFever", "cases", "value", "month")
+
+            # the POST body must be one of availableSeriesConfigurations
+            import json as _json
+
+            body = _json.loads(rsps.calls[-1].request.body)
+            assert body == {"CHFL": "CHFL", "georegion": "CHFL", "type": "all"}
+
+        assert list(df["temporal"]) == ["2026-05", "2026-06"]
+        assert list(df["value"]) == [17, 10]
+        assert (df["georegion"] == "CHFL").all()
+        assert df["version"].iloc[0] == "20261007"
+        assert df["source_date"].iloc[0] == "2026-10-06"
+        assert {
+            "topic",
+            "chapter",
+            "aggregation",
+            "temporality",
+            "temporal",
+            "value",
+            "trend",
+        } <= set(df.columns)
+
+    def test_get_series_filter_selects_matching_configuration(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/covid19/cases/incValue/iso_week/details",
+                json=self.COVID_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/covid19/cases/incValue/iso_week",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_series(
+                "covid19",
+                "cases",
+                "incValue",
+                "iso_week",
+                filters={"georegion": "canton", "canton": "ZH"},
+            )
+
+            import json as _json
+
+            body = _json.loads(rsps.calls[-1].request.body)
+            assert body["canton"] == "ZH"
+        assert (df["canton"] == "ZH").all()
+        assert list(df["temporal"]) == ["2026-W05", "2026-W06"]  # iso_week parse
+
+    def test_get_series_all_series_fans_out(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/covid19/cases/incValue/iso_week/details",
+                json=self.COVID_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/covid19/cases/incValue/iso_week",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_series(
+                "covid19",
+                "cases",
+                "incValue",
+                "iso_week",
+                filters={"georegion": "canton"},
+                all_series=True,
+            )
+
+            # only the two canton configurations match the filter
+            assert len(rsps.calls) == 4  # sets + details + 2 POSTs
+        assert set(df["canton"]) == {"AG", "ZH"}
+        assert len(df) == 4
+
+    def test_get_series_unknown_filter_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/dengueFever/cases/value/month/details",
+                json=self.DENGUE_DETAILS,
+            )
+            with pytest.raises(ValueError, match="not part of the series"):
+                accessor.get_series(
+                    "dengueFever",
+                    "cases",
+                    "value",
+                    "month",
+                    filters={"canton": "ZH"},
+                )
+
+    def test_get_disease_data_resolves_chapter(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/measles/cases/value/year/details",
+                json=self.DENGUE_DETAILS,
+            )
+            rsps.add(
+                responses.POST,
+                f"{self.API}/data/measles/cases/value/year",
+                json=self.QUERY_RESPONSE,
+            )
+            df = accessor.get_disease_data("measles", temporality="year")
+
+        assert (df["topic"] == "measles").all()
+        assert (df["chapter"] == "cases").all()
+
+    def test_get_disease_data_invalid_temporality_raises(self):
+        accessor = self._accessor()
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.GET, f"{self.API}/data/sets", json=self.SETS)
+            with pytest.raises(ValueError, match="temporality"):
+                accessor.get_disease_data("measles", temporality="iso_week")
+
+    def test_download_export_caches(self, tmp_path):
+        accessor = self._accessor(cache_dir=tmp_path)
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/version",
+                json={"name": "20261014"},
+            )
+            rsps.add(
+                responses.GET,
+                f"{self.API}/export/20261014/files",
+                json=["SALMONELLOSIS_oblig", "INFLUENZA_sentinella"],
+            )
+            rsps.add(
+                responses.GET,
+                f"{self.API}/export/20261014/SALMONELLOSIS_oblig/csv",
+                body=self.EXPORT_CSV,
+                content_type="text/csv",
+            )
+            files = accessor.list_export_files()
+            df = accessor.download_export("SALMONELLOSIS_oblig")
+            rsps.assert_call_count(
+                f"{self.API}/export/20261014/SALMONELLOSIS_oblig/csv", 1
+            )
+
+        assert files == ["INFLUENZA_sentinella", "SALMONELLOSIS_oblig"]
+        assert len(df) == 2
+        assert df["value"].iloc[0] == 7233.7
+
+        # second call within the TTL must be served from the cache
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/data/version",
+                json={"name": "20261014"},
+            )
+            df2 = accessor.download_export("SALMONELLOSIS_oblig")
+        assert len(df2) == 2
+
+    def test_download_export_explicit_version_cached_permanently(self, tmp_path):
+        accessor = self._accessor(cache_dir=tmp_path)
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.GET,
+                f"{self.API}/export/20231107/SALMONELLOSIS_oblig/csv",
+                body=self.EXPORT_CSV,
+                content_type="text/csv",
+            )
+            df = accessor.download_export(
+                "SALMONELLOSIS_oblig", version="20231107"
+            )
+        assert len(df) == 2
+
+        # immutable snapshot: served from cache without any HTTP call
+        with responses.RequestsMock() as rsps:
+            df2 = accessor.download_export(
+                "SALMONELLOSIS_oblig", version="20231107"
+            )
+        assert len(df2) == 2
+
+    def test_download_export_invalid_format_raises(self):
+        with pytest.raises(ValueError, match="Unsupported format"):
+            self._accessor().download_export("SALMONELLOSIS_oblig", format="xlsx")
+
+    @requires_external_api
+    def test_swiss_bag_live(self):
+        from epidatasets.sources.swiss_bag import SwissBAGAccessor
+
+        accessor = SwissBAGAccessor()
+        topics = accessor.list_topics()
+        assert len(topics) > 40
+
+        dengue = accessor.get_disease_data("dengueFever", temporality="month")
+        assert not dengue.empty
+        assert dengue["temporal"].str.match(r"^\d{4}-\d{2}$").all()
+
+        versions = accessor.list_versions()
+        # weekly YYYYMMDD snapshots, with rare re-run suffixes (20250827_V2)
+        assert versions["version"].str.fullmatch(r"\d{8}(_V\d+)?").all()
+        assert versions["date"].notna().all()
+        assert len(versions) > 100
+
+        files = accessor.list_export_files()
+        assert "INFLUENZA_sentinella" in files
 
 
 class TestHongKongCHP:
