@@ -794,10 +794,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 | **epimodels** | Mathematical epidemiology | [fccoelho/epimodels](https://github.com/fccoelho/epimodels) |
 
 ## 📊 Statistics
-- **Data sources:** 39 registered (via plugin registry)
+- **Data sources:** 42 registered (via plugin registry)
 - **Countries covered:** 100+
 - **Optional extras:** 15 (`who`, `brazil`, `eurostat`, `earthengine`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`, `scraping`, `gisaid`, `pdf`, `news`)
-- **Example notebooks:** 47
+- **Example notebooks:** 50
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 
 ## 📚 Citation
