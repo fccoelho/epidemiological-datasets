@@ -53,7 +53,7 @@
 
 ---
 
-> A Python library providing unified access to **42 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
+> A Python library providing unified access to **43 epidemiological data sources** from around the world, with a plugin registry, CLI, and optional extras for specialized data.
 
 ## 📋 Table of Contents
 
@@ -82,7 +82,7 @@
 
 **epidatasets** provides:
 
-- **Unified interface** — A single `get_source()` API to access 42 data sources worldwide
+- **Unified interface** — A single `get_source()` API to access 43 data sources worldwide
 - **Plugin registry** — Sources are discovered at runtime via `entry_points`, making it easy to extend
 - **Optional extras** — Install only the dependencies you need (`pip install epidatasets[who,brazil]`)
 - **CLI** — Command-line tool for listing sources, inspecting metadata, and querying countries
@@ -183,7 +183,7 @@ epidemiological-datasets/
 │   ├── _registry.py           # Plugin registry (entry_points)
 │   ├── cli.py                 # CLI (typer)
 │   ├── newsfeeds/             # RSS/news-feed aggregator + spatiotemporal viz
-│   ├── sources/               # 42 data source accessors
+│   ├── sources/               # 43 data source accessors
 │   │   ├── __init__.py
 │   │   ├── africa_cdc.py
 │   │   ├── cdc_opendata.py
@@ -193,6 +193,7 @@ epidemiological-datasets/
 │   │   ├── copernicus_cds.py
 │   │   ├── datasus_pysus.py
 │   │   ├── ecdc_opendata.py
+│   │   ├── eid2.py
 │   │   ├── epipulse.py
 │   │   ├── eurostat.py
 │   │   ├── global_health.py
@@ -232,7 +233,7 @@ epidemiological-datasets/
 │       ├── index.md
 │       ├── installation.md
 │       ├── quickstart.md
-│       ├── sources/           # Per-source API docs (42 pages)
+│       ├── sources/           # Per-source API docs (43 pages)
 │       ├── api/               # API reference
 │       │   ├── base.md
 │       │   ├── registry.md
@@ -258,6 +259,7 @@ epidemiological-datasets/
 | [HDX (Humanitarian Data Exchange)](https://data.humdata.org/) | Health in crisis contexts | Real-time | Open | Planned |
 | [Global.health](https://global.health/) | Pandemic linelist data | Varies | Open | `epidatasets.sources.global_health` |
 | [GMPD (Global Mammal Parasite Database)](https://parasites.nunn-lab.org/) | Wild mammal host-parasite associations (primates, carnivores, ungulates) | Irregular | Open | `epidatasets.sources.gmpd` |
+| [EID2 (Enhanced Infectious Diseases Database)](https://eid2.liverpool.ac.uk/) | Global host-pathogen-vector interactions & species-location records (evidence-backed, CC BY 4.0) | Continuous | Open | `epidatasets.sources.eid2` |
 | [OpenDengue](https://opendengue.org/) | Global dengue case counts (100+ countries, adm0–adm2, 1924–present; CC BY 4.0) | Monthly | Open | `epidatasets.sources.opendengue` |
 | [Malaria Atlas Project](https://malariaatlas.org/) | Malaria prevalence & vector data | Annual | Open | `epidatasets.sources.malaria_atlas` |
 | [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/) | Environmental & climate data | Varies | Open | `epidatasets.sources.copernicus_cds` |
@@ -683,6 +685,34 @@ rj = od.get_timeseries("Brazil", admin1="Rio de Janeiro")
 od.get_sources(country="India")
 ```
 
+### Example 13: Host-pathogen interactions (EID2)
+
+> **Citation required (CC BY 4.0):** Wardeh M, Risley C, McIntyre MK,
+> Setzkorn C, Baylis M. *Database of host-pathogen and related species
+> interactions, and their global distribution.* Sci Data 2, 150049 (2015).
+> https://doi.org/10.1038/sdata.2015.49
+
+```python
+from epidatasets.sources.eid2 import EID2Accessor
+
+eid2 = EID2Accessor()
+print(eid2.list_datasets())  # the 3 FigShare bulk datasets
+
+# Evidence-backed virus interactions involving humans
+virus_df = eid2.get_interactions(
+    carrier="homo sapiens",
+    cargo_classification="Virus",
+    has_publications=True,
+)
+
+# Where a species has been recorded (country / first admin division)
+brazil = eid2.get_locations(country="brazil", classification="Virus")
+eid2.list_regions(country="brazil")
+
+# Updated 2022 interactions with NCBI taxonomic IDs
+raw = eid2.get_raw_interactions_2022(cargo="zika virus")
+```
+
 ## 📊 Available Sources
 
 | Source Name | Class | Extra | Description |
@@ -700,6 +730,7 @@ od.get_sources(country="India")
 | `eurostat` | `EurostatAccessor` | `[eurostat]` | EU health statistics |
 | `global_health` | `GlobalHealthAccessor` | — | Global.health pandemic linelist data |
 | `gmpd` | `GMPDAccessor` | — | Global Mammal Parasite Database (wild mammals) |
+| `eid2` | `EID2Accessor` | — | EID2 host-pathogen-vector interactions & species distribution (Univ. of Liverpool) |
 | `healthdata_gov` | `HealthDataGovAccessor` | — | US HealthData.gov |
 | `india_idsp` | `IndiaIDSPAccessor` | — | India IDSP disease surveillance |
 | `infodengue` | `InfoDengueAPI` | — | InfoDengue dengue surveillance (Brazil) |
@@ -725,7 +756,7 @@ od.get_sources(country="India")
 
 ### What is epidatasets?
 
-A Python library providing a unified interface to 42 epidemiological data sources worldwide, installable via `pip install epidatasets`.
+A Python library providing a unified interface to 43 epidemiological data sources worldwide, installable via `pip install epidatasets`.
 
 ### Do I need to install all optional dependencies?
 
@@ -794,10 +825,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 | **epimodels** | Mathematical epidemiology | [fccoelho/epimodels](https://github.com/fccoelho/epimodels) |
 
 ## 📊 Statistics
-- **Data sources:** 42 registered (via plugin registry)
+- **Data sources:** 43 registered (via plugin registry)
 - **Countries covered:** 100+
 - **Optional extras:** 15 (`who`, `brazil`, `eurostat`, `earthengine`, `climate`, `geo`, `viz`, `genomics`, `cli`, `worldbank`, `search`, `scraping`, `gisaid`, `pdf`, `news`)
-- **Example notebooks:** 50
+- **Example notebooks:** 51
 - **Documentation:** [epidatasets.readthedocs.io](https://epidatasets.readthedocs.io)
 
 ## 📚 Citation

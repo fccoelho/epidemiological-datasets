@@ -6,7 +6,7 @@ A curated collection of openly accessible epidemiological data sources with a un
 
 ## Features
 
-- **42 data sources** covering 100+ countries
+- **43 data sources** covering 100+ countries
 - **Plugin registry** -- sources auto-discovered via entry-points
 - **Unified API** -- all sources share a common `BaseAccessor` interface
 - **News feeds** -- RSS aggregator for outbreak news with geo-tagging and spatiotemporal visualization

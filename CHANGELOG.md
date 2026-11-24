@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `eid2` accessor (`EID2Accessor`) for the Enhanced Infectious Diseases Database (EID2, University of Liverpool LUCINDA team): evidence-backed species-species interactions (pathogen-host, vector-host, commensal and mutualistic, 2014 snapshot), species-location records at country and first administrative division level (2014), and updated raw organism interactions with NCBI taxonomic identifiers (2022). Case-insensitive filtering by species/role/classification, publication- and sequence-evidence filters, country/region/species/classification listings, `parse_evidence` helper for `;`-separated NCBI GI / PubMed PMID lists, chunked loading of the ~50 MB 2022 file, and disk caching with 30-day TTL. Bulk CSVs downloaded from FigShare (CC BY 4.0 — cite Wardeh et al. 2015); no API key required. Includes example notebook 51 and mocked network-free tests.
+
+### Fixed
+
+- Added the missing `GMPDAccessor` export to `epidatasets.sources` (`TYPE_CHECKING` imports and `__all__`)
+
 ## [0.9.0] - 2026-10-20
 
 ### Added

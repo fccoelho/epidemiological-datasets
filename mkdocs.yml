@@ -71,6 +71,7 @@ nav:
       - Global.health: sources/global_health.md
       - GISAID: sources/gisaid.md
       - GMPD (Global Mammal Parasite Database): sources/gmpd.md
+      - EID2 (Enhanced Infectious Diseases Database): sources/eid2.md
       - Malaria Atlas: sources/malaria_atlas.md
       - Pathoplexus: sources/pathoplexus.md
       - Copernicus CDS: sources/copernicus_cds.md
@@ -137,6 +138,7 @@ nav:
       - disease.sh COVID-19 & Influenza: examples/32_disease_sh_COVID19_Influenza.ipynb
       - DEMAS Dados Abertos do SUS: examples/33_DEMAS_Dados_Abertos_SUS.ipynb
       - GMPD Global Mammal Parasite Database: examples/34_GMPD_Global_Mammal_Parasite_Database.ipynb
+      - EID2 Enhanced Infectious Diseases Database: examples/51_EID2_Enhanced_Infectious_Diseases_Database.ipynb
       - GISAID: examples/39_gisaid_example.ipynb
       - CDC Open Data (Quick): examples/35_cdc_opendata_example.ipynb
       - ECDC Open Data (Quick): examples/36_ecdc_opendata_example.ipynb

@@ -22,11 +22,13 @@ if TYPE_CHECKING:
     from epidatasets.sources.disease_sh import DiseaseShAccessor
     from epidatasets.sources.ecdc_atlas import ECDCAtlasAccessor
     from epidatasets.sources.ecdc_opendata import ECDCOpenDataAccessor
+    from epidatasets.sources.eid2 import EID2Accessor
     from epidatasets.sources.epipulse import EpiPulseAccessor
     from epidatasets.sources.eurostat import EurostatAccessor
     from epidatasets.sources.gisaid import GISAIDAccessor
     from epidatasets.sources.global_health import GlobalHealthAccessor
     from epidatasets.sources.google_earth_engine import GoogleEarthEngineAccessor
+    from epidatasets.sources.gmpd import GMPDAccessor
     from epidatasets.sources.healthdata_gov import HealthDataGovAccessor
     from epidatasets.sources.hk_chp import HongKongCHPAccessor
     from epidatasets.sources.india_idsp import IndiaIDSPAccessor
@@ -67,11 +69,13 @@ __all__ = [
     "DiseaseShAccessor",
     "ECDCOpenDataAccessor",
     "ECDCAtlasAccessor",
+    "EID2Accessor",
     "EpiPulseAccessor",
     "EurostatAccessor",
     "GISAIDAccessor",
     "GlobalHealthAccessor",
     "GoogleEarthEngineAccessor",
+    "GMPDAccessor",
     "HealthDataGovAccessor",
     "HongKongCHPAccessor",
     "IndiaIDSPAccessor",
