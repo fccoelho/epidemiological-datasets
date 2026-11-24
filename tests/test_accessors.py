@@ -3582,6 +3582,359 @@ class TestGMPD:
         assert summary.iloc[0]["total_records"] > 1000
 
 
+# Sample EID2 CSVs for mocked tests (columns match the real FigShare schemas).
+_EID2_INTERACTIONS_CSV = (
+    "Cargo,Cargo classification,Carrier,Carrier classification,"
+    "Sequences count,Publications count,Sequences,Publications\n"
+    "ebola virus,Virus,human,Mammals,10,5,111;222;333,10001;10002\n"
+    "ebola virus,Virus,hypsignathus monstrosus,Mammals,4,2,444;555,10001\n"
+    "zika virus,Virus,aedes aegypti,Insects,3,2,666;777;888,20001;20002\n"
+    "mycobacterium tuberculosis,Bacteria,human,Mammals,7,9,999,30001;30002;30003\n"
+    "plasmodium falciparum,Protozoa,human,Mammals,0,3,,40001\n"
+    "aspergillus niger,Fungi,vinca rosea,Higher Plants,1,0,101010,\n"
+)
+
+_EID2_LOCATIONS_CSV = (
+    "Species,Species classification,Country,Region,"
+    "Sequences count,Publications count,Sequences,Publications\n"
+    "ebola virus,Virus,democratic republic of the congo,,2,1,111;222,10001\n"
+    "zika virus,Virus,brazil,,3,2,666;777;888,20001;20002\n"
+    "zika virus,Virus,brazil,ceara,1,1,666,20001\n"
+    "zika virus,Virus,colombia,tolima,1,0,,\n"
+    "mycobacterium tuberculosis,Bacteria,brazil,sao paulo,7,9,999,30001;30002;30003\n"
+    "aspergillus niger,Fungi,saudi arabia,,1,0,101010,\n"
+)
+
+_EID2_RAW_2022_CSV = (
+    "cargo,cargoID,cargoTaxID,cargoRank,cargoclass,"
+    "carrier,carrierid,carriertaxid,carrierRank,carrierclass,"
+    "sequencesNo,papersNo\n"
+    "ebola virus,10901,186538,species,viruses,human,9606,9606,species,mammals,10,5\n"
+    "zika virus,10907,64320,species,viruses,aedes aegypti,187151,7159,species,insects,3,2\n"
+    "mycobacterium tuberculosis,10902,1773,species,bacteria,human,9606,9606,species,mammals,7,9\n"
+)
+
+
+class TestEID2:
+    """Tests for the Enhanced Infectious Diseases Database (EID2) accessor.
+
+    Network-free tests mock the FigShare bulk CSVs via the ``responses``
+    library.  Live tests are gated behind ``@requires_external_api``.
+    """
+
+    @pytest.fixture
+    def accessor(self, tmp_path):
+        from epidatasets.sources.eid2 import EID2Accessor
+
+        return EID2Accessor(cache_dir=str(tmp_path / "eid2"))
+
+    @staticmethod
+    def _mock_figshare(accessor):
+        responses.add(
+            responses.GET,
+            accessor.SPECIES_INTERACTIONS_URL,
+            body=_EID2_INTERACTIONS_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        responses.add(
+            responses.GET,
+            accessor.LOCATION_INTERACTIONS_URL,
+            body=_EID2_LOCATIONS_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+        responses.add(
+            responses.GET,
+            accessor.RAW_INTERACTIONS_2022_URL,
+            body=_EID2_RAW_2022_CSV,
+            status=200,
+            content_type="text/csv",
+        )
+
+    def test_initialization(self, accessor):
+        assert accessor is not None
+        assert accessor.source_name == "eid2"
+        assert "Enhanced Infectious Diseases" in accessor.source_description
+        assert accessor.source_url == "https://eid2.liverpool.ac.uk/"
+        assert accessor.cache_dir.exists()
+
+    def test_list_datasets(self, accessor):
+        datasets = accessor.list_datasets()
+        assert isinstance(datasets, pd.DataFrame)
+        assert len(datasets) == 3
+        assert set(datasets["dataset"]) == {"interactions", "locations", "raw_2022"}
+        assert set(datasets["method"]) == {
+            "get_interactions",
+            "get_locations",
+            "get_raw_interactions_2022",
+        }
+        interactions = datasets[datasets["dataset"] == "interactions"].iloc[0]
+        assert interactions["doi"] == accessor.INTERACTIONS_DOI
+
+    def test_column_map_keys(self, accessor):
+        # Every canonical column maps to a snake_case name
+        for raw in (
+            "Cargo",
+            "Cargo classification",
+            "Carrier",
+            "Sequences count",
+            "Species",
+            "Country",
+            "Region",
+        ):
+            assert raw in accessor.INTERACTIONS_COLUMN_MAP or raw in (
+                accessor.LOCATION_COLUMN_MAP
+            )
+        for raw in ("cargoTaxID", "carrierRank", "papersNo"):
+            assert raw in accessor.RAW_2022_COLUMN_MAP
+
+    def test_parse_evidence(self, accessor):
+        from epidatasets.sources.eid2 import EID2Accessor
+
+        assert EID2Accessor.parse_evidence("111;222;333") == ["111", "222", "333"]
+        assert EID2Accessor.parse_evidence("111 ; 222") == ["111", "222"]
+        assert EID2Accessor.parse_evidence(float("nan")) == []
+        assert EID2Accessor.parse_evidence(None) == []
+
+    @responses.activate
+    def test_get_interactions_all(self, accessor):
+        self._mock_figshare(accessor)
+        df = accessor.get_interactions(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 6
+        # Columns are normalized to snake_case
+        for col in (
+            "cargo",
+            "cargo_classification",
+            "carrier",
+            "carrier_classification",
+            "sequences_count",
+            "publications_count",
+        ):
+            assert col in df.columns
+        # numeric coercion
+        assert df["sequences_count"].dtype.kind in {"i", "u", "f"}
+        assert df["publications_count"].dtype.kind in {"i", "u", "f"}
+
+    @responses.activate
+    def test_get_interactions_filters(self, accessor):
+        self._mock_figshare(accessor)
+        # Cargo filter (case-insensitive)
+        df = accessor.get_interactions(cargo="Ebola Virus", use_cache=False)
+        assert len(df) == 2
+        # Carrier filter
+        df = accessor.get_interactions(carrier="human", use_cache=False)
+        assert len(df) == 3
+        # Classification filters
+        df = accessor.get_interactions(
+            cargo_classification="Virus", use_cache=False
+        )
+        assert len(df) == 3
+        df = accessor.get_interactions(
+            carrier_classification="Mammals", use_cache=False
+        )
+        assert len(df) == 4
+        # Combined filters
+        df = accessor.get_interactions(
+            cargo_classification="Virus",
+            carrier_classification="Mammals",
+            use_cache=False,
+        )
+        assert len(df) == 2
+
+    @responses.activate
+    def test_get_interactions_evidence_filters(self, accessor):
+        self._mock_figshare(accessor)
+        df = accessor.get_interactions(has_publications=True, use_cache=False)
+        assert len(df) == 5  # only aspergillus niger has no publications
+        df = accessor.get_interactions(has_publications=False, use_cache=False)
+        assert len(df) == 1
+        df = accessor.get_interactions(has_sequences=False, use_cache=False)
+        assert len(df) == 1  # plasmodium falciparum has no sequences
+        assert df.iloc[0]["cargo"] == "plasmodium falciparum"
+
+    @responses.activate
+    def test_get_locations_all(self, accessor):
+        self._mock_figshare(accessor)
+        df = accessor.get_locations(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 6
+        for col in (
+            "species",
+            "species_classification",
+            "country",
+            "region",
+        ):
+            assert col in df.columns
+
+    @responses.activate
+    def test_get_locations_filters(self, accessor):
+        self._mock_figshare(accessor)
+        df = accessor.get_locations(country="Brazil", use_cache=False)
+        assert len(df) == 3
+        df = accessor.get_locations(region="ceara", use_cache=False)
+        assert len(df) == 1
+        assert df.iloc[0]["region"] == "ceara"
+        df = accessor.get_locations(
+            classification="Virus", country="brazil", use_cache=False
+        )
+        assert len(df) == 2
+        # Records without a region are excluded by a region filter
+        df = accessor.get_locations(species="ebola virus", region="x", use_cache=False)
+        assert len(df) == 0
+
+    @responses.activate
+    def test_list_countries(self, accessor):
+        self._mock_figshare(accessor)
+        countries = accessor.list_countries(use_cache=False)
+        assert isinstance(countries, pd.DataFrame)
+        assert {"country_code", "country_name", "record_count"}.issubset(
+            countries.columns
+        )
+        assert len(countries) == 4
+        assert countries.iloc[0]["country_name"] == "brazil"
+        assert countries.iloc[0]["record_count"] == 3  # most frequent
+        assert countries["country_code"].isna().all()
+
+    @responses.activate
+    def test_list_regions(self, accessor):
+        self._mock_figshare(accessor)
+        regions = accessor.list_regions(use_cache=False)
+        assert isinstance(regions, pd.DataFrame)
+        assert {"country", "region", "record_count", "unique_species"}.issubset(
+            regions.columns
+        )
+        assert len(regions) == 3  # ceara, tolima, sao paulo
+        brazil = accessor.list_regions(country="brazil", use_cache=False)
+        assert len(brazil) == 2
+        assert set(brazil["region"]) == {"ceara", "sao paulo"}
+
+    @responses.activate
+    def test_list_species(self, accessor):
+        self._mock_figshare(accessor)
+        species = accessor.list_species(use_cache=False)
+        assert isinstance(species, pd.DataFrame)
+        assert {"species", "role", "classification", "record_count"}.issubset(
+            species.columns
+        )
+        # 5 unique cargos + 4 unique carriers (ebola virus and human repeat)
+        assert len(species) == 9
+        cargos = accessor.list_species(role="cargo", use_cache=False)
+        assert len(cargos) == 5
+        assert set(cargos["role"]) == {"cargo"}
+        # Human appears as carrier 3 times
+        human = species[
+            (species["species"] == "human") & (species["role"] == "carrier")
+        ]
+        assert human.iloc[0]["record_count"] == 3
+        viruses = accessor.list_species(classification="Virus", use_cache=False)
+        assert set(viruses["species"]) == {"ebola virus", "zika virus"}
+
+    @responses.activate
+    def test_list_classifications(self, accessor):
+        self._mock_figshare(accessor)
+        summary = accessor.list_classifications(use_cache=False)
+        assert isinstance(summary, pd.DataFrame)
+        assert "classification" in summary.columns
+        assert {"cargo_records", "carrier_records"}.issubset(summary.columns)
+        virus = summary[summary["classification"] == "Virus"].iloc[0]
+        assert virus["cargo_records"] == 3
+        assert virus["carrier_records"] == 0
+        mammals = summary[summary["classification"] == "Mammals"].iloc[0]
+        assert mammals["carrier_records"] == 4
+        # Sorted by cargo records descending
+        assert summary.iloc[0]["classification"] == "Virus"
+
+    @responses.activate
+    def test_get_raw_interactions_2022(self, accessor):
+        self._mock_figshare(accessor)
+        df = accessor.get_raw_interactions_2022(use_cache=False)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 3
+        for col in (
+            "cargo_id",
+            "cargo_tax_id",
+            "cargo_rank",
+            "carrier_tax_id",
+            "sequences_count",
+            "publications_count",
+        ):
+            assert col in df.columns
+        assert df["cargo_tax_id"].dtype.kind in {"i", "u", "f"}
+        filtered = accessor.get_raw_interactions_2022(
+            cargo="zika virus", use_cache=False
+        )
+        assert len(filtered) == 1
+        assert filtered.iloc[0]["carrier"] == "aedes aegypti"
+
+    @responses.activate
+    def test_get_summary_statistics(self, accessor):
+        self._mock_figshare(accessor)
+        stats = accessor.get_summary_statistics(use_cache=False)
+        assert isinstance(stats, pd.DataFrame)
+        row = stats.iloc[0]
+        assert row["interaction_records"] == 6
+        assert row["unique_cargos"] == 5
+        assert row["unique_carriers"] == 4  # human appears 3 times
+        assert row["location_records"] == 6
+        assert row["unique_countries"] == 4
+        assert row["unique_regions"] == 3
+        assert row["interaction_sequences"] == 25
+        assert row["interaction_publications"] == 21
+
+    @responses.activate
+    def test_search_records(self, accessor):
+        self._mock_figshare(accessor)
+        df = accessor.search_records("ebola", use_cache=False)
+        assert len(df) == 2
+        df = accessor.search_records("Human", use_cache=False)
+        assert len(df) == 3
+        df = accessor.search_records("no-such-species", use_cache=False)
+        assert len(df) == 0
+
+    @responses.activate
+    def test_cache_write_and_read(self, accessor):
+        self._mock_figshare(accessor)
+        # First call downloads and writes the caches
+        accessor.get_summary_statistics(use_cache=True)
+        assert (accessor.cache_dir / "SpeciesInteractions_EID2.csv").exists()
+        assert (accessor.cache_dir / "LocationInteractions_EID2.csv").exists()
+        # Only two network calls happened (interactions + locations)
+        assert len(responses.calls) == 2
+        # Second call should be served from cache (no new network calls)
+        accessor.get_summary_statistics(use_cache=True)
+        assert len(responses.calls) == 2
+
+    def test_clear_cache(self, tmp_path):
+        from epidatasets.sources.eid2 import EID2Accessor
+
+        acc = EID2Accessor(cache_dir=str(tmp_path / "eid2b"))
+        cache_file = acc.cache_dir / "SpeciesInteractions_EID2.csv"
+        cache_file.write_text("dummy")
+        assert cache_file.exists()
+        acc.clear_cache()
+        assert not cache_file.exists()
+
+    @requires_external_api
+    def test_get_interactions_live(self, accessor):
+        df = accessor.get_interactions(
+            cargo="human parainfluenza virus 1",
+            carrier="homo sapiens",
+            use_cache=True,
+        )
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert (df["cargo"] == "human parainfluenza virus 1").all()
+
+    @requires_external_api
+    def test_list_countries_live(self, accessor):
+        countries = accessor.list_countries(use_cache=True)
+        assert isinstance(countries, pd.DataFrame)
+        assert not countries.empty
+        assert len(countries) > 100  # worldwide coverage
+
+
 # ---------------------------------------------------------------------------
 # GISAID Tests
 # ---------------------------------------------------------------------------
